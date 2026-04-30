@@ -5,19 +5,30 @@
 //  Created by Adam Ibrahim on 30/04/2026.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct RentoryApp: App {
-    var sharedModelContainer: ModelContainer = {
+    @StateObject private var appSecurityState = AppSecurityState()
+
+    // Rentory is local-first. User evidence must remain on device by default.
+    // Do not add networking, analytics, account creation or third-party data collection without an explicit architecture decision.
+    private let sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            PropertyPack.self,
+            RoomRecord.self,
+            ChecklistItemRecord.self,
+            EvidencePhoto.self,
+            DocumentRecord.self,
+            TimelineEvent.self,
         ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try ModelContainer(
+                for: schema,
+                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)]
+            )
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
@@ -25,7 +36,8 @@ struct RentoryApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
+                .environmentObject(appSecurityState)
         }
         .modelContainer(sharedModelContainer)
     }
