@@ -17,7 +17,7 @@ struct RRLoadingView: View {
     }
 
     var body: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(spacing: 16) {
                 ProgressView()
                     .controlSize(.large)
@@ -40,5 +40,6 @@ struct RRLoadingView: View {
             .padding(.vertical, 12)
         }
         .accessibilityElement(children: .combine)
+        .rrDialogStyle()
     }
 }

@@ -17,8 +17,9 @@ struct PropertyDashboardView: View {
     @State private var isShowingExportOptions = false
     @State private var isShowingAddRoomView = false
     @State private var isShowingEditView = false
+    @State private var isShowingAddEventView = false
     @State private var isShowingProgressView = false
-    @State private var comingSoonMessage: String?
+    @State private var infoAlertContent: RRAlertContent?
 
     private var recentDocuments: [DocumentRecord] {
         propertyPack.documents.sorted { $0.addedAt > $1.addedAt }
@@ -64,11 +65,9 @@ struct PropertyDashboardView: View {
                     Button {
                         isShowingAddRoomView = true
                     } label: {
-                        RRCard {
+                        RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Image(systemName: "square.grid.2x2")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(RRColours.secondary)
+                                RRIconBadge(systemName: "square.grid.2x2", tint: RRColours.secondary)
 
                                 Text("Add room")
                                     .font(RRTypography.headline)
@@ -84,15 +83,13 @@ struct PropertyDashboardView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add room")
                     .accessibilityHint("Adds a room to this rental record.")
-                    quickActionButton(title: "Add photo", icon: "camera", message: "Photo capture is coming soon.")
+                    quickActionButton(title: "Add photo", icon: "camera", message: "Open a room item to add photos where they belong.")
                     Button {
                         isShowingAddDocumentView = true
                     } label: {
-                        RRCard {
+                        RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Image(systemName: "doc")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(RRColours.secondary)
+                                RRIconBadge(systemName: "doc", tint: RRColours.secondary)
 
                                 Text("Add document")
                                     .font(RRTypography.headline)
@@ -108,15 +105,33 @@ struct PropertyDashboardView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add document")
                     .accessibilityHint("Adds a document to this rental record.")
-                    quickActionButton(title: "Add event", icon: "calendar.badge.plus", message: "Timeline events are coming soon.")
+                    Button {
+                        isShowingAddEventView = true
+                    } label: {
+                        RRGlassCard {
+                            VStack(alignment: .leading, spacing: 12) {
+                                RRIconBadge(systemName: "calendar.badge.plus", tint: RRColours.secondary)
+
+                                Text("Add event")
+                                    .font(RRTypography.headline)
+                                    .foregroundStyle(RRColours.primary)
+
+                                Text("Keep key dates and updates together.")
+                                    .font(RRTypography.caption)
+                                    .foregroundStyle(RRColours.mutedText)
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add event")
+                    .accessibilityHint("Adds a timeline event to this rental record.")
                     Button {
                         isShowingExportOptions = true
                     } label: {
-                        RRCard {
+                        RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
-                                Image(systemName: "square.and.arrow.up")
-                                    .font(.title3.weight(.semibold))
-                                    .foregroundStyle(RRColours.secondary)
+                                RRIconBadge(systemName: "square.and.arrow.up", tint: RRColours.secondary)
 
                                 Text("Export report")
                                     .font(RRTypography.headline)
@@ -157,10 +172,10 @@ struct PropertyDashboardView: View {
                 }
             }
             .frame(maxWidth: DeviceLayout.contentWidth(for: horizontalSizeClass, maximum: 980), alignment: .leading)
-            .padding(20)
+            .padding(RRTheme.screenPadding)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(RRColours.groupedBackground.ignoresSafeArea())
+        .background(RRBackgroundView())
         .navigationTitle(propertyPack.nickname)
         .rrInlineNavigationTitle()
         .navigationDestination(isPresented: $isShowingProgressView) {
@@ -188,22 +203,16 @@ struct PropertyDashboardView: View {
         .sheet(isPresented: $isShowingAddRoomView) {
             AddRoomView(propertyPack: propertyPack)
         }
-        .alert("Coming soon", isPresented: comingSoonAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(comingSoonMessage ?? "")
+        .sheet(isPresented: $isShowingAddEventView) {
+            AddTimelineEventView(propertyPack: propertyPack)
         }
-    }
-
-    private var comingSoonAlertBinding: Binding<Bool> {
-        Binding(
-            get: { comingSoonMessage != nil },
-            set: { newValue in
-                if !newValue {
-                    comingSoonMessage = nil
-                }
-            }
-        )
+        .alert(item: $infoAlertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
+        }
     }
 
     private var documentsSection: some View {
@@ -225,15 +234,16 @@ struct PropertyDashboardView: View {
                     symbolName: "doc",
                     title: "No documents yet",
                     message: "Add tenancy paperwork, receipts or other useful files when you need them.",
-                    buttonTitle: "Add document"
-                ) {
-                    isShowingAddDocumentView = true
-                }
+                    buttonTitle: "Add document",
+                    buttonAction: {
+                        isShowingAddDocumentView = true
+                    }
+                )
             } else {
                 NavigationLink {
                     DocumentsListView(propertyPack: propertyPack)
                 } label: {
-                    RRCard {
+                    RRGlassCard {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(recentDocuments.prefix(3)) { document in
                                 VStack(alignment: .leading, spacing: 4) {
@@ -276,13 +286,17 @@ struct PropertyDashboardView: View {
                 RREmptyStateView(
                     symbolName: "calendar",
                     title: "No timeline events yet",
-                    message: "Add key moments to keep your record organised."
+                    message: "Add key dates, updates or notes when something useful happens.",
+                    buttonTitle: "Add event",
+                    buttonAction: {
+                        isShowingAddEventView = true
+                    }
                 )
             } else {
                 NavigationLink {
                     TimelineListView(propertyPack: propertyPack)
                 } label: {
-                    RRCard {
+                    RRGlassCard {
                         VStack(alignment: .leading, spacing: 12) {
                             ForEach(propertyPack.timelineEvents.sorted(by: { $0.eventDate < $1.eventDate }).prefix(3)) { event in
                                 VStack(alignment: .leading, spacing: 4) {
@@ -319,13 +333,11 @@ struct PropertyDashboardView: View {
 
     private func quickActionButton(title: String, icon: String, message: String) -> some View {
         Button {
-            comingSoonMessage = message
+            infoAlertContent = RRAlertContent(title: title, message: message)
         } label: {
-            RRCard {
+            RRGlassCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    Image(systemName: icon)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(RRColours.secondary)
+                    RRIconBadge(systemName: icon, tint: RRColours.secondary)
 
                     Text(title)
                         .font(RRTypography.headline)

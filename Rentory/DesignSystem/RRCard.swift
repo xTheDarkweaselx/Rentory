@@ -15,15 +15,7 @@ struct RRCard<Content: View>: View {
     }
 
     var body: some View {
-        content
-            .padding(20)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(RRColours.border, lineWidth: 1)
-            }
-            .shadow(color: Color.black.opacity(0.06), radius: 18, x: 0, y: 10)
+        RRGlassCard(content: { content })
     }
 }
 

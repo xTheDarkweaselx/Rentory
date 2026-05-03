@@ -20,7 +20,7 @@ struct EvidencePhotoDetailView: View {
     @State private var evidencePhase: EvidencePhase
     @State private var includeInReport: Bool
     @State private var loadedImage: UIImage?
-    @State private var alertMessage: String?
+    @State private var alertContent: RRAlertContent?
     @State private var isShowingDeleteConfirmation = false
 
     init(photo: EvidencePhoto) {
@@ -33,6 +33,12 @@ struct EvidencePhotoDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                RRSheetHeader(
+                    title: "Photo",
+                    subtitle: "Keep this photo in the right place and choose whether to include it in your report.",
+                    systemImage: "photo"
+                )
+
                 RRCard {
                     Group {
                         if let loadedImage {
@@ -95,30 +101,16 @@ struct EvidencePhotoDetailView: View {
         .task(id: photo.localFileName) {
             loadImage()
         }
-        .alert("Delete this photo?", isPresented: $isShowingDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                deletePhoto()
-            }
-        } message: {
-            Text("This removes the photo from this record.")
+        .rrConfirmationDialog(DialogCopy.deletePhoto, isPresented: $isShowingDeleteConfirmation) {
+            deletePhoto()
         }
-        .alert("Photo update", isPresented: errorAlertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(alertMessage ?? "This photo could not be saved.")
+        .alert(item: $alertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
         }
-    }
-
-    private var errorAlertBinding: Binding<Bool> {
-        Binding(
-            get: { alertMessage != nil },
-            set: { newValue in
-                if !newValue {
-                    alertMessage = nil
-                }
-            }
-        )
     }
 
     private func loadImage() {
@@ -137,7 +129,7 @@ struct EvidencePhotoDetailView: View {
         do {
             try modelContext.save()
         } catch {
-            alertMessage = "This photo could not be saved."
+            alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
     }
 
@@ -148,7 +140,7 @@ struct EvidencePhotoDetailView: View {
             try modelContext.save()
             dismiss()
         } catch {
-            alertMessage = "This photo could not be deleted."
+            alertContent = RRAlertContent(error: .photoCouldNotBeDeleted)
         }
     }
 }

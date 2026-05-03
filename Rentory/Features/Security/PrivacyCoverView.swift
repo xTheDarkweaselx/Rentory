@@ -10,24 +10,24 @@ import SwiftUI
 struct PrivacyCoverView: View {
     var body: some View {
         ZStack {
-            RRColours.groupedBackground.ignoresSafeArea()
+            RRBackgroundView()
 
-            VStack(spacing: 12) {
-                Image(systemName: "shield")
-                    .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(RRColours.secondary)
-                    .accessibilityHidden(true)
+            RRGlassPanel {
+                VStack(spacing: 12) {
+                    RRIconBadge(systemName: "shield", tint: RRColours.secondary, size: 58)
+                        .accessibilityHidden(true)
 
-                Text("Rentory")
-                    .font(RRTypography.largeTitle)
-                    .foregroundStyle(RRColours.primary)
+                    Text("Rentory")
+                        .font(RRTypography.largeTitle)
+                        .foregroundStyle(RRColours.primary)
 
-                Text("Your records stay private.")
-                    .font(RRTypography.body)
-                    .foregroundStyle(RRColours.mutedText)
-                    .multilineTextAlignment(.center)
+                    Text("Your records stay private.")
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                        .multilineTextAlignment(.center)
+                }
             }
-            .padding(24)
+            .padding(RRTheme.screenPadding)
         }
         .accessibilityElement(children: .contain)
     }

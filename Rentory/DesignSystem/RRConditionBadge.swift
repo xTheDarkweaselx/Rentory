@@ -47,13 +47,13 @@ struct RRConditionBadge: View {
     var body: some View {
         Label(condition.rawValue, systemImage: symbolName)
             .font(RRTypography.caption.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.12), in: Capsule())
+            .foregroundStyle(RRColours.primary)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(.thinMaterial, in: Capsule())
             .overlay {
                 Capsule()
-                    .stroke(tint.opacity(0.18), lineWidth: 1)
+                    .stroke(tint.opacity(0.24), lineWidth: 1)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Condition: \(condition.rawValue)")

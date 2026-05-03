@@ -16,15 +16,23 @@ final class AppSecurityState: ObservableObject {
     @Published var isAuthenticating = false
     @Published var lastBackgroundedAt: Date?
     @Published var shouldShowPrivacyCover: Bool
-    @Published var alertMessage: String?
+    @Published var alertContent: RRAlertContent?
 
     private let appLockService: AppLockService
     private let userDefaults: UserDefaults
     private let lockDelay: TimeInterval
     private let appLockPreferenceKey = "isAppLockEnabled"
 
+    convenience init() {
+        self.init(
+            appLockService: AppLockService(),
+            userDefaults: .standard,
+            lockDelay: 30
+        )
+    }
+
     init(
-        appLockService: AppLockService = AppLockService(),
+        appLockService: AppLockService,
         userDefaults: UserDefaults = .standard,
         lockDelay: TimeInterval = 30
     ) {
@@ -81,14 +89,14 @@ final class AppSecurityState: ObservableObject {
             if didAuthenticate {
                 isLocked = false
                 shouldShowPrivacyCover = false
-                alertMessage = nil
+                alertContent = nil
             } else {
-                alertMessage = "Rentory could not be unlocked. Try again when you are ready."
+                alertContent = DialogCopy.appUnlockFailed
             }
         } catch let error as AppLockError {
-            alertMessage = error.errorDescription
+            alertContent = alertContent(for: error)
         } catch {
-            alertMessage = "Rentory could not be unlocked. Try again when you are ready."
+            alertContent = DialogCopy.appUnlockFailed
         }
     }
 
@@ -98,7 +106,7 @@ final class AppSecurityState: ObservableObject {
         }
 
         guard isAppLockAvailable else {
-            alertMessage = AppLockError.notAvailable.errorDescription
+            alertContent = DialogCopy.appLockUnavailable
             return false
         }
 
@@ -109,7 +117,7 @@ final class AppSecurityState: ObservableObject {
             let didAuthenticate = try await appLockService.authenticate()
 
             guard didAuthenticate else {
-                alertMessage = "Rentory could not be unlocked. Try again when you are ready."
+                alertContent = DialogCopy.appUnlockFailed
                 return false
             }
 
@@ -117,7 +125,7 @@ final class AppSecurityState: ObservableObject {
             isAppLockEnabled = isEnabled
             isLocked = false
             shouldShowPrivacyCover = false
-            alertMessage = nil
+            alertContent = nil
 
             if !isEnabled {
                 lastBackgroundedAt = nil
@@ -127,10 +135,10 @@ final class AppSecurityState: ObservableObject {
 
             return true
         } catch let error as AppLockError {
-            alertMessage = error.errorDescription
+            alertContent = alertContent(for: error)
             return false
         } catch {
-            alertMessage = "Rentory could not be unlocked. Try again when you are ready."
+            alertContent = DialogCopy.appUnlockFailed
             return false
         }
     }
@@ -145,5 +153,14 @@ final class AppSecurityState: ObservableObject {
 
     private func persistAppLockPreference(_ isEnabled: Bool) {
         userDefaults.set(isEnabled, forKey: appLockPreferenceKey)
+    }
+
+    private func alertContent(for error: AppLockError) -> RRAlertContent {
+        switch error {
+        case .notAvailable:
+            DialogCopy.appLockUnavailable
+        case .unableToUnlock, .tryAgainLater:
+            DialogCopy.appUnlockFailed
+        }
     }
 }

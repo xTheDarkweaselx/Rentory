@@ -61,14 +61,16 @@ struct RoomDetailView: View {
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(RRColours.groupedBackground.ignoresSafeArea())
+        .background(RRBackgroundView())
         .navigationTitle(room.name)
         .rrInlineNavigationTitle()
     }
 
     private var roomSummaryCard: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(alignment: .leading, spacing: 12) {
+                RRIconBadge(systemName: "square.grid.2x2", tint: RRColours.secondary)
+
                 Text(room.name)
                     .font(RRTypography.title)
                     .foregroundStyle(RRColours.primary)
@@ -90,7 +92,7 @@ struct RoomDetailView: View {
     private var checklistHeader: some View {
         RRSectionHeader(
             title: "Checklist",
-            subtitle: "\(checkedItemCount) of \(room.checklistItems.count) checked"
+            subtitle: "Check each item room by room."
         )
         .accessibilityElement(children: .combine)
     }

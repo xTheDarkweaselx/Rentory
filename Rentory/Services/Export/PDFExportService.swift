@@ -21,9 +21,8 @@ struct PDFExportService {
 
     func createReport(for propertyPack: PropertyPack, options: ExportOptions) throws -> URL {
         do {
+            try? fileStorageService.cleanupOldTemporaryExports()
             let data = try reportBuilder.buildReportData(for: propertyPack, options: options)
-
-            // TODO: Clear older temporary reports when the export flow is expanded.
             return try fileStorageService.saveTemporaryExportData(
                 data,
                 preferredFileName: "rentory-report-\(UUID().uuidString.lowercased()).pdf"

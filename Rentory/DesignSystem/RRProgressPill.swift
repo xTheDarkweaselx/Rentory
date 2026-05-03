@@ -12,16 +12,22 @@ struct RRProgressPill: View {
     var tint: Color = RRColours.secondary
 
     var body: some View {
-        Text(title)
-            .font(RRTypography.caption.weight(.semibold))
-            .foregroundStyle(tint)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(tint.opacity(0.12), in: Capsule())
-            .overlay {
-                Capsule()
-                    .stroke(tint.opacity(0.18), lineWidth: 1)
-            }
+        HStack(spacing: 8) {
+            Circle()
+                .fill(tint)
+                .frame(width: 7, height: 7)
+
+            Text(title)
+                .font(RRTypography.caption.weight(.semibold))
+        }
+        .foregroundStyle(RRColours.primary)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(.thinMaterial, in: Capsule())
+        .overlay {
+            Capsule()
+                .stroke(tint.opacity(0.22), lineWidth: 1)
+        }
     }
 }
 

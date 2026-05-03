@@ -11,24 +11,28 @@ struct TimelineEventRowView: View {
     let event: TimelineEvent
 
     var body: some View {
-        RRCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(event.title)
-                    .font(RRTypography.headline)
-                    .foregroundStyle(RRColours.primary)
+        RRGlassCard {
+            HStack(alignment: .top, spacing: 12) {
+                RRIconBadge(systemName: "calendar", tint: RRColours.secondary)
 
-                Text(event.eventType.rawValue)
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(event.title)
+                        .font(RRTypography.headline)
+                        .foregroundStyle(RRColours.primary)
 
-                Text(event.eventDate.formatted(date: .abbreviated, time: .omitted))
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-
-                if trimmed(event.notes) != nil {
-                    Text("Has notes")
-                        .font(RRTypography.body)
+                    Text(event.eventType.rawValue)
+                        .font(RRTypography.footnote)
                         .foregroundStyle(RRColours.mutedText)
+
+                    Text(event.eventDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+
+                    if trimmed(event.notes) != nil {
+                        Text("Has notes")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
                 }
             }
         }

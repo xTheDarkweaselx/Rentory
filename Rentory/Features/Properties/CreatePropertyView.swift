@@ -11,6 +11,8 @@ import SwiftUI
 struct CreatePropertyView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var entitlementManager: EntitlementManager
+    @Query private var propertyPacks: [PropertyPack]
 
     @State private var nickname = ""
     @State private var addressLine1 = ""
@@ -27,111 +29,68 @@ struct CreatePropertyView: View {
     @State private var depositReference = ""
     @State private var notes = ""
     @State private var validationMessage: String?
+    @State private var upgradePromptContent: UpgradePromptContent?
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Text("Only the property name is needed. You can add more details now or later.")
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-
-                    if let validationMessage {
-                        Text(validationMessage)
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.danger)
-                            .accessibilityLabel("Validation message. \(validationMessage)")
-                    }
-                }
-
-                propertyDetailsSection
-                tenancySection
-                contactSection
-                depositSection
-                notesSection
+            PropertyFormView(
+                title: "Create a record",
+                subtitle: "Start with a property name. You can add more details now or later.",
+                systemImage: "house",
+                validationMessage: validationMessage,
+                nickname: $nickname,
+                addressLine1: $addressLine1,
+                addressLine2: $addressLine2,
+                townCity: $townCity,
+                postcode: $postcode,
+                hasTenancyStartDate: $hasTenancyStartDate,
+                tenancyStartDate: $tenancyStartDate,
+                hasTenancyEndDate: $hasTenancyEndDate,
+                tenancyEndDate: $tenancyEndDate,
+                landlordOrAgentName: $landlordOrAgentName,
+                landlordOrAgentEmail: $landlordOrAgentEmail,
+                depositSchemeName: $depositSchemeName,
+                depositReference: $depositReference,
+                notes: $notes
+            ) {
+                footerButtons
             }
             .navigationTitle("Create a record")
             .rrInlineNavigationTitle()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
+        }
+        .sheet(item: $upgradePromptContent) { content in
+            LimitReachedView(title: content.title, message: content.message)
+        }
+    }
+
+    private var footerButtons: some View {
+        RRGlassPanel {
+            Group {
+                if PlatformLayout.prefersFooterButtons {
+                    HStack(spacing: RRTheme.controlSpacing) {
+                        Spacer()
+                        RRSecondaryButton(title: "Cancel") {
+                            dismiss()
+                        }
+                        .frame(width: 150)
+
+                        RRPrimaryButton(title: "Save") {
+                            saveProperty()
+                        }
+                        .frame(width: 150)
                     }
-                    .accessibilityLabel("Cancel")
-                }
+                } else {
+                    VStack(spacing: RRTheme.controlSpacing) {
+                        RRPrimaryButton(title: "Save") {
+                            saveProperty()
+                        }
 
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveProperty()
+                        RRSecondaryButton(title: "Cancel") {
+                            dismiss()
+                        }
                     }
-                    .accessibilityHint("Creates this rental record.")
                 }
             }
-        }
-    }
-
-    private var propertyDetailsSection: some View {
-        Section("Property") {
-            TextField("Property name", text: $nickname)
-                .rrTextInputAutocapitalizationWords()
-                .accessibilityHint("Required")
-
-            TextField("Address line 1", text: $addressLine1)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Address line 2", text: $addressLine2)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Town or city", text: $townCity)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Postcode", text: $postcode)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var tenancySection: some View {
-        Section("Tenancy") {
-            Toggle("Add tenancy start date", isOn: $hasTenancyStartDate.animation())
-
-            if hasTenancyStartDate {
-                DatePicker("Tenancy start date", selection: $tenancyStartDate, displayedComponents: .date)
-            }
-
-            Toggle("Add tenancy end date", isOn: $hasTenancyEndDate.animation())
-
-            if hasTenancyEndDate {
-                DatePicker("Tenancy end date", selection: $tenancyEndDate, displayedComponents: .date)
-            }
-        }
-    }
-
-    private var contactSection: some View {
-        Section("Landlord or letting agent") {
-            TextField("Name", text: $landlordOrAgentName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Email", text: $landlordOrAgentEmail)
-                .rrEmailKeyboard()
-                .rrTextInputAutocapitalizationNever()
-                .autocorrectionDisabled()
-        }
-    }
-
-    private var depositSection: some View {
-        Section("Deposit") {
-            TextField("Scheme name", text: $depositSchemeName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Reference", text: $depositReference)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var notesSection: some View {
-        Section("Notes") {
-            TextField("Add any notes you want to keep here", text: $notes, axis: .vertical)
-                .lineLimit(4...8)
         }
     }
 
@@ -151,6 +110,14 @@ struct CreatePropertyView: View {
 
         guard trimmedEmail.isEmpty || isLightweightEmail(trimmedEmail) else {
             validationMessage = "Check the email address or leave it blank."
+            return
+        }
+
+        guard FeatureAccessService.canCreateProperty(
+            currentPropertyCount: propertyPacks.count,
+            isUnlocked: entitlementManager.isUnlocked
+        ) else {
+            upgradePromptContent = FeatureAccessService.propertyLimitPrompt
             return
         }
 

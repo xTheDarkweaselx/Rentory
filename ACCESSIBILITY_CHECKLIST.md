@@ -1,8 +1,10 @@
-Dynamic Type checked
-VoiceOver labels checked
-Colour contrast checked
-Destructive actions confirmed
-App Lock screen checked
-Privacy cover checked
-iPad layout checked
-No hidden sensitive values in accessibility labels
+# Accessibility Checklist
+
+- [x] Dynamic Type checked
+- [x] VoiceOver labels checked
+- [x] Colour contrast checked
+- [x] Destructive actions confirmed
+- [x] App Lock screen checked
+- [x] Privacy cover checked
+- [x] iPad layout checked
+- [x] No hidden sensitive values in accessibility labels

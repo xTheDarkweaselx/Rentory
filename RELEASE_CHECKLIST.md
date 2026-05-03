@@ -1,0 +1,22 @@
+# Release Checklist
+
+- [x] Build succeeds on latest Xcode.
+- [x] Runs on iPhone.
+- [x] Runs on iPad.
+- [x] App Lock tested.
+- [x] Photo adding tested.
+- [x] Document adding tested.
+- [x] Report export tested.
+- [x] Backup export tested.
+- [x] Backup import tested.
+- [x] Delete record tested.
+- [x] Delete all data tested.
+- [x] Free limits tested.
+- [x] Lifetime unlock tested with StoreKit configuration.
+- [x] VoiceOver spot check completed.
+- [x] Dynamic Type spot check completed.
+- [x] Light and dark mode checked.
+- [ ] App Store screenshots prepared.
+- [ ] Privacy nutrition labels reviewed.
+- [x] No debug sample data left in release build.
+- [x] No sensitive print statements.

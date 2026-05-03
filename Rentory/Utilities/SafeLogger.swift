@@ -11,14 +11,10 @@ enum SafeLogger {
     // Do not log personal details, notes, photos, document details or rental records.
     // Keep messages generic and developer-focused only.
     static func debug(_ message: StaticString) {
-#if DEBUG
-        print("[DEBUG] \(message)")
-#endif
+        _ = message
     }
 
     static func error(_ message: StaticString) {
-#if DEBUG
-        print("[ERROR] \(message)")
-#endif
+        _ = message
     }
 }

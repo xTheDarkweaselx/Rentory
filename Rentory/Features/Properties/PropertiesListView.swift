@@ -10,8 +10,10 @@ import SwiftUI
 
 struct PropertiesListView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
+    @EnvironmentObject private var entitlementManager: EntitlementManager
     @State private var isShowingCreateProperty = false
     @State private var isShowingSettings = false
+    @State private var upgradePromptContent: UpgradePromptContent?
 
     private var activePropertyPacks: [PropertyPack] {
         propertyPacks.filter { !$0.isArchived }
@@ -33,10 +35,9 @@ struct PropertiesListView: View {
                             symbolName: "house",
                             title: "No rental records yet",
                             message: "Create your first record when you are ready.",
-                            buttonTitle: "Create a record"
-                        ) {
-                            isShowingCreateProperty = true
-                        }
+                            buttonTitle: "Create a record",
+                            buttonAction: showCreatePropertyOrUpgradePrompt
+                        )
                     } else {
                         LazyVStack(spacing: 14) {
                             ForEach(activePropertyPacks) { propertyPack in
@@ -50,14 +51,14 @@ struct PropertiesListView: View {
                         }
                     }
                 }
-                .padding(20)
+                .padding(RRTheme.screenPadding)
             }
-            .background(RRColours.groupedBackground.ignoresSafeArea())
+            .background(RRBackgroundView())
             .navigationTitle("Rentory")
             .toolbar {
                 ToolbarItem(placement: .rrPrimaryAction) {
                     Button {
-                        isShowingCreateProperty = true
+                        showCreatePropertyOrUpgradePrompt()
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -81,6 +82,20 @@ struct PropertiesListView: View {
         }
         .sheet(isPresented: $isShowingCreateProperty) {
             CreatePropertyView()
+        }
+        .sheet(item: $upgradePromptContent) { content in
+            LimitReachedView(title: content.title, message: content.message)
+        }
+    }
+
+    private func showCreatePropertyOrUpgradePrompt() {
+        if FeatureAccessService.canCreateProperty(
+            currentPropertyCount: propertyPacks.count,
+            isUnlocked: entitlementManager.isUnlocked
+        ) {
+            isShowingCreateProperty = true
+        } else {
+            upgradePromptContent = FeatureAccessService.propertyLimitPrompt
         }
     }
 }

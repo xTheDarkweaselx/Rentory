@@ -41,79 +41,93 @@ struct AddDocumentView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Text("Add documents that may be useful to keep with this rental record.")
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-
-                    if let validationMessage {
-                        Text(validationMessage)
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.danger)
-                    }
-                }
-
-                Section("Document") {
-                    TextField("Document name", text: $displayName)
-                        .rrTextInputAutocapitalizationWords()
-
-                    DocumentTypePickerView(selectedType: $documentType)
-
-                    Toggle("Add document date", isOn: $hasDocumentDate.animation())
-
-                    if hasDocumentDate {
-                        DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
-                    }
-                }
-
-                Section("Notes") {
-                    TextField("Add a short note", text: $notes, axis: .vertical)
-                        .lineLimit(3...6)
-                }
-
-                Section {
-                    Toggle("Include in report", isOn: $includeInReport)
-                }
-
-                Section {
-                    RRSecondaryButton(title: selectedFileURL == nil ? "Choose file" : "Choose a different file") {
-                        isShowingFileImporter = true
+            RRMacSheetContainer {
+                Form {
+                    Section {
+                        RRSheetHeader(
+                            title: "Add document",
+                            subtitle: "Keep useful paperwork with this rental record.",
+                            systemImage: "doc.text"
+                        )
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
 
-                    if selectedFileURL != nil {
-                        Text("File selected")
+                    Section {
+                        Text("Add documents that may be useful to keep with this rental record.")
                             .font(RRTypography.footnote)
                             .foregroundStyle(RRColours.mutedText)
-                    }
-                }
-            }
-            .navigationTitle("Add document")
-            .rrInlineNavigationTitle()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
 
-                ToolbarItem(placement: .rrPrimaryAction) {
-                    Button("Save") {
-                        saveDocument()
+                        if let validationMessage {
+                            Text(validationMessage)
+                                .font(RRTypography.footnote)
+                                .foregroundStyle(RRColours.danger)
+                        }
+                    }
+
+                    Section("Document") {
+                        TextField("Document name", text: $displayName)
+                            .rrTextInputAutocapitalizationWords()
+
+                        DocumentTypePickerView(selectedType: $documentType)
+
+                        Toggle("Add document date", isOn: $hasDocumentDate.animation())
+
+                        if hasDocumentDate {
+                            DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
+                        }
+                    }
+
+                    Section("Notes") {
+                        TextField("Add a short note", text: $notes, axis: .vertical)
+                            .lineLimit(3...6)
+                    }
+
+                    Section {
+                        Toggle("Include in report", isOn: $includeInReport)
+                    }
+
+                    Section {
+                        RRSecondaryButton(title: selectedFileURL == nil ? "Choose file" : "Choose a different file") {
+                            isShowingFileImporter = true
+                        }
+
+                        if selectedFileURL != nil {
+                            Text("File selected")
+                                .font(RRTypography.footnote)
+                                .foregroundStyle(RRColours.mutedText)
+                        }
                     }
                 }
-            }
-            .overlay {
-                if isSavingDocument {
-                    ZStack {
-                        Color.black.opacity(0.12)
-                            .ignoresSafeArea()
+                .navigationTitle("Add document")
+                .rrInlineNavigationTitle()
+                .scrollContentBackground(.hidden)
+                .background(RRBackgroundView())
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") {
+                            dismiss()
+                        }
+                    }
 
-                        RRLoadingView(
-                            title: "Adding document",
-                            message: "Please wait while this document is added."
-                        )
-                        .padding(24)
+                    ToolbarItem(placement: .rrPrimaryAction) {
+                        Button("Save") {
+                            saveDocument()
+                        }
+                    }
+                }
+                .overlay {
+                    if isSavingDocument {
+                        ZStack {
+                            Color.black.opacity(0.12)
+                                .ignoresSafeArea()
+
+                            RRLoadingView(
+                                title: "Adding document",
+                                message: "Please wait while this document is added."
+                            )
+                            .padding(24)
+                        }
                     }
                 }
             }
@@ -126,7 +140,11 @@ struct AddDocumentView: View {
             switch result {
             case .success(let urls):
                 selectedFileURL = urls.first
-            case .failure:
+            case .failure(let error):
+                let nsError = error as NSError
+                if nsError.domain == NSCocoaErrorDomain, nsError.code == NSUserCancelledError {
+                    break
+                }
                 userFacingError = .documentCouldNotBeAdded
             }
         }

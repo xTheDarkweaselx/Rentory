@@ -22,7 +22,7 @@ struct DocumentDetailView: View {
     @State private var documentDate: Date
     @State private var notes: String
     @State private var includeInReport: Bool
-    @State private var alertMessage: String?
+    @State private var alertContent: RRAlertContent?
     @State private var isShowingDeleteConfirmation = false
 
     init(document: DocumentRecord) {
@@ -37,6 +37,16 @@ struct DocumentDetailView: View {
 
     var body: some View {
         Form {
+            Section {
+                RRSheetHeader(
+                    title: document.displayName,
+                    subtitle: "Keep this document organised with a clear name and simple details.",
+                    systemImage: "doc.text"
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
             Section("Document") {
                 TextField("Document name", text: $displayName)
                     .rrTextInputAutocapitalizationWords()
@@ -75,6 +85,8 @@ struct DocumentDetailView: View {
         }
         .navigationTitle(document.displayName)
         .rrInlineNavigationTitle()
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
                 Button("Save") {
@@ -82,37 +94,23 @@ struct DocumentDetailView: View {
                 }
             }
         }
-        .alert("Delete this document?", isPresented: $isShowingDeleteConfirmation) {
-            Button("Cancel", role: .cancel) {}
-            Button("Delete", role: .destructive) {
-                deleteDocument()
-            }
-        } message: {
-            Text("This removes the document from this record.")
+        .rrConfirmationDialog(DialogCopy.deleteDocument, isPresented: $isShowingDeleteConfirmation) {
+            deleteDocument()
         }
-        .alert("Document update", isPresented: alertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(alertMessage ?? "This document could not be opened.")
+        .alert(item: $alertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
         }
-    }
-
-    private var alertBinding: Binding<Bool> {
-        Binding(
-            get: { alertMessage != nil },
-            set: { newValue in
-                if !newValue {
-                    alertMessage = nil
-                }
-            }
-        )
     }
 
     private func saveChanges() {
         let trimmedDisplayName = trimmed(displayName)
 
         guard !trimmedDisplayName.isEmpty else {
-            alertMessage = "Add a document name to continue."
+            alertContent = RRAlertContent(title: "Document not saved", message: "Add a document name to continue.", buttonTitle: "OK")
             return
         }
 
@@ -125,7 +123,7 @@ struct DocumentDetailView: View {
         do {
             try modelContext.save()
         } catch {
-            alertMessage = "This document could not be opened."
+            alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
     }
 
@@ -136,7 +134,7 @@ struct DocumentDetailView: View {
             try modelContext.save()
             dismiss()
         } catch {
-            alertMessage = "This document could not be deleted."
+            alertContent = RRAlertContent(error: .documentCouldNotBeDeleted)
         }
     }
 }

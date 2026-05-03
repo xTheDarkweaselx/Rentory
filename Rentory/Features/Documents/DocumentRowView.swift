@@ -11,15 +11,21 @@ struct DocumentRowView: View {
     let document: DocumentRecord
 
     var body: some View {
-        RRCard {
+        RRGlassCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text(document.displayName)
-                    .font(RRTypography.headline)
-                    .foregroundStyle(RRColours.primary)
+                HStack(alignment: .top, spacing: 12) {
+                    RRIconBadge(systemName: "doc.text", tint: RRColours.secondary)
 
-                Text(document.documentType.rawValue)
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(document.displayName)
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text(document.documentType.rawValue)
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                }
 
                 if let documentDate = document.documentDate {
                     Text("Dated \(documentDate.formatted(date: .abbreviated, time: .omitted))")

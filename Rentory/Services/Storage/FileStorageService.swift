@@ -16,6 +16,7 @@ struct FileStorageService {
     private let supportedImageExtensions = Set([
         "jpg", "jpeg", "png", "heic",
     ])
+    private let temporaryReportLifetime: TimeInterval = 60 * 60 * 24 * 7
 
     init(
         fileManager: FileManager = .default,
@@ -36,12 +37,32 @@ struct FileStorageService {
 
         do {
             try fileManager.copyItem(at: sourceURL, to: destinationURL)
-            try applyFileProtection(to: destinationURL)
+            applyFileProtectionIfPossible(to: destinationURL)
             return fileName
         } catch let error as FileStorageError {
             throw error
         } catch {
             throw FileStorageError.unableToCopyFile
+        }
+    }
+
+    func saveDocumentData(_ data: Data, fileExtension: String) throws -> String {
+        let normalisedFileExtension = try normalisedExtension(
+            from: fileExtension,
+            allowedExtensions: supportedDocumentExtensions
+        )
+
+        let fileName = makeGeneratedFileName(withExtension: normalisedFileExtension)
+        let destinationURL = try fileURL(for: .importedDocument, fileName: fileName)
+
+        do {
+            try data.write(to: destinationURL, options: .atomic)
+            applyFileProtectionIfPossible(to: destinationURL)
+            return fileName
+        } catch let error as FileStorageError {
+            throw error
+        } catch {
+            throw FileStorageError.unableToWriteFile
         }
     }
 
@@ -56,7 +77,7 @@ struct FileStorageService {
 
         do {
             try data.write(to: destinationURL, options: .atomic)
-            try applyFileProtection(to: destinationURL)
+            applyFileProtectionIfPossible(to: destinationURL)
             return fileName
         } catch let error as FileStorageError {
             throw error
@@ -79,7 +100,7 @@ struct FileStorageService {
 
         do {
             try data.write(to: destinationURL, options: .atomic)
-            try applyFileProtection(to: destinationURL)
+            applyFileProtectionIfPossible(to: destinationURL)
             return destinationURL
         } catch let error as FileStorageError {
             throw error
@@ -118,8 +139,12 @@ struct FileStorageService {
         }
     }
 
-    func deleteStoredFiles(of kind: StoredFileKind) throws {
-        let folderURL = baseDirectoryURL.appendingPathComponent(kind.folderName, isDirectory: true)
+    func cleanupOldTemporaryExports() throws {
+        try cleanupTemporaryExports(olderThan: temporaryReportLifetime)
+    }
+
+    func cleanupTemporaryExports(olderThan age: TimeInterval) throws {
+        let folderURL = baseDirectoryURL.appendingPathComponent(StoredFileKind.temporaryExport.folderName, isDirectory: true)
 
         guard fileManager.fileExists(atPath: folderURL.path) else {
             return
@@ -128,10 +153,53 @@ struct FileStorageService {
         do {
             let fileURLs = try fileManager.contentsOfDirectory(
                 at: folderURL,
-                includingPropertiesForKeys: nil,
+                includingPropertiesForKeys: [.contentModificationDateKey],
                 options: [.skipsHiddenFiles]
             )
+            let cutoffDate = Date().addingTimeInterval(-age)
 
+            for fileURL in fileURLs {
+                let values = try fileURL.resourceValues(forKeys: [.contentModificationDateKey])
+                let modifiedDate = values.contentModificationDate ?? .distantPast
+
+                if modifiedDate < cutoffDate {
+                    try fileManager.removeItem(at: fileURL)
+                }
+            }
+        } catch {
+            throw FileStorageError.unableToDeleteFile
+        }
+    }
+
+    func storageSummary() throws -> LocalStorageSummary {
+        var bytesUsed: Int64 = 0
+        var temporaryReportCount = 0
+
+        for kind in [StoredFileKind.evidencePhoto, .importedDocument, .temporaryExport] {
+            let fileURLs = try storedFileURLs(for: kind)
+
+            if kind == .temporaryExport {
+                temporaryReportCount = fileURLs.count
+            }
+
+            for fileURL in fileURLs {
+                let values = try fileURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+                guard values.isRegularFile == true else {
+                    continue
+                }
+                bytesUsed += Int64(values.fileSize ?? 0)
+            }
+        }
+
+        return LocalStorageSummary(
+            temporaryReportCount: temporaryReportCount,
+            approximateStorageUsedBytes: bytesUsed
+        )
+    }
+
+    func deleteStoredFiles(of kind: StoredFileKind) throws {
+        do {
+            let fileURLs = try storedFileURLs(for: kind)
             for fileURL in fileURLs {
                 try fileManager.removeItem(at: fileURL)
             }
@@ -178,22 +246,36 @@ struct FileStorageService {
 
         do {
             try fileManager.createDirectory(at: folderURL, withIntermediateDirectories: true)
-            try applyFileProtection(to: folderURL)
+            applyFileProtectionIfPossible(to: folderURL)
         } catch {
             throw FileStorageError.unableToCreateFolder
         }
     }
 
-    private func applyFileProtection(to url: URL) throws {
-#if os(iOS) || os(tvOS) || os(watchOS) || targetEnvironment(macCatalyst)
+    private func storedFileURLs(for kind: StoredFileKind) throws -> [URL] {
+        let folderURL = baseDirectoryURL.appendingPathComponent(kind.folderName, isDirectory: true)
+
+        guard fileManager.fileExists(atPath: folderURL.path) else {
+            return []
+        }
+
         do {
-            try fileManager.setAttributes(
-                [.protectionKey: FileProtectionType.complete],
-                ofItemAtPath: url.path
+            return try fileManager.contentsOfDirectory(
+                at: folderURL,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles]
             )
         } catch {
-            throw FileStorageError.unableToWriteFile
+            throw FileStorageError.unableToReadFile
         }
+    }
+
+    private func applyFileProtectionIfPossible(to url: URL) {
+#if os(iOS) || os(tvOS) || os(watchOS) || targetEnvironment(macCatalyst)
+        try? fileManager.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+            ofItemAtPath: url.path
+        )
 #endif
     }
 
@@ -225,4 +307,9 @@ struct FileStorageService {
     private func makeGeneratedFileName(withExtension fileExtension: String) -> String {
         "\(UUID().uuidString.lowercased()).\(fileExtension)"
     }
+}
+
+struct LocalStorageSummary: Equatable {
+    let temporaryReportCount: Int
+    let approximateStorageUsedBytes: Int64
 }

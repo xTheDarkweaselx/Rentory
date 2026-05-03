@@ -11,10 +11,11 @@ import SwiftUI
 @main
 struct RentoryApp: App {
     @StateObject private var appSecurityState = AppSecurityState()
+    @StateObject private var entitlementManager = EntitlementManager()
 
     // Rentory is local-first. User evidence must remain on device by default.
     // Do not add networking, analytics, account creation or third-party data collection without an explicit architecture decision.
-    private let sharedModelContainer: ModelContainer = {
+    private let sharedModelContainer: ModelContainer? = {
         let schema = Schema([
             PropertyPack.self,
             RoomRecord.self,
@@ -30,15 +31,37 @@ struct RentoryApp: App {
                 configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)]
             )
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            assertionFailure("Rentory could not open its saved data. Falling back to temporary storage.")
+
+            do {
+                return try ModelContainer(
+                    for: schema,
+                    configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+                )
+            } catch {
+                return nil
+            }
         }
     }()
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .environmentObject(appSecurityState)
+            if let sharedModelContainer {
+                RootView()
+                    .environmentObject(appSecurityState)
+                    .environmentObject(entitlementManager)
+                    .modelContainer(sharedModelContainer)
+            } else {
+                RRErrorStateView(
+                    symbolName: "exclamationmark.triangle",
+                    title: "Rentory could not open",
+                    message: "Please close the app and try again."
+                )
+            }
         }
-        .modelContainer(sharedModelContainer)
+        #if os(macOS) || targetEnvironment(macCatalyst)
+        .defaultSize(width: PlatformLayout.preferredWindowWidth, height: PlatformLayout.preferredWindowHeight)
+        .windowResizability(.contentMinSize)
+        #endif
     }
 }

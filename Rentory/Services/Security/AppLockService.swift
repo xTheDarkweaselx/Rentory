@@ -16,11 +16,11 @@ enum AppLockError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .notAvailable:
-            return "App Lock is not available on this device."
+            return UserFacingError.appLockNotAvailable.message
         case .unableToUnlock:
-            return "Rentory could not be unlocked."
+            return UserFacingError.appCouldNotBeUnlocked.title
         case .tryAgainLater:
-            return "Try again when you are ready."
+            return UserFacingError.appCouldNotBeUnlocked.message
         }
     }
 }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ImageIO
 
 struct EvidencePhotoThumbnailView: View {
     let photo: EvidencePhoto
@@ -55,18 +56,39 @@ struct EvidencePhotoThumbnailView: View {
             }
         }
         .task(id: photo.localFileName) {
-            loadImage()
+            await loadImage()
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint("Opens this photo.")
     }
 
-    private func loadImage() {
-        do {
-            loadedImage = try photoStorageService.loadPhoto(fileName: photo.localFileName)
+    @MainActor
+    private func loadImage() async {
+        let fileName = photo.localFileName
+
+        if let cachedImage = photoStorageService.cachedThumbnail(for: fileName) {
+            loadedImage = cachedImage
             isUnavailable = false
-        } catch {
+            return
+        }
+
+        guard let photoURL = try? FileStorageService().urlForEvidencePhoto(fileName: fileName) else {
+            loadedImage = nil
+            isUnavailable = true
+            return
+        }
+
+        let result = await Task.detached(priority: .utility) { () -> CGImage? in
+            try? PhotoStorageService.makeThumbnailCGImage(for: photoURL, maxPixelSize: 420)
+        }.value
+
+        if let result {
+            let image = UIImage.rrImage(from: result, size: CGSize(width: result.width, height: result.height))
+            photoStorageService.storeThumbnail(image, for: fileName)
+            loadedImage = image
+            isUnavailable = false
+        } else {
             loadedImage = nil
             isUnavailable = true
         }

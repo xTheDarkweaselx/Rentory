@@ -33,8 +33,10 @@ struct PropertySummaryCard: View {
     }
 
     var body: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(alignment: .leading, spacing: 16) {
+                RRIconBadge(systemName: "house.fill", tint: RRColours.secondary)
+
                 VStack(alignment: .leading, spacing: 6) {
                     Text(propertyPack.nickname)
                         .font(RRTypography.headline)

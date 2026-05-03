@@ -29,11 +29,9 @@ struct RRErrorStateView: View {
     }
 
     var body: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(spacing: 18) {
-                Image(systemName: symbolName)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(RRColours.warning)
+                RRIconBadge(systemName: symbolName, tint: RRColours.warning, size: 58)
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {

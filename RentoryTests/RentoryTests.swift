@@ -18,6 +18,44 @@ import AppKit
 @testable import Rentory
 
 struct RentoryTests {
+    @Test func freeUserWithNoPropertiesCanCreateAProperty() {
+        #expect(FeatureAccessService.canCreateProperty(currentPropertyCount: 0, isUnlocked: false))
+    }
+
+    @Test func freeUserWithOnePropertyCannotCreateAnother() {
+        #expect(!FeatureAccessService.canCreateProperty(currentPropertyCount: 1, isUnlocked: false))
+    }
+
+    @Test func unlockedUserCanCreateMoreProperties() {
+        #expect(FeatureAccessService.canCreateProperty(currentPropertyCount: 3, isUnlocked: true))
+    }
+
+    @Test func freeUserWithTwoRoomsCannotAddAThird() {
+        #expect(!FeatureAccessService.canAddRoom(currentRoomCount: 2, isUnlocked: false))
+    }
+
+    @Test func unlockedUserCanAddMoreRooms() {
+        #expect(FeatureAccessService.canAddRoom(currentRoomCount: 4, isUnlocked: true))
+    }
+
+    @Test func freeUserWithTwentyPhotosCannotAddAnother() {
+        #expect(!FeatureAccessService.canAddPhoto(currentPhotoCount: 20, isUnlocked: false))
+    }
+
+    @Test func existingDataRemainsViewableWhenOverLimit() {
+        let propertyPack = PropertyPack(
+            nickname: "Home",
+            rooms: [
+                RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0),
+                RoomRecord(name: "Bedroom", type: .bedroom, sortOrder: 1),
+            ]
+        )
+
+        #expect(propertyPack.nickname == "Home")
+        #expect(propertyPack.rooms.count == 2)
+        #expect(!FeatureAccessService.canAddRoom(currentRoomCount: propertyPack.rooms.count, isUnlocked: false))
+    }
+
     @Test func completionScoreStartsAtGettingStarted() throws {
         let propertyPack = PropertyPack(nickname: "My rented home")
 
@@ -252,6 +290,32 @@ struct RentoryTests {
         #expect(FileManager.default.fileExists(atPath: photoURL.path))
     }
 
+    @Test func cleanupOldTemporaryReportsDeletesOnlyOlderFiles() throws {
+        let fileStorageService = makeService()
+        let oldReportURL = try fileStorageService.saveTemporaryExportData(Data("old".utf8), preferredFileName: "rentory-report-old.pdf")
+        let freshReportURL = try fileStorageService.saveTemporaryExportData(Data("new".utf8), preferredFileName: "rentory-report-new.pdf")
+
+        let oldDate = Date().addingTimeInterval(-(60 * 60 * 24 * 8))
+        try FileManager.default.setAttributes([.modificationDate: oldDate], ofItemAtPath: oldReportURL.path)
+
+        try fileStorageService.cleanupOldTemporaryExports()
+
+        #expect(!FileManager.default.fileExists(atPath: oldReportURL.path))
+        #expect(FileManager.default.fileExists(atPath: freshReportURL.path))
+    }
+
+    @Test func storageSummaryCountsTemporaryReportsAndBytes() throws {
+        let fileStorageService = makeService()
+
+        _ = try fileStorageService.saveTemporaryExportData(Data("report".utf8), preferredFileName: "rentory-report-a.pdf")
+        _ = try fileStorageService.saveImageData(Data([0x01, 0x02, 0x03, 0x04]), fileExtension: "jpg")
+
+        let summary = try fileStorageService.storageSummary()
+
+        #expect(summary.temporaryReportCount == 1)
+        #expect(summary.approximateStorageUsedBytes > 0)
+    }
+
     @Test func deletePropertyPackDeletesLinkedPhotosAndDocuments() throws {
         let fileStorageService = makeService()
         let deletionService = RentoryDataDeletionService(fileStorageService: fileStorageService)
@@ -326,6 +390,120 @@ struct RentoryTests {
         #expect(!FileManager.default.fileExists(atPath: photoURL.path))
         #expect(!FileManager.default.fileExists(atPath: documentURL.path))
         #expect(!FileManager.default.fileExists(atPath: temporaryReportURL.path))
+    }
+
+    @Test func backupManifestCountsExpectedRecords() throws {
+        let fileStorageService = makeService()
+        let context = try makeModelContext()
+        let backupService = RentoryBackupService(
+            fileStorageService: fileStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: fileStorageService)
+        )
+
+        let propertyPack = PropertyPack(
+            nickname: "Home",
+            rooms: [RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0)],
+            documents: [DocumentRecord(displayName: "Receipt", type: .other, localFileName: "doc.pdf")],
+            timelineEvents: [TimelineEvent(title: "Move-in", type: .moveIn, eventDate: .now)]
+        )
+        propertyPack.rooms[0].checklistItems = [
+            ChecklistItemRecord(title: "Walls", sortOrder: 0, photos: [EvidencePhoto(localFileName: "photo.jpg", phase: .moveIn)]),
+        ]
+
+        context.insert(propertyPack)
+        try context.save()
+
+        let manifest = try backupService.makeManifest(context: context)
+
+        #expect(manifest.propertyCount == 1)
+        #expect(manifest.roomCount == 1)
+        #expect(manifest.photoCount == 1)
+        #expect(manifest.documentCount == 1)
+        #expect(manifest.timelineEventCount == 1)
+    }
+
+    @Test func backupExportDoesNotIncludeTemporaryReports() throws {
+        let fileStorageService = makeService()
+        let context = try makeModelContext()
+        let backupService = RentoryBackupService(
+            fileStorageService: fileStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: fileStorageService)
+        )
+
+        _ = try fileStorageService.saveTemporaryExportData(Data("report".utf8), preferredFileName: "rentory-report-test.pdf")
+        let propertyPack = PropertyPack(nickname: "Home")
+        context.insert(propertyPack)
+        try context.save()
+
+        let backupURL = try backupService.createBackup(context: context)
+
+        #expect(!FileManager.default.fileExists(atPath: backupURL.appendingPathComponent("TemporaryExports").path))
+    }
+
+    @Test func backupImportRejectsMissingManifest() throws {
+        let fileStorageService = makeService()
+        let backupService = RentoryBackupService(
+            fileStorageService: fileStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: fileStorageService)
+        )
+
+        let backupURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("broken-\(UUID().uuidString).rentorybackup", isDirectory: true)
+        try FileManager.default.createDirectory(at: backupURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: backupURL) }
+        try Data("{}".utf8).write(to: backupURL.appendingPathComponent("data.json"))
+
+        #expect(throws: RentoryBackupError.backupIncomplete) {
+            _ = try backupService.loadBackup(from: backupURL)
+        }
+    }
+
+    @Test func backupRoundTripPreservesCountsAndCreatesNewLocalFileNames() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let sourceBackupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let photoFileName = try sourceStorageService.saveImageData(Data([0x01, 0x02, 0x03]), fileExtension: "jpg")
+        let documentFileName = try sourceStorageService.saveDocumentData(Data("sample".utf8), fileExtension: "txt")
+        let checklistItem = ChecklistItemRecord(
+            title: "Walls",
+            sortOrder: 0,
+            photos: [EvidencePhoto(localFileName: photoFileName, phase: .moveIn)]
+        )
+        let room = RoomRecord(name: "Bedroom", type: .bedroom, sortOrder: 0, checklistItems: [checklistItem])
+        let propertyPack = PropertyPack(
+            nickname: "Home",
+            rooms: [room],
+            documents: [DocumentRecord(displayName: "Sample note", type: .other, localFileName: documentFileName)],
+            timelineEvents: [TimelineEvent(title: "Move-in", type: .moveIn, eventDate: .now)]
+        )
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try sourceBackupService.createBackup(context: sourceContext)
+        let loadedBackup = try sourceBackupService.loadBackup(from: backupURL)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+
+        try destinationBackupService.importBackup(loadedBackup, mode: .addToExisting, context: destinationContext)
+
+        let importedPropertyPacks = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+        #expect(importedPropertyPacks.count == 1)
+        #expect(importedPropertyPacks[0].rooms.count == 1)
+        #expect(importedPropertyPacks[0].documents.count == 1)
+        #expect(importedPropertyPacks[0].timelineEvents.count == 1)
+        #expect(importedPropertyPacks[0].rooms[0].checklistItems.count == 1)
+        #expect(importedPropertyPacks[0].rooms[0].checklistItems[0].photos.count == 1)
+        #expect(importedPropertyPacks[0].rooms[0].checklistItems[0].photos[0].localFileName != photoFileName)
+        #expect(importedPropertyPacks[0].documents[0].localFileName != documentFileName)
     }
 
     private func makeService() -> FileStorageService {

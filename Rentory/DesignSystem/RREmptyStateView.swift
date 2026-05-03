@@ -35,11 +35,9 @@ struct RREmptyStateView: View {
     }
 
     var body: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(spacing: 18) {
-                Image(systemName: symbolName)
-                    .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(RRColours.secondary)
+                RRIconBadge(systemName: symbolName, tint: RRColours.secondary, size: 60)
                     .accessibilityHidden(true)
 
                 VStack(spacing: 8) {

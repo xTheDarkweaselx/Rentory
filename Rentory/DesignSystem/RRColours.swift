@@ -19,6 +19,7 @@ enum RRColours {
     static let background = platformBackground
     static let groupedBackground = platformGroupedBackground
     static let cardBackground = platformCardBackground
+    static let cardHighlight = Color.white.opacity(0.22)
     static let success = Color.green.opacity(0.8)
     static let warning = Color.orange.opacity(0.8)
     static let danger = Color.red.opacity(0.75)

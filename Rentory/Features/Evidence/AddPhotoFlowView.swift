@@ -15,6 +15,8 @@ import PhotosUI
 struct AddPhotoFlowView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var entitlementManager: EntitlementManager
+    @Query private var allPhotos: [EvidencePhoto]
 
     let checklistItem: ChecklistItemRecord
 
@@ -25,6 +27,7 @@ struct AddPhotoFlowView: View {
     @State private var isShowingPhotoPicker = false
     @State private var userFacingError: UserFacingError?
     @State private var isSavingPhoto = false
+    @State private var upgradePromptContent: UpgradePromptContent?
 
 #if canImport(PhotosUI)
     @State private var selectedPhotoItem: PhotosPickerItem?
@@ -34,25 +37,44 @@ struct AddPhotoFlowView: View {
         NavigationStack {
             Group {
                 if let selectedPhase {
-                    PhotoSourcePickerView(
-                        isCameraAvailable: CameraCaptureView.isCameraAvailable,
-                        onTakePhoto: {
-                            self.selectedPhase = selectedPhase
-                            isShowingCamera = true
-                        },
-                        onChooseFromPhotos: {
-                            self.selectedPhase = selectedPhase
-                            isShowingPhotoPicker = true
-                        }
-                    )
-                } else {
-                    PhotoPhasePickerView { phase in
-                        selectedPhase = phase
+                    VStack(spacing: RRTheme.sectionSpacing) {
+                        RRSheetHeader(
+                            title: "Add a photo",
+                            subtitle: "Choose where this photo belongs, then add it from your camera or photo library.",
+                            systemImage: "camera.viewfinder"
+                        )
+
+                        PhotoSourcePickerView(
+                            isCameraAvailable: CameraCaptureView.isCameraAvailable,
+                            onTakePhoto: {
+                                self.selectedPhase = selectedPhase
+                                isShowingCamera = true
+                            },
+                            onChooseFromPhotos: {
+                                self.selectedPhase = selectedPhase
+                                isShowingPhotoPicker = true
+                            }
+                        )
                     }
+                    .padding(RRTheme.screenPadding)
+                } else {
+                    VStack(spacing: RRTheme.sectionSpacing) {
+                        RRSheetHeader(
+                            title: "Add a photo",
+                            subtitle: "Choose where this photo belongs in your record.",
+                            systemImage: "camera.viewfinder"
+                        )
+
+                        PhotoPhasePickerView { phase in
+                            selectedPhase = phase
+                        }
+                    }
+                    .padding(RRTheme.screenPadding)
                 }
             }
             .navigationTitle("Add a photo")
             .rrInlineNavigationTitle()
+            .background(RRBackgroundView())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(selectedPhase == nil ? "Cancel" : "Back") {
@@ -123,11 +145,22 @@ struct AddPhotoFlowView: View {
                 dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK"))
             )
         }
+        .sheet(item: $upgradePromptContent) { content in
+            LimitReachedView(title: content.title, message: content.message)
+        }
     }
 
     private func handleSelectedImage(_ image: UIImage) {
         guard let selectedPhase else {
             userFacingError = .photoCouldNotBeAdded
+            return
+        }
+
+        guard FeatureAccessService.canAddPhoto(
+            currentPhotoCount: allPhotos.count,
+            isUnlocked: entitlementManager.isUnlocked
+        ) else {
+            upgradePromptContent = FeatureAccessService.photoLimitPrompt
             return
         }
 

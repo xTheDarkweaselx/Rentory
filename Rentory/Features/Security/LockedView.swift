@@ -14,35 +14,35 @@ struct LockedView: View {
 
     var body: some View {
         ZStack {
-            RRColours.groupedBackground.ignoresSafeArea()
+            RRBackgroundView()
 
-            VStack(spacing: 24) {
-                Image(systemName: isAvailable ? "lock.shield" : "lock.slash")
-                    .font(.system(size: 48, weight: .semibold))
-                    .foregroundStyle(RRColours.secondary)
-                    .accessibilityHidden(true)
+            RRGlassPanel {
+                VStack(spacing: 24) {
+                    RRIconBadge(systemName: isAvailable ? "lock.shield" : "lock.slash", tint: RRColours.secondary, size: 64)
+                        .accessibilityHidden(true)
 
-                VStack(spacing: 8) {
-                    Text(isAvailable ? "Rentory is locked" : "App Lock is not available")
-                        .font(RRTypography.largeTitle)
-                        .foregroundStyle(RRColours.primary)
+                    VStack(spacing: 8) {
+                        Text(isAvailable ? "Rentory is locked" : "App Lock is not available")
+                            .font(RRTypography.largeTitle)
+                            .foregroundStyle(RRColours.primary)
 
-                    Text(
-                        isAvailable
-                            ? "Unlock to view your rental records."
-                            : "You can still use Rentory, but this device does not currently support Face ID, Touch ID or passcode unlock for the app."
-                    )
-                    .font(RRTypography.body)
-                    .foregroundStyle(RRColours.mutedText)
-                    .multilineTextAlignment(.center)
-                }
+                        Text(
+                            isAvailable
+                                ? "Unlock to view your rental records."
+                                : "You can still use Rentory, but this device does not currently support Face ID, Touch ID or passcode unlock for the app."
+                        )
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                        .multilineTextAlignment(.center)
+                    }
 
-                if isAvailable {
-                    RRPrimaryButton(title: isAuthenticating ? "Unlocking…" : "Unlock", isDisabled: isAuthenticating, action: unlockAction)
-                        .accessibilityHint("Uses Face ID, Touch ID or your passcode.")
+                    if isAvailable {
+                        RRPrimaryButton(title: isAuthenticating ? "Unlocking…" : "Unlock", isDisabled: isAuthenticating, action: unlockAction)
+                            .accessibilityHint("Uses Face ID, Touch ID or your passcode.")
+                    }
                 }
             }
-            .padding(24)
+            .padding(RRTheme.screenPadding)
         }
         .accessibilityElement(children: .contain)
     }

@@ -70,6 +70,12 @@ extension UserFacingError {
         recoveryActionTitle: "Try again"
     )
 
+    static let reportCreated = UserFacingError(
+        title: "Report ready",
+        message: "Your report has been created on this device.",
+        recoveryActionTitle: "Share report"
+    )
+
     static let recordCouldNotBeSaved = UserFacingError(
         title: "Record not saved",
         message: "Your changes could not be saved. Please try again.",
@@ -89,9 +95,21 @@ extension UserFacingError {
     )
 
     static let appCouldNotBeUnlocked = UserFacingError(
-        title: "Rentory not unlocked",
-        message: "Rentory could not be unlocked. Please try again when you are ready.",
+        title: "Rentory could not be unlocked",
+        message: "Try again when you are ready.",
         recoveryActionTitle: "Try again"
+    )
+
+    static let appLockNotAvailable = UserFacingError(
+        title: "App Lock is not available",
+        message: "You can still use Rentory, but this device does not currently support Face ID, Touch ID or passcode unlock for the app.",
+        recoveryActionTitle: "OK"
+    )
+
+    static let purchaseRestored = UserFacingError(
+        title: "Purchase restored",
+        message: "Your lifetime unlock is ready to use on this device.",
+        recoveryActionTitle: "OK"
     )
 
     static let somethingWentWrong = UserFacingError(

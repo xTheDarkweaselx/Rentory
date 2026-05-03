@@ -29,15 +29,22 @@ struct DocumentsListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                RRSheetHeader(
+                    title: "Documents",
+                    subtitle: "Keep useful paperwork and receipts together.",
+                    systemImage: "doc.text.fill"
+                )
+
                 if propertyPack.documents.isEmpty {
                     RREmptyStateView(
                         symbolName: "doc",
                         title: "No documents yet",
                         message: "Add tenancy paperwork, receipts or other useful files when you need them.",
-                        buttonTitle: "Add document"
-                    ) {
-                        isShowingAddDocumentView = true
-                    }
+                        buttonTitle: "Add document",
+                        buttonAction: {
+                            isShowingAddDocumentView = true
+                        }
+                    )
                 } else {
                     ForEach(groupedDocuments, id: \.type) { group in
                         VStack(alignment: .leading, spacing: 12) {
@@ -61,10 +68,10 @@ struct DocumentsListView: View {
                 }
             }
             .frame(maxWidth: DeviceLayout.contentWidth(for: horizontalSizeClass, maximum: 900), alignment: .leading)
-            .padding(20)
+            .padding(RRTheme.screenPadding)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(RRColours.groupedBackground.ignoresSafeArea())
+        .background(RRBackgroundView())
         .navigationTitle("Documents")
         .rrInlineNavigationTitle()
         .toolbar {

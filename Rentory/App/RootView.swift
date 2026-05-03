@@ -41,28 +41,22 @@ struct RootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             appSecurityState.handleScenePhaseChange(newPhase)
         }
-        .alert("App Lock", isPresented: alertBinding) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(appSecurityState.alertMessage ?? "")
+        .task {
+            try? FileStorageService().cleanupOldTemporaryExports()
         }
-    }
-
-    private var alertBinding: Binding<Bool> {
-        Binding(
-            get: { appSecurityState.alertMessage != nil },
-            set: { newValue in
-                if !newValue {
-                    appSecurityState.alertMessage = nil
-                }
-            }
-        )
+        .alert(item: $appSecurityState.alertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
+        }
     }
 
     @ViewBuilder
     private var mainContent: some View {
         if hasCompletedOnboarding {
-            if DeviceLayout.isRegularWidth(horizontalSizeClass) {
+            if PlatformLayout.prefersSplitView(for: horizontalSizeClass) {
                 PropertiesSplitView()
             } else {
                 PropertiesListView()

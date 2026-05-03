@@ -31,7 +31,7 @@ struct EditPropertyView: View {
     @State private var validationMessage: String?
     @State private var isShowingArchiveConfirmation = false
     @State private var isShowingDeleteConfirmation = false
-    @State private var deletionAlertMessage: String?
+    @State private var deletionAlertContent: RRAlertContent?
 
     let onDelete: (() -> Void)?
 
@@ -58,139 +58,88 @@ struct EditPropertyView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                if let validationMessage {
-                    Section {
-                        Text(validationMessage)
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.danger)
-                            .accessibilityLabel("Validation message. \(validationMessage)")
-                    }
+            PropertyFormView(
+                title: "Edit record",
+                subtitle: "Update your record when details change.",
+                systemImage: "slider.horizontal.3",
+                validationMessage: validationMessage,
+                nickname: $nickname,
+                addressLine1: $addressLine1,
+                addressLine2: $addressLine2,
+                townCity: $townCity,
+                postcode: $postcode,
+                hasTenancyStartDate: $hasTenancyStartDate,
+                tenancyStartDate: $tenancyStartDate,
+                hasTenancyEndDate: $hasTenancyEndDate,
+                tenancyEndDate: $tenancyEndDate,
+                landlordOrAgentName: $landlordOrAgentName,
+                landlordOrAgentEmail: $landlordOrAgentEmail,
+                depositSchemeName: $depositSchemeName,
+                depositReference: $depositReference,
+                notes: $notes
+            ) {
+                footerButtons
+            } manageSection: {
+                RRDestructiveButton(title: "Archive record") {
+                    isShowingArchiveConfirmation = true
                 }
+                .accessibilityHint("Keeps this record out of your active list.")
 
-                propertyDetailsSection
-                tenancySection
-                contactSection
-                depositSection
-                notesSection
-
-                Section {
-                    RRDestructiveButton(title: "Archive record") {
-                        isShowingArchiveConfirmation = true
-                    }
-                    .accessibilityHint("Keeps this record out of your active list.")
-
-                    RRDestructiveButton(title: "Delete this record") {
-                        isShowingDeleteConfirmation = true
-                    }
-                    .accessibilityHint("Removes this record, including its photos and documents, from this device.")
+                RRDestructiveButton(title: "Delete this record") {
+                    isShowingDeleteConfirmation = true
                 }
+                .accessibilityHint("Removes this record, including its photos and documents, from this device.")
             }
             .navigationTitle("Edit record")
             .rrInlineNavigationTitle()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .accessibilityLabel("Cancel")
-                }
-
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        saveChanges()
-                    }
-                    .accessibilityHint("Saves changes to this record.")
-                }
-            }
-            .alert("Archive this record?", isPresented: $isShowingArchiveConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Archive", role: .destructive) {
+            .rrConfirmationDialog(DialogCopy.archiveRecord, isPresented: $isShowingArchiveConfirmation) {
+                withAnimation(RRTheme.quickAnimation) {
                     propertyPack.isArchived = true
                     propertyPack.updatedAt = .now
                     dismiss()
                 }
-            } message: {
-                Text("You can keep it out of your active list without deleting it.")
             }
-            .alert("Delete this record?", isPresented: $isShowingDeleteConfirmation) {
-                Button("Cancel", role: .cancel) {}
-                Button("Delete", role: .destructive) {
-                    deleteRecord()
+            .rrConfirmationDialog(DialogCopy.deleteRentalRecord, isPresented: $isShowingDeleteConfirmation) {
+                deleteRecord()
+            }
+            .alert(item: $deletionAlertContent) { content in
+                Alert(
+                    title: Text(content.title),
+                    message: Text(content.message),
+                    dismissButton: .cancel(Text(content.buttonTitle))
+                )
+            }
+        }
+    }
+
+    private var footerButtons: some View {
+        RRGlassPanel {
+            Group {
+                if PlatformLayout.prefersFooterButtons {
+                    HStack(spacing: RRTheme.controlSpacing) {
+                        Spacer()
+                        RRSecondaryButton(title: "Cancel") {
+                            dismiss()
+                        }
+                        .frame(width: 150)
+
+                        RRPrimaryButton(title: "Save") {
+                            saveChanges()
+                        }
+                        .frame(width: 150)
+                    }
+                } else {
+                    VStack(spacing: RRTheme.controlSpacing) {
+                        RRPrimaryButton(title: "Save") {
+                            saveChanges()
+                        }
+
+                        RRSecondaryButton(title: "Cancel") {
+                            dismiss()
+                        }
+                    }
                 }
-            } message: {
-                Text("This removes the record, including its photos and documents, from this device. This cannot be undone.")
             }
-            .alert("Delete this record", isPresented: deletionAlertBinding) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(deletionAlertMessage ?? "")
-            }
-        }
-    }
-
-    private var propertyDetailsSection: some View {
-        Section("Property") {
-            TextField("Property name", text: $nickname)
-                .rrTextInputAutocapitalizationWords()
-                .accessibilityHint("Required")
-
-            TextField("Address line 1", text: $addressLine1)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Address line 2", text: $addressLine2)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Town or city", text: $townCity)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Postcode", text: $postcode)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var tenancySection: some View {
-        Section("Tenancy") {
-            Toggle("Add tenancy start date", isOn: $hasTenancyStartDate.animation())
-
-            if hasTenancyStartDate {
-                DatePicker("Tenancy start date", selection: $tenancyStartDate, displayedComponents: .date)
-            }
-
-            Toggle("Add tenancy end date", isOn: $hasTenancyEndDate.animation())
-
-            if hasTenancyEndDate {
-                DatePicker("Tenancy end date", selection: $tenancyEndDate, displayedComponents: .date)
-            }
-        }
-    }
-
-    private var contactSection: some View {
-        Section("Landlord or letting agent") {
-            TextField("Name", text: $landlordOrAgentName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Email", text: $landlordOrAgentEmail)
-                .rrEmailKeyboard()
-                .rrTextInputAutocapitalizationNever()
-                .autocorrectionDisabled()
-        }
-    }
-
-    private var depositSection: some View {
-        Section("Deposit") {
-            TextField("Scheme name", text: $depositSchemeName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Reference", text: $depositReference)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var notesSection: some View {
-        Section("Notes") {
-            TextField("Add any notes you want to keep here", text: $notes, axis: .vertical)
-                .lineLimit(4...8)
         }
     }
 
@@ -238,26 +187,18 @@ struct EditPropertyView: View {
         return tenancyEndDate >= tenancyStartDate
     }
 
-    private var deletionAlertBinding: Binding<Bool> {
-        Binding(
-            get: { deletionAlertMessage != nil },
-            set: { newValue in
-                if !newValue {
-                    deletionAlertMessage = nil
-                }
-            }
-        )
-    }
-
     private func deleteRecord() {
         do {
             try deletionService.deletePropertyPack(propertyPack, context: modelContext)
             dismiss()
             onDelete?()
         } catch let error as RentoryDataDeletionError {
-            deletionAlertMessage = "\(error.errorDescription ?? "This record could not be deleted.") Please try again."
+            deletionAlertContent = RRAlertContent(
+                title: UserFacingError.recordCouldNotBeDeleted.title,
+                message: "\(error.errorDescription ?? "This record could not be deleted.") Please try again."
+            )
         } catch {
-            deletionAlertMessage = "This record could not be deleted. Please try again."
+            deletionAlertContent = RRAlertContent(error: .recordCouldNotBeDeleted)
         }
     }
 }

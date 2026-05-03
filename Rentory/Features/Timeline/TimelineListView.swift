@@ -11,6 +11,7 @@ struct TimelineListView: View {
     let propertyPack: PropertyPack
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var isShowingAddEventView = false
 
     private var groupedEvents: [(title: String, events: [TimelineEvent])] {
         let grouped = Dictionary(grouping: propertyPack.timelineEvents) { event in
@@ -37,11 +38,21 @@ struct TimelineListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                RRSheetHeader(
+                    title: "Timeline",
+                    subtitle: "Keep dates, updates and notes in one place.",
+                    systemImage: "calendar"
+                )
+
                 if groupedEvents.isEmpty {
                     RREmptyStateView(
                         symbolName: "calendar",
                         title: "No timeline events yet",
-                        message: "Add key dates, updates or notes when something useful happens."
+                        message: "Add key dates, updates or notes when something useful happens.",
+                        buttonTitle: "Add event",
+                        buttonAction: {
+                            isShowingAddEventView = true
+                        }
                     )
                 } else {
                     ForEach(groupedEvents, id: \.title) { group in
@@ -54,7 +65,7 @@ struct TimelineListView: View {
                             LazyVStack(spacing: 12) {
                                 ForEach(group.events) { event in
                                     NavigationLink {
-                                        TimelineEventDetailView(event: event)
+                                        TimelineEventDetailView(event: event, propertyPack: propertyPack)
                                     } label: {
                                         TimelineEventRowView(event: event)
                                     }
@@ -66,12 +77,25 @@ struct TimelineListView: View {
                 }
             }
             .frame(maxWidth: DeviceLayout.contentWidth(for: horizontalSizeClass, maximum: 900), alignment: .leading)
-            .padding(20)
+            .padding(RRTheme.screenPadding)
             .frame(maxWidth: .infinity, alignment: .center)
         }
-        .background(RRColours.groupedBackground.ignoresSafeArea())
+        .background(RRBackgroundView())
         .navigationTitle("Timeline")
         .rrInlineNavigationTitle()
+        .toolbar {
+            ToolbarItem(placement: .rrPrimaryAction) {
+                Button {
+                    isShowingAddEventView = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add event")
+            }
+        }
+        .sheet(isPresented: $isShowingAddEventView) {
+            AddTimelineEventView(propertyPack: propertyPack)
+        }
     }
 
     private var monthFormatter: DateFormatter {

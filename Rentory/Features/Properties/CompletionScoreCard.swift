@@ -12,7 +12,7 @@ struct CompletionScoreCard: View {
     let viewProgressAction: () -> Void
 
     var body: some View {
-        RRCard {
+        RRGlassPanel {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 6) {

@@ -27,7 +27,7 @@ struct ChecklistItemDetailView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                RRCard {
+                RRGlassPanel {
                     VStack(alignment: .leading, spacing: 12) {
                         Text(checklistItem.title)
                             .font(RRTypography.title)
@@ -79,11 +79,11 @@ struct ChecklistItemDetailView: View {
                     RRSectionHeader(title: "Photos")
 
                     if checklistItem.photos.isEmpty {
-                        RRCard {
-                            Text("Add photos to keep a clearer record of this item.")
-                                .font(RRTypography.body)
-                                .foregroundStyle(RRColours.mutedText)
-                        }
+                        RREmptyStateView(
+                            symbolName: "photo.on.rectangle",
+                            title: "No photos yet",
+                            message: "Add photos when you want a clearer record of this item."
+                        )
                     }
 
                     RRPrimaryButton(title: "Add a photo") {
@@ -96,9 +96,9 @@ struct ChecklistItemDetailView: View {
                     EvidencePhotoGridView(title: "Move-out", photos: moveOutPhotos)
                 }
             }
-            .padding(20)
+            .padding(RRTheme.screenPadding)
         }
-        .background(RRColours.groupedBackground.ignoresSafeArea())
+        .background(RRBackgroundView())
         .navigationTitle(checklistItem.title)
         .rrInlineNavigationTitle()
         .sheet(isPresented: $isShowingAddPhotoFlow) {

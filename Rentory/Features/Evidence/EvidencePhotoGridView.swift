@@ -27,10 +27,10 @@ struct EvidencePhotoGridView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(RRTypography.headline)
-                .foregroundStyle(RRColours.primary)
-                .accessibilityAddTraits(.isHeader)
+            RRSectionHeader(
+                title: title,
+                subtitle: sortedPhotos.isEmpty ? "Add photos when you are ready." : "\(sortedPhotos.count) saved"
+            )
 
             if sortedPhotos.isEmpty {
                 RREmptyStateView(
