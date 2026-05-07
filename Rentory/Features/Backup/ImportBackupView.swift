@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 
 struct ImportBackupView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
 
     @State private var importMode: BackupImportMode = .addToExisting
     @State private var loadedBackup: LoadedRentoryBackup?
@@ -23,60 +24,25 @@ struct ImportBackupView: View {
     private let backupService = RentoryBackupService()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                RRSheetHeader(
-                    title: "Import backup",
-                    subtitle: "Import a Rentory backup from another device or a file you saved earlier.",
-                    systemImage: "arrow.down.doc.fill"
-                )
-
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Before you import")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Text("Importing adds records from the backup to this device. Your existing records will not be deleted unless you choose to replace them.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-                    }
+        Group {
+            if usesEmbeddedNavigationLayout {
+                RRFormContainer(maxWidth: 860) {
+                    importContent
                 }
+            } else {
+                RRMacSheetContainer(maxWidth: 860, minHeight: PlatformLayout.isMac ? 640 : nil) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        RRSheetHeader(
+                            title: "Import backup",
+                            subtitle: "Import a Rentory backup from another device or a file you saved earlier.",
+                            systemImage: "arrow.down.doc.fill"
+                        )
 
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Import option")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Picker("Import option", selection: $importMode) {
-                            ForEach(BackupImportMode.allCases) { mode in
-                                Text(mode.rawValue).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.inline)
-                    }
-                }
-
-                RRSecondaryButton(title: "Choose backup file") {
-                    isShowingFileImporter = true
-                }
-
-                if let loadedBackup {
-                    BackupSummaryView(manifest: loadedBackup.manifest, buttonTitle: "Import backup") {
-                        if importMode == .replaceAll {
-                            isShowingReplaceConfirmation = true
-                        } else {
-                            importBackup()
-                        }
+                        importContent
                     }
                 }
             }
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(RRTheme.screenPadding)
-            .frame(maxWidth: .infinity)
         }
-        .background(RRBackgroundView())
         .navigationTitle("Import backup")
         .rrInlineNavigationTitle()
         .overlay {
@@ -118,6 +84,51 @@ struct ImportBackupView: View {
                 message: Text(content.message),
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
+        }
+    }
+
+    private var importContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            RRGlassPanel {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Before you import")
+                        .font(RRTypography.headline)
+                        .foregroundStyle(RRColours.primary)
+
+                    Text("Importing adds records from the backup to this device. Your existing records will not be deleted unless you choose to replace them.")
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                }
+            }
+
+            RRGlassPanel {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Import option")
+                        .font(RRTypography.headline)
+                        .foregroundStyle(RRColours.primary)
+
+                    Picker("Import option", selection: $importMode) {
+                        ForEach(BackupImportMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.inline)
+                }
+            }
+
+            RRSecondaryButton(title: "Choose backup file") {
+                isShowingFileImporter = true
+            }
+
+            if let loadedBackup {
+                BackupSummaryView(manifest: loadedBackup.manifest, buttonTitle: "Import backup") {
+                    if importMode == .replaceAll {
+                        isShowingReplaceConfirmation = true
+                    } else {
+                        importBackup()
+                    }
+                }
+            }
         }
     }
 

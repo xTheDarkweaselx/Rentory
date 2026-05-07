@@ -7,24 +7,45 @@
 
 import SwiftUI
 
+private struct RRUsesEmbeddedNavigationLayoutKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var rrUsesEmbeddedNavigationLayout: Bool {
+        get { self[RRUsesEmbeddedNavigationLayoutKey.self] }
+        set { self[RRUsesEmbeddedNavigationLayoutKey.self] = newValue }
+    }
+}
+
+extension View {
+    func rrUsesEmbeddedNavigationLayout(_ value: Bool = true) -> some View {
+        environment(\.rrUsesEmbeddedNavigationLayout, value)
+    }
+}
+
 struct RRMacSheetContainer<Content: View>: View {
-    var maxWidth: CGFloat = PlatformLayout.preferredDialogWidth
+    var preferredWidth: CGFloat = PlatformLayout.preferredDialogWidth
+    var preferredHeight: CGFloat? = PlatformLayout.sheetMinHeight
     private let content: Content
 
     init(
         maxWidth: CGFloat = PlatformLayout.preferredDialogWidth,
+        minHeight: CGFloat? = PlatformLayout.sheetMinHeight,
         @ViewBuilder content: () -> Content
     ) {
-        self.maxWidth = maxWidth
+        self.preferredWidth = maxWidth
+        self.preferredHeight = minHeight
         self.content = content()
     }
 
     var body: some View {
         Group {
-            if PlatformLayout.isMac {
-                RRFormContainer(maxWidth: maxWidth) {
+            if PlatformLayout.isMac || PlatformLayout.isPad {
+                RRFormContainer(maxWidth: preferredWidth) {
                     content
-                        .frame(minHeight: PlatformLayout.sheetMinHeight, alignment: .top)
+                        .frame(minHeight: preferredHeight, alignment: .top)
+                        .frame(maxWidth: preferredWidth, alignment: .topLeading)
                 }
             } else {
                 content

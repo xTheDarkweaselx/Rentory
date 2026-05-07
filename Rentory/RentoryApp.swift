@@ -12,6 +12,7 @@ import SwiftUI
 struct RentoryApp: App {
     @StateObject private var appSecurityState = AppSecurityState()
     @StateObject private var entitlementManager = EntitlementManager()
+    @StateObject private var iCloudSyncService = ICloudSyncService()
 
     // Rentory is local-first. User evidence must remain on device by default.
     // Do not add networking, analytics, account creation or third-party data collection without an explicit architecture decision.
@@ -28,7 +29,13 @@ struct RentoryApp: App {
         do {
             return try ModelContainer(
                 for: schema,
-                configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)]
+                configurations: [
+                    ModelConfiguration(
+                        schema: schema,
+                        isStoredInMemoryOnly: false,
+                        cloudKitDatabase: .none
+                    ),
+                ]
             )
         } catch {
             assertionFailure("Rentory could not open its saved data. Falling back to temporary storage.")
@@ -36,7 +43,13 @@ struct RentoryApp: App {
             do {
                 return try ModelContainer(
                     for: schema,
-                    configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+                    configurations: [
+                        ModelConfiguration(
+                            schema: schema,
+                            isStoredInMemoryOnly: true,
+                            cloudKitDatabase: .none
+                        ),
+                    ]
                 )
             } catch {
                 return nil
@@ -50,6 +63,7 @@ struct RentoryApp: App {
                 RootView()
                     .environmentObject(appSecurityState)
                     .environmentObject(entitlementManager)
+                    .environmentObject(iCloudSyncService)
                     .modelContainer(sharedModelContainer)
             } else {
                 RRErrorStateView(

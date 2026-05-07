@@ -5,9 +5,12 @@
 //  Created by Adam Ibrahim on 30/04/2026.
 //
 
+import StoreKit
 import SwiftUI
 
 struct PurchaseSettingsView: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
     @EnvironmentObject private var entitlementManager: EntitlementManager
 
     @State private var isShowingPaywall = false
@@ -18,59 +21,32 @@ struct PurchaseSettingsView: View {
     }
 
     var body: some View {
-        Form {
-            Section("Status") {
-                LabeledContent("Current status", value: statusText)
+        Group {
+            if PlatformLayout.isPhone && horizontalSizeClass != .regular {
+                compactView
+            } else if usesEmbeddedNavigationLayout {
+                RRFormContainer(maxWidth: 920) {
+                    RRResponsiveFormGrid(items: detailGridItems)
+                }
+            } else {
+                RRMacSheetContainer(maxWidth: 920, minHeight: PlatformLayout.isMac ? 620 : nil) {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                        RRSheetHeader(
+                            title: "Rentory Unlock",
+                            subtitle: "Manage your lifetime unlock and restore earlier purchases.",
+                            systemImage: "sparkles"
+                        )
 
-                if entitlementManager.isUnlocked {
-                    RRSecondaryButton(
-                        title: entitlementManager.purchaseInProgress ? "Restoring…" : "Restore purchase",
-                        isDisabled: entitlementManager.purchaseInProgress
-                    ) {
-                        Task {
-                            await entitlementManager.restorePurchases()
-                            if entitlementManager.isUnlocked {
-                                successAlertContent = DialogCopy.purchaseRestored
-                            }
-                        }
-                    }
-                } else {
-                    RRPrimaryButton(title: "Unlock Rentory") {
-                        isShowingPaywall = true
-                    }
-
-                    RRSecondaryButton(
-                        title: entitlementManager.purchaseInProgress ? "Restoring…" : "Restore purchase",
-                        isDisabled: entitlementManager.purchaseInProgress
-                    ) {
-                        Task {
-                            await entitlementManager.restorePurchases()
-                            if entitlementManager.isUnlocked {
-                                successAlertContent = DialogCopy.purchaseRestored
-                            }
-                        }
+                        RRResponsiveFormGrid(items: detailGridItems)
                     }
                 }
-            }
-
-            Section {
-                Text("Lifetime unlock is a one-time purchase. Your rental records stay on your device, and no account is needed.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
             }
         }
         .navigationTitle("Rentory unlock")
         .rrInlineNavigationTitle()
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView()
                 .environmentObject(entitlementManager)
-        }
-        .task {
-            if entitlementManager.products.isEmpty {
-                await entitlementManager.loadProducts()
-            }
         }
         .alert(item: errorBinding) { error in
             Alert(
@@ -87,6 +63,99 @@ struct PurchaseSettingsView: View {
                 message: Text(content.message),
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
+        }
+    }
+
+    private var detailGridItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                statusPanel
+            },
+            RRResponsiveFormGridItem {
+                purchasePanel
+            },
+        ]
+    }
+
+    private var compactView: some View {
+        Form {
+            Section("Status") {
+                LabeledContent("Current status", value: statusText)
+                actionButtons
+            }
+
+            Section {
+                Text("Lifetime unlock is a one-time purchase. Your rental records stay on your device, and no account is needed.")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+    }
+
+    private var statusPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Current status")
+                    .font(RRTypography.headline)
+
+                Text(statusText)
+                    .font(RRTypography.title)
+                    .foregroundStyle(RRColours.primary)
+
+                Text("Lifetime unlock is a one-time purchase. Your rental records stay on your device, and no account is needed.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+            }
+        }
+    }
+
+    private var purchasePanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Purchase options")
+                    .font(RRTypography.headline)
+
+                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockOffer == nil {
+                    Text("Loading unlock option…")
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                } else if let offer = entitlementManager.lifetimeUnlockOffer {
+                    PurchaseRowView(
+                        product: entitlementManager.products.first(where: { $0.id == offer.productID }),
+                        fallbackPriceText: offer.displayPrice
+                    )
+                } else {
+                    Text("The lifetime unlock is not available in the current StoreKit setup.")
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                }
+
+                actionButtons
+            }
+        }
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: RRTheme.controlSpacing) {
+            if !entitlementManager.isUnlocked {
+                RRPrimaryButton(title: "Unlock Rentory") {
+                    isShowingPaywall = true
+                }
+            }
+
+            RRSecondaryButton(
+                title: entitlementManager.purchaseInProgress ? "Restoring…" : "Restore purchase",
+                isDisabled: entitlementManager.purchaseInProgress
+            ) {
+                Task {
+                    await entitlementManager.restorePurchases()
+                    if entitlementManager.isUnlocked {
+                        successAlertContent = DialogCopy.purchaseRestored
+                    }
+                }
+            }
         }
     }
 

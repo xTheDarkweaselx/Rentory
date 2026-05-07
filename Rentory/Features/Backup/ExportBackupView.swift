@@ -10,6 +10,7 @@ import SwiftUI
 
 struct ExportBackupView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
 
     @State private var manifest = RentoryBackupManifest(
         backupVersion: RentoryBackupService.backupVersion,
@@ -29,25 +30,33 @@ struct ExportBackupView: View {
     private let backupService = RentoryBackupService()
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                RRSheetHeader(
-                    title: "Export backup",
-                    subtitle: "Create a backup of your Rentory records, photos and documents. You choose where to save or share it.",
-                    systemImage: "externaldrive.fill.badge.icloud"
-                )
+        Group {
+            if usesEmbeddedNavigationLayout {
+                RRFormContainer(maxWidth: 860) {
+                    BackupSummaryView(manifest: manifest)
 
-                BackupSummaryView(manifest: manifest)
+                    RRPrimaryButton(title: isCreatingBackup ? "Creating backup…" : "Create backup", isDisabled: isCreatingBackup) {
+                        createBackup()
+                    }
+                }
+            } else {
+                RRMacSheetContainer(maxWidth: 860, minHeight: PlatformLayout.isMac ? 620 : nil) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        RRSheetHeader(
+                            title: "Export backup",
+                            subtitle: "Create a backup of your Rentory records, photos and documents. You choose where to save or share it.",
+                            systemImage: "externaldrive.fill.badge.icloud"
+                        )
 
-                RRPrimaryButton(title: isCreatingBackup ? "Creating backup…" : "Create backup", isDisabled: isCreatingBackup) {
-                    createBackup()
+                        BackupSummaryView(manifest: manifest)
+
+                        RRPrimaryButton(title: isCreatingBackup ? "Creating backup…" : "Create backup", isDisabled: isCreatingBackup) {
+                            createBackup()
+                        }
+                    }
                 }
             }
-            .frame(maxWidth: 760, alignment: .leading)
-            .padding(RRTheme.screenPadding)
-            .frame(maxWidth: .infinity)
         }
-        .background(RRBackgroundView())
         .navigationTitle("Export backup")
         .rrInlineNavigationTitle()
         .overlay {

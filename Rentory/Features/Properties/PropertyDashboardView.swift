@@ -196,15 +196,19 @@ struct PropertyDashboardView: View {
             EditPropertyView(propertyPack: propertyPack) {
                 dismiss()
             }
+            .rrAdaptiveSheetPresentation()
         }
         .sheet(isPresented: $isShowingAddDocumentView) {
             AddDocumentView(propertyPack: propertyPack)
+                .rrAdaptiveSheetPresentation()
         }
         .sheet(isPresented: $isShowingAddRoomView) {
             AddRoomView(propertyPack: propertyPack)
+                .rrAdaptiveSheetPresentation()
         }
         .sheet(isPresented: $isShowingAddEventView) {
             AddTimelineEventView(propertyPack: propertyPack)
+                .rrAdaptiveSheetPresentation()
         }
         .alert(item: $infoAlertContent) { content in
             Alert(

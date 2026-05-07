@@ -11,9 +11,7 @@ struct ReportReadyView: View {
     let reportURL: URL
 
     var body: some View {
-        ZStack {
-            RRBackgroundView()
-
+        RRMacSheetContainer(maxWidth: 760, minHeight: PlatformLayout.isMac ? 520 : nil) {
             VStack(spacing: 24) {
                 Spacer()
 
@@ -29,7 +27,6 @@ struct ReportReadyView: View {
 
                 Spacer()
             }
-            .padding(RRTheme.screenPadding)
         }
         .navigationTitle("Report ready")
         .rrInlineNavigationTitle()

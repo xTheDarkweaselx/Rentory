@@ -12,12 +12,15 @@ import SwiftUI
 @MainActor
 struct DeveloperDemoSettingsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
     @Query private var propertyPacks: [PropertyPack]
 
     @State private var isShowingLoadConfirmation = false
     @State private var isShowingClearConfirmation = false
     @State private var alertContent: RRAlertContent?
     @State private var isWorking = false
+    @State private var loadsFullSampleSet = true
 
     private let demoDataFactory = DemoDataFactory()
 
@@ -25,32 +28,48 @@ struct DeveloperDemoSettingsView: View {
         propertyPacks.contains(where: DemoModeSettings.matchesDemoRecord)
     }
 
+    private var demoRecordCount: Int {
+        propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    }
+
     var body: some View {
-        Form {
-            Section("Demo data") {
-                Text("Use fake data for testing and screenshots.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-
-                Text(hasDemoRecord ? "A fake demo record is ready to use." : "No fake demo record has been loaded yet.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-            }
-
-            Section {
-                RRPrimaryButton(title: "Load demo record", isDisabled: isWorking) {
-                    isShowingLoadConfirmation = true
+        Group {
+            if PlatformLayout.isPhone && horizontalSizeClass != .regular {
+                compactView
+            } else if usesEmbeddedNavigationLayout {
+                RRFormContainer(maxWidth: 880) {
+                    RRResponsiveFormGrid(items: [
+                        RRResponsiveFormGridItem {
+                            statusPanel
+                        },
+                        RRResponsiveFormGridItem {
+                            actionsPanel
+                        },
+                    ])
                 }
+            } else {
+                RRMacSheetContainer(maxWidth: 880, minHeight: PlatformLayout.isMac ? 560 : nil) {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                        RRSheetHeader(
+                            title: "Demo Data",
+                            subtitle: "Use fake sample data for testing and screenshots.",
+                            systemImage: "wand.and.stars"
+                        )
 
-                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                    isShowingClearConfirmation = true
+                        RRResponsiveFormGrid(items: [
+                            RRResponsiveFormGridItem {
+                                statusPanel
+                            },
+                            RRResponsiveFormGridItem {
+                                actionsPanel
+                            },
+                        ])
+                    }
                 }
             }
         }
         .navigationTitle("Demo data")
         .rrInlineNavigationTitle()
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
         .overlay {
             if isWorking {
                 ZStack {
@@ -67,9 +86,11 @@ struct DeveloperDemoSettingsView: View {
         }
         .rrConfirmationDialog(
             RRDialogContent(
-                title: "Load demo record?",
-                message: "This adds a fake rental record for testing and screenshots.",
-                confirmTitle: "Load demo record",
+                title: loadsFullSampleSet ? "Load sample set?" : "Load sample record?",
+                message: loadsFullSampleSet
+                    ? "This adds a fuller set of fake records, rooms, photos, documents and timeline events for testing and screenshots."
+                    : "This adds one fake rental record for testing and screenshots.",
+                confirmTitle: loadsFullSampleSet ? "Load sample set" : "Load sample record",
                 cancelTitle: "Cancel"
             ),
             isPresented: $isShowingLoadConfirmation
@@ -79,7 +100,7 @@ struct DeveloperDemoSettingsView: View {
         .rrConfirmationDialog(
             RRDialogContent(
                 title: "Clear demo data?",
-                message: "This removes the fake demo record and its sample files.",
+                message: "This removes the fake sample records and their sample files.",
                 confirmTitle: "Clear demo data",
                 cancelTitle: "Cancel",
                 confirmRole: .destructive
@@ -97,15 +118,87 @@ struct DeveloperDemoSettingsView: View {
         }
     }
 
+    private var compactView: some View {
+        Form {
+            Section("Demo data") {
+                Text(
+                    hasDemoRecord
+                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
+                    : "No sample records have been loaded yet."
+                )
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+
+                Toggle("Load the fullest sample set", isOn: $loadsFullSampleSet)
+            }
+
+            Section {
+                RRPrimaryButton(title: loadsFullSampleSet ? "Load sample set" : "Load sample record", isDisabled: isWorking) {
+                    isShowingLoadConfirmation = true
+                }
+
+                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                    isShowingClearConfirmation = true
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+    }
+
+    private var statusPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Demo data")
+                    .font(RRTypography.headline)
+
+                Text("Use fake data for testing and screenshots.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+
+                Text(
+                    hasDemoRecord
+                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
+                    : "No sample records have been loaded yet."
+                )
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+
+                Toggle("Load the fullest sample set", isOn: $loadsFullSampleSet)
+                    .toggleStyle(.switch)
+            }
+        }
+    }
+
+    private var actionsPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Actions")
+                    .font(RRTypography.headline)
+
+                RRPrimaryButton(title: loadsFullSampleSet ? "Load sample set" : "Load sample record", isDisabled: isWorking) {
+                    isShowingLoadConfirmation = true
+                }
+
+                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                    isShowingClearConfirmation = true
+                }
+            }
+        }
+    }
+
     private func loadDemoRecord() {
         isWorking = true
         defer { isWorking = false }
 
         do {
-            _ = try demoDataFactory.loadDemoRecord(context: modelContext)
+            let style: DemoDataFactory.SampleDataStyle = loadsFullSampleSet ? .fullSampleSet : .singleRecord
+            let loadedRecords = try demoDataFactory.loadSampleData(context: modelContext, style: style)
             alertContent = RRAlertContent(
-                title: "Demo record ready",
-                message: "Fake sample data is ready for testing and screenshots."
+                title: loadsFullSampleSet ? "Sample set ready" : "Sample record ready",
+                message: loadsFullSampleSet
+                    ? "\(loadedRecords.count) fake sample records are ready for testing and screenshots."
+                    : "Fake sample data is ready for testing and screenshots."
             )
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)
@@ -120,7 +213,7 @@ struct DeveloperDemoSettingsView: View {
             try demoDataFactory.clearDemoData(context: modelContext)
             alertContent = RRAlertContent(
                 title: "Demo data cleared",
-                message: "The fake demo record and its sample files have been removed."
+                message: "The fake sample records and their files have been removed."
             )
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)

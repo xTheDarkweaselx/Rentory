@@ -17,6 +17,11 @@ import AppKit
 #if DEBUG
 @MainActor
 struct DemoDataFactory {
+    enum SampleDataStyle {
+        case singleRecord
+        case fullSampleSet
+    }
+
     private let fileStorageService: FileStorageService
     private let photoStorageService: PhotoStorageService
     private let deletionService: RentoryDataDeletionService
@@ -33,28 +38,49 @@ struct DemoDataFactory {
 
     @discardableResult
     func loadDemoRecord(context: ModelContext) throws -> PropertyPack {
-        if let existingDemoRecord = try fetchDemoRecords(context: context).first {
-            DemoModeSettings.demoPropertyIdentifier = existingDemoRecord.id
-            return existingDemoRecord
+        let records = try loadSampleData(context: context, style: .singleRecord)
+        if let firstRecord = records.first {
+            return firstRecord
+        }
+        return try makePrimaryRecord()
+    }
+
+    @discardableResult
+    func loadSampleData(context: ModelContext, style: SampleDataStyle) throws -> [PropertyPack] {
+        var existingDemoRecords = try fetchDemoRecords(context: context)
+        if !existingDemoRecords.isEmpty {
+            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < 6
+            if !needsFullSampleRefresh {
+                DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
+                return existingDemoRecords
+            }
+
+            try clearDemoData(context: context)
+            existingDemoRecords = []
         }
 
-        let propertyPack = PropertyPack(
-            nickname: DemoModeSettings.demoRecordName,
-            townCity: DemoModeSettings.demoTownCity,
-            postcode: DemoModeSettings.demoPostcode,
-            tenancyStartDate: demoDate(year: 2026, month: 1, day: 10),
-            tenancyEndDate: demoDate(year: 2026, month: 12, day: 10),
-            notes: DemoModeSettings.demoRecordNote
-        )
+        let records: [PropertyPack]
+        switch style {
+        case .singleRecord:
+            records = [try makePrimaryRecord()]
+        case .fullSampleSet:
+            records = try [
+                makePrimaryRecord(),
+                makeSharedHomeRecord(),
+                makeFamilyHouseRecord(),
+                makeLodgerRoomRecord(),
+                makeStudioRecord(),
+                makeArchivedRecord(),
+            ]
+        }
 
-        propertyPack.rooms = try makeRooms()
-        propertyPack.documents = try makeDocuments()
-        propertyPack.timelineEvents = makeTimelineEvents()
+        for record in records {
+            context.insert(record)
+        }
 
-        context.insert(propertyPack)
         try context.save()
-        DemoModeSettings.demoPropertyIdentifier = propertyPack.id
-        return propertyPack
+        DemoModeSettings.demoPropertyIdentifier = records.first?.id
+        return records
     }
 
     func clearDemoData(context: ModelContext) throws {
@@ -72,15 +98,278 @@ struct DemoDataFactory {
             .filter(DemoModeSettings.matchesDemoRecord)
     }
 
-    private func makeRooms() throws -> [RoomRecord] {
-        let roomDefinitions: [(String, RoomType)] = [
-            ("Kitchen", .kitchen),
-            ("Living room", .livingRoom),
-            ("Bedroom", .bedroom),
-            ("Bathroom", .bathroom),
-            ("Hallway", .hallway),
-        ]
+    private func makePrimaryRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: DemoModeSettings.demoRecordName,
+            addressLine1: "14 Sample Street",
+            townCity: DemoModeSettings.demoTownCity,
+            postcode: DemoModeSettings.demoPostcode,
+            tenancyStartDate: demoDate(year: 2026, month: 1, day: 10),
+            tenancyEndDate: demoDate(year: 2026, month: 12, day: 10),
+            landlordOrAgentName: "Sample Lettings",
+            landlordOrAgentEmail: "hello@samplelettings.test",
+            depositSchemeName: "Sample Deposit Scheme",
+            depositReference: "SAMPLE-4582",
+            notes: [
+                DemoModeSettings.demoMarker,
+                DemoModeSettings.demoRecordNote,
+                "Includes rooms, photos, documents and timeline events for testing.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Kitchen", .kitchen),
+                ("Living room", .livingRoom),
+                ("Bedroom", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Hallway", .hallway),
+                ("Garden", .garden),
+            ],
+            documentDefinitions: [
+                ("Sample tenancy agreement", .tenancyAgreement),
+                ("Sample deposit certificate", .depositCertificate),
+                ("Sample check-in inventory", .checkInInventory),
+                ("Sample cleaning receipt", .cleaningReceipt),
+                ("Sample meter reading", .meterReading),
+                ("Sample message screenshot", .messageScreenshot),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in date added for the sample record."),
+                ("Inventory reviewed", .inventoryReviewed, "Inventory checked against the sample record."),
+                ("Issue noticed", .issueNoticed, "A small mark was noted in the kitchen for reference."),
+                ("Issue reported", .issueReported, "The issue was reported to the letting agent."),
+                ("Repair requested", .repairRequested, "A repair request was logged as part of the sample timeline."),
+                ("Repair completed", .repairCompleted, "The repair was marked as completed."),
+                ("Inspection", .inspection, "A mid-tenancy inspection was noted for reference."),
+                ("Move-out", .moveOut, "Move-out date added for the sample record."),
+            ]
+        )
+    }
 
+    private func makeSharedHomeRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Shared home sample",
+            addressLine1: "8 Example Terrace",
+            townCity: "Riverford",
+            postcode: "EF3 4GH",
+            tenancyStartDate: demoDate(year: 2025, month: 9, day: 2),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "North Street Homes",
+            landlordOrAgentEmail: "team@northstreethomes.test",
+            depositSchemeName: "Shared Home Deposit Scheme",
+            depositReference: "SHARED-1042",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This shared home sample shows an active tenancy with ongoing notes and fewer rooms.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Bedroom", .bedroom),
+                ("Kitchen", .kitchen),
+                ("Bathroom", .bathroom),
+                ("Hallway", .hallway),
+            ],
+            documentDefinitions: [
+                ("Shared home agreement", .tenancyAgreement),
+                ("Sample rent payment record", .rentPaymentRecord),
+                ("Sample repair receipt", .repairReceipt),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the shared home sample."),
+                ("Issue noticed", .issueNoticed, "A loose cupboard handle was noted."),
+                ("Repair requested", .repairRequested, "A repair request was sent for the shared kitchen."),
+                ("Cleaning completed", .cleaningCompleted, "A shared-area clean was recorded."),
+            ]
+        )
+    }
+
+    private func makeArchivedRecord() throws -> PropertyPack {
+        let record = try makePropertyRecord(
+            nickname: "Previous student let",
+            addressLine1: "2 College Mews",
+            townCity: "Oakford",
+            postcode: "JK5 6LM",
+            tenancyStartDate: demoDate(year: 2024, month: 9, day: 1),
+            tenancyEndDate: demoDate(year: 2025, month: 6, day: 30),
+            landlordOrAgentName: "Campus Homes",
+            landlordOrAgentEmail: "support@campushomes.test",
+            depositSchemeName: "Student Deposit Scheme",
+            depositReference: "STUDENT-8891",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This sample record is archived to show how an earlier rented home can still be kept for reference.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Bedroom", .bedroom),
+                ("Ensuite", .ensuite),
+                ("Kitchen", .kitchen),
+            ],
+            documentDefinitions: [
+                ("Sample check-out report", .checkOutReport),
+                ("Sample deposit discussion", .other),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the archived sample."),
+                ("Inspection", .inspection, "An inspection note was added during the tenancy."),
+                ("Deposit discussion", .depositDiscussion, "Deposit conversations were tracked before move-out."),
+                ("Move-out", .moveOut, "Move-out added for the archived sample."),
+            ]
+        )
+        record.isArchived = true
+        return record
+    }
+
+    private func makeFamilyHouseRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Family house sample",
+            addressLine1: "22 Orchard Lane",
+            townCity: "Westbridge",
+            postcode: "MN7 8PQ",
+            tenancyStartDate: demoDate(year: 2025, month: 2, day: 14),
+            tenancyEndDate: demoDate(year: 2027, month: 2, day: 13),
+            landlordOrAgentName: "Oak & Key Lettings",
+            landlordOrAgentEmail: "homes@oakandkey.test",
+            depositSchemeName: "Home Deposit Protection",
+            depositReference: "HOUSE-6630",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This house sample shows a fuller family-style rented home with more rooms, more paperwork and a longer timeline.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living room", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom 1", .bedroom),
+                ("Bedroom 2", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Utility", .utility),
+                ("Garden", .garden),
+                ("Garage", .garage),
+            ],
+            documentDefinitions: [
+                ("House tenancy agreement", .tenancyAgreement),
+                ("House deposit certificate", .depositCertificate),
+                ("House check-in inventory", .checkInInventory),
+                ("House rent payment record", .rentPaymentRecord),
+                ("House repair receipt", .repairReceipt),
+                ("House message screenshot", .messageScreenshot),
+                ("House meter reading", .meterReading),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the family house sample."),
+                ("Inventory reviewed", .inventoryReviewed, "The inventory was reviewed at the start of the tenancy."),
+                ("Issue noticed", .issueNoticed, "A mark on the hallway wall was noted."),
+                ("Issue reported", .issueReported, "The hallway mark was reported to the letting agent."),
+                ("Repair requested", .repairRequested, "A repair request was logged for a loose utility-room shelf."),
+                ("Repair completed", .repairCompleted, "The utility-room repair was completed."),
+                ("Inspection", .inspection, "A routine inspection was noted."),
+                ("Cleaning completed", .cleaningCompleted, "A full clean was logged before a family visit."),
+                ("Deposit discussion", .depositDiscussion, "A deposit query was noted for later reference."),
+            ]
+        )
+    }
+
+    private func makeStudioRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Studio flat sample",
+            addressLine1: "4 Market Court",
+            townCity: "Southmere",
+            postcode: "RS2 3TU",
+            tenancyStartDate: demoDate(year: 2026, month: 4, day: 3),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "City Rooms",
+            landlordOrAgentEmail: "support@cityrooms.test",
+            depositSchemeName: "Studio Deposit Cover",
+            depositReference: "STUDIO-1450",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This compact sample helps show how Rentory can still work well for a smaller rented home.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living / sleeping area", .other),
+                ("Kitchen", .kitchen),
+                ("Bathroom", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Studio agreement", .tenancyAgreement),
+                ("Studio check-in inventory", .checkInInventory),
+                ("Studio cleaning receipt", .cleaningReceipt),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the studio sample."),
+                ("Issue noticed", .issueNoticed, "A scuff near the window was noted."),
+                ("Inspection", .inspection, "A short inspection visit was recorded."),
+            ]
+        )
+    }
+
+    private func makeLodgerRoomRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Lodger room sample",
+            addressLine1: "11 Cedar Road",
+            townCity: "Highfield",
+            postcode: "VW4 5XY",
+            tenancyStartDate: demoDate(year: 2025, month: 11, day: 8),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "Private landlord sample",
+            landlordOrAgentEmail: "host@privatelandlord.test",
+            depositSchemeName: "Room Deposit Cover",
+            depositReference: "ROOM-3201",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This lodger-room sample shows a simpler setup with one main room, shared spaces and lighter paperwork.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Bedroom", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Kitchen", .kitchen),
+            ],
+            documentDefinitions: [
+                ("Room agreement", .tenancyAgreement),
+                ("Room inventory note", .checkInInventory),
+                ("Utility reading note", .meterReading),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the lodger-room sample."),
+                ("Issue noticed", .issueNoticed, "A small scratch on the desk was noted."),
+                ("Cleaning completed", .cleaningCompleted, "A room clean was logged for reference."),
+            ]
+        )
+    }
+
+    private func makePropertyRecord(
+        nickname: String,
+        addressLine1: String,
+        townCity: String,
+        postcode: String,
+        tenancyStartDate: Date?,
+        tenancyEndDate: Date?,
+        landlordOrAgentName: String?,
+        landlordOrAgentEmail: String?,
+        depositSchemeName: String?,
+        depositReference: String?,
+        notes: String,
+        roomDefinitions: [(String, RoomType)],
+        documentDefinitions: [(String, DocumentType)],
+        timelineDefinitions: [(String, TimelineEventType, String)]
+    ) throws -> PropertyPack {
+        let propertyPack = PropertyPack(
+            nickname: nickname,
+            addressLine1: addressLine1,
+            townCity: townCity,
+            postcode: postcode,
+            tenancyStartDate: tenancyStartDate,
+            tenancyEndDate: tenancyEndDate,
+            landlordOrAgentName: landlordOrAgentName,
+            landlordOrAgentEmail: landlordOrAgentEmail,
+            depositSchemeName: depositSchemeName,
+            depositReference: depositReference,
+            notes: notes
+        )
+
+        propertyPack.rooms = try makeRooms(roomDefinitions: roomDefinitions)
+        propertyPack.documents = try makeDocuments(definitions: documentDefinitions)
+        propertyPack.timelineEvents = makeTimelineEvents(definitions: timelineDefinitions)
+        return propertyPack
+    }
+
+    private func makeRooms(roomDefinitions: [(String, RoomType)]) throws -> [RoomRecord] {
         let roomNotes = [
             "Condition checked during move-in.",
             "Small mark noted on the wall.",
@@ -100,7 +389,7 @@ struct DemoDataFactory {
                 name: roomDefinition.0,
                 type: roomDefinition.1,
                 sortOrder: index,
-                notes: roomNotes[index],
+                notes: roomNotes[index % roomNotes.count],
                 checklistItems: checklistItems
             )
         }
@@ -128,7 +417,7 @@ struct DemoDataFactory {
                 isFlagged: condition == .damaged
             )
 
-            if itemIndex == 0 {
+            if itemIndex < 2 {
                 item.photos = try makeSamplePhotos(for: roomName)
             }
 
@@ -157,15 +446,8 @@ struct DemoDataFactory {
         }
     }
 
-    private func makeDocuments() throws -> [DocumentRecord] {
-        let documents: [(String, DocumentType)] = [
-            ("Sample tenancy agreement", .tenancyAgreement),
-            ("Sample check-in inventory", .checkInInventory),
-            ("Sample cleaning receipt", .cleaningReceipt),
-            ("Sample meter reading", .meterReading),
-        ]
-
-        return try documents.enumerated().map { index, document in
+    private func makeDocuments(definitions: [(String, DocumentType)]) throws -> [DocumentRecord] {
+        try definitions.enumerated().map { index, document in
             let fileName = try fileStorageService.saveDocumentData(
                 makeSampleDocumentData(title: document.0),
                 fileExtension: "txt"
@@ -181,17 +463,8 @@ struct DemoDataFactory {
         }
     }
 
-    private func makeTimelineEvents() -> [TimelineEvent] {
-        let events: [(String, TimelineEventType, String)] = [
-            ("Move-in", .moveIn, "Move-in date added for the sample record."),
-            ("Inventory reviewed", .inventoryReviewed, "Inventory checked against the sample record."),
-            ("Issue noticed", .issueNoticed, "Small mark noted in the kitchen for reference."),
-            ("Repair requested", .repairRequested, "Repair request logged as part of the sample timeline."),
-            ("Repair completed", .repairCompleted, "Repair completion noted for the sample record."),
-            ("Move-out", .moveOut, "Move-out date added for the sample record."),
-        ]
-
-        return events.enumerated().map { index, event in
+    private func makeTimelineEvents(definitions: [(String, TimelineEventType, String)]) -> [TimelineEvent] {
+        definitions.enumerated().map { index, event in
             TimelineEvent(
                 title: event.0,
                 type: event.1,

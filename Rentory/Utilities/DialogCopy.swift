@@ -92,6 +92,30 @@ enum DialogCopy {
 
     static let appLockUnavailable = RRAlertContent(error: .appLockNotAvailable)
 
+    static let appLockTurnedOn = RRAlertContent(
+        title: "App Lock turned on",
+        message: "Rentory will ask you to unlock the app before showing your rental records.",
+        buttonTitle: "OK"
+    )
+
+    static let appLockNotTurnedOn = RRAlertContent(
+        title: "App Lock not turned on",
+        message: "You can try again when you are ready.",
+        buttonTitle: "OK"
+    )
+
+    static let appLockTurnedOff = RRAlertContent(
+        title: "App Lock turned off",
+        message: "Rentory will open without asking to unlock.",
+        buttonTitle: "OK"
+    )
+
+    static let appLockStillOn = RRAlertContent(
+        title: "App Lock is still on",
+        message: "Rentory will keep asking to unlock before showing your records.",
+        buttonTitle: "OK"
+    )
+
     static let photoNotAdded = RRAlertContent(error: .photoCouldNotBeAdded)
 
     static let documentNotOpened = RRAlertContent(error: .documentCouldNotBeOpened)

@@ -20,25 +20,21 @@ final class AppSecurityState: ObservableObject {
 
     private let appLockService: AppLockService
     private let userDefaults: UserDefaults
-    private let lockDelay: TimeInterval
     private let appLockPreferenceKey = "isAppLockEnabled"
 
     convenience init() {
         self.init(
             appLockService: AppLockService(),
-            userDefaults: .standard,
-            lockDelay: 30
+            userDefaults: .standard
         )
     }
 
     init(
         appLockService: AppLockService,
-        userDefaults: UserDefaults = .standard,
-        lockDelay: TimeInterval = 30
+        userDefaults: UserDefaults = .standard
     ) {
         self.appLockService = appLockService
         self.userDefaults = userDefaults
-        self.lockDelay = lockDelay
 
         let storedPreference = userDefaults.bool(forKey: appLockPreferenceKey)
         let isAvailable = appLockService.isAuthenticationAvailable()
@@ -59,14 +55,19 @@ final class AppSecurityState: ObservableObject {
     func handleScenePhaseChange(_ scenePhase: ScenePhase) {
         switch scenePhase {
         case .active:
-            if isAppLockEnabled, shouldLockAfterBackground {
+            if isAppLockEnabled, lastBackgroundedAt != nil {
                 isLocked = true
+                shouldShowPrivacyCover = true
+            } else {
+                shouldShowPrivacyCover = isLocked
             }
-            shouldShowPrivacyCover = isLocked
         case .inactive:
             shouldShowPrivacyCover = true
         case .background:
             lastBackgroundedAt = .now
+            if isAppLockEnabled {
+                isLocked = true
+            }
             shouldShowPrivacyCover = true
         @unknown default:
             break
@@ -77,6 +78,7 @@ final class AppSecurityState: ObservableObject {
         guard isAppLockEnabled else {
             isLocked = false
             shouldShowPrivacyCover = false
+            lastBackgroundedAt = nil
             return
         }
 
@@ -89,14 +91,15 @@ final class AppSecurityState: ObservableObject {
             if didAuthenticate {
                 isLocked = false
                 shouldShowPrivacyCover = false
+                lastBackgroundedAt = nil
                 alertContent = nil
             } else {
-                alertContent = DialogCopy.appUnlockFailed
+                alertContent = DialogCopy.appLockStillOn
             }
         } catch let error as AppLockError {
             alertContent = alertContent(for: error)
         } catch {
-            alertContent = DialogCopy.appUnlockFailed
+            alertContent = DialogCopy.appLockStillOn
         }
     }
 
@@ -114,41 +117,44 @@ final class AppSecurityState: ObservableObject {
         defer { isAuthenticating = false }
 
         do {
-            let didAuthenticate = try await appLockService.authenticate()
+            let didAuthenticate = try await appLockService.authenticate(
+                reason: isEnabled
+                    ? "Unlock Rentory to turn on App Lock."
+                    : "Unlock Rentory to turn off App Lock."
+            )
 
             guard didAuthenticate else {
-                alertContent = DialogCopy.appUnlockFailed
+                alertContent = isEnabled ? DialogCopy.appLockNotTurnedOn : DialogCopy.appLockStillOn
                 return false
             }
 
             persistAppLockPreference(isEnabled)
             isAppLockEnabled = isEnabled
-            isLocked = false
-            shouldShowPrivacyCover = false
-            alertContent = nil
+            lastBackgroundedAt = nil
 
-            if !isEnabled {
+            if isEnabled {
+                isLocked = false
+                shouldShowPrivacyCover = false
+                alertContent = DialogCopy.appLockTurnedOn
+            } else {
                 lastBackgroundedAt = nil
                 isLocked = false
                 shouldShowPrivacyCover = false
+                alertContent = DialogCopy.appLockTurnedOff
             }
 
             return true
         } catch let error as AppLockError {
-            alertContent = alertContent(for: error)
+            if case .notAvailable = error {
+                alertContent = DialogCopy.appLockUnavailable
+            } else {
+                alertContent = isEnabled ? DialogCopy.appLockNotTurnedOn : DialogCopy.appLockStillOn
+            }
             return false
         } catch {
-            alertContent = DialogCopy.appUnlockFailed
+            alertContent = isEnabled ? DialogCopy.appLockNotTurnedOn : DialogCopy.appLockStillOn
             return false
         }
-    }
-
-    private var shouldLockAfterBackground: Bool {
-        guard let lastBackgroundedAt else {
-            return true
-        }
-
-        return Date().timeIntervalSince(lastBackgroundedAt) >= lockDelay
     }
 
     private func persistAppLockPreference(_ isEnabled: Bool) {
@@ -160,7 +166,7 @@ final class AppSecurityState: ObservableObject {
         case .notAvailable:
             DialogCopy.appLockUnavailable
         case .unableToUnlock, .tryAgainLater:
-            DialogCopy.appUnlockFailed
+            DialogCopy.appLockStillOn
         }
     }
 }

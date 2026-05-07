@@ -25,4 +25,10 @@ extension View {
     func rrDialogStyle() -> some View {
         modifier(RRDialogStyle())
     }
+
+    func rrAdaptiveSheetPresentation() -> some View {
+        self
+            .presentationBackground(.clear)
+            .presentationDragIndicator(.hidden)
+    }
 }

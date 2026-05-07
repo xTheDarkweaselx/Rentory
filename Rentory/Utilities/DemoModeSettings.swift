@@ -13,6 +13,7 @@ enum DemoModeSettings {
     static let demoTownCity = "Sampletown"
     static let demoPostcode = "AB1 2CD"
     static let demoRecordNote = "Sample data for testing and screenshots only."
+    static let demoMarker = "[Rentory sample data]"
 
     private static let demoPropertyIdentifierKey = "debugDemoPropertyIdentifier"
 
@@ -38,10 +39,12 @@ enum DemoModeSettings {
             return true
         }
 
-        return propertyPack.nickname == demoRecordName
+        return (
+            propertyPack.nickname == demoRecordName
             && propertyPack.townCity == demoTownCity
             && propertyPack.postcode == demoPostcode
             && propertyPack.notes?.contains(demoRecordNote) == true
+        ) || propertyPack.notes?.contains(demoMarker) == true
     }
 }
 #endif

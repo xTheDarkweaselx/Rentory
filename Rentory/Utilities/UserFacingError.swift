@@ -52,6 +52,12 @@ extension UserFacingError {
         recoveryActionTitle: "Try again"
     )
 
+    static let fileTypeNotSupported = UserFacingError(
+        title: "File not added",
+        message: "This file type is not supported yet.",
+        recoveryActionTitle: "OK"
+    )
+
     static let documentCouldNotBeOpened = UserFacingError(
         title: "Document not opened",
         message: "This document could not be opened here.",
@@ -109,6 +115,12 @@ extension UserFacingError {
     static let purchaseRestored = UserFacingError(
         title: "Purchase restored",
         message: "Your lifetime unlock is ready to use on this device.",
+        recoveryActionTitle: "OK"
+    )
+
+    static let purchaseCancelled = UserFacingError(
+        title: "Purchase cancelled",
+        message: "No problem. You can unlock Rentory whenever you are ready.",
         recoveryActionTitle: "OK"
     )
 

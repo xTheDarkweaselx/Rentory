@@ -6,44 +6,78 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct ICloudSyncSettingsView: View {
-    @State private var syncStatus: SyncStatus = .checking
-    @State private var alertContent: RRAlertContent?
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
-    private let statusService = ICloudSyncStatusService()
+    @State private var isShowingExportBackup = false
+    @State private var isShowingImportBackup = false
 
     var body: some View {
-        Form {
-            Section {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Keep Rentory in sync")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
+        Group {
+            if PlatformLayout.isPhone && horizontalSizeClass != .regular {
+                compactView
+            } else if usesEmbeddedNavigationLayout {
+                RRFormContainer(maxWidth: 920) {
+                    RRResponsiveFormGrid(items: detailGridItems)
+                }
+            } else {
+                RRMacSheetContainer(maxWidth: 920, minHeight: PlatformLayout.isMac ? 620 : nil) {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                        RRSheetHeader(
+                            title: "iCloud Sync",
+                            subtitle: "Check whether iCloud is available for Rentory on this device.",
+                            systemImage: "icloud"
+                        )
 
-                        Text("Use iCloud to keep your Rentory records available across your devices signed in with the same Apple ID.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-
-                        Text("Rentory does not use its own server. If you turn this on, your records are stored in your private iCloud account.")
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
+                        RRResponsiveFormGrid(items: detailGridItems)
                     }
                 }
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
             }
+        }
+        .navigationTitle("iCloud Sync")
+        .rrInlineNavigationTitle()
+        .sheet(isPresented: $isShowingExportBackup) {
+            ExportBackupView()
+                .rrUsesEmbeddedNavigationLayout(false)
+        }
+        .sheet(isPresented: $isShowingImportBackup) {
+            ImportBackupView()
+                .rrUsesEmbeddedNavigationLayout(false)
+        }
+        .task {
+            await iCloudSyncService.refreshStatus()
+        }
+    }
 
+    private var detailGridItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                statusPanel
+            },
+            RRResponsiveFormGridItem {
+                backupsPanel
+            },
+            RRResponsiveFormGridItem(span: .fullWidth) {
+                guidancePanel
+            },
+        ]
+    }
+
+    private var compactView: some View {
+        Form {
             Section("iCloud Sync") {
-                Toggle("Sync with iCloud", isOn: .constant(false))
-                    .disabled(true)
+                LabeledContent("iCloud status", value: iCloudSyncService.syncStatus.title)
+                Toggle("Sync Rentory with iCloud", isOn: toggleBinding)
+                    .disabled(iCloudSyncService.syncStatus != .available || iCloudSyncService.isSyncing)
 
-                LabeledContent("iCloud status", value: syncStatus.title)
-
-                RRSecondaryButton(title: syncStatus == .checking ? "Checking iCloud status…" : "Check iCloud status", isDisabled: syncStatus == .checking) {
+                RRSecondaryButton(title: iCloudSyncService.isSyncing ? "Syncing…" : "Sync now", isDisabled: !iCloudSyncService.isSyncEnabled || iCloudSyncService.isSyncing) {
                     Task {
-                        await refreshStatus()
+                        await iCloudSyncService.syncNow(context: modelContext)
                     }
                 }
             }
@@ -55,54 +89,113 @@ struct ICloudSyncSettingsView: View {
             }
 
             Section("Backups") {
-                NavigationLink("Export a backup") {
-                    ExportBackupView()
-                }
+                backupActionButtons
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+    }
 
-                NavigationLink("Import a backup") {
-                    ImportBackupView()
+    private var statusPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Keep Rentory in sync")
+                    .font(RRTypography.headline)
+
+                Text("Use iCloud to keep your Rentory records available across your devices signed in with the same Apple Account.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+
+                LabeledContent("iCloud status", value: iCloudSyncService.syncStatus.title)
+                Toggle("Sync Rentory with iCloud", isOn: toggleBinding)
+                    .disabled(iCloudSyncService.syncStatus != .available || iCloudSyncService.isSyncing)
+
+                LabeledContent("Last synced", value: lastSyncedText)
+
+                RRSecondaryButton(title: iCloudSyncService.isSyncing ? "Syncing…" : "Sync now", isDisabled: !iCloudSyncService.isSyncEnabled || iCloudSyncService.isSyncing) {
+                    Task {
+                        await iCloudSyncService.syncNow(context: modelContext)
+                    }
                 }
             }
         }
-        .navigationTitle("iCloud Sync")
-        .rrInlineNavigationTitle()
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
-        .alert(item: $alertContent) { content in
-            Alert(
-                title: Text(content.title),
-                message: Text(content.message),
-                dismissButton: .cancel(Text(content.buttonTitle))
-            )
+    }
+
+    private var backupsPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Backups")
+                    .font(RRTypography.headline)
+
+                Text("Export or import a backup whenever you want an extra copy of your Rentory records.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+
+                backupActionButtons
+            }
         }
-        .task {
-            await refreshStatus()
+    }
+
+    private var guidancePanel: some View {
+        RRGlassPanel {
+            Text(statusMessage)
+                .font(RRTypography.body)
+                .foregroundStyle(RRColours.mutedText)
+        }
+    }
+
+    @ViewBuilder
+    private var backupActionButtons: some View {
+        if usesEmbeddedNavigationLayout {
+            RRSecondaryButton(title: "Export a backup") {
+                isShowingExportBackup = true
+            }
+
+            RRSecondaryButton(title: "Import a backup") {
+                isShowingImportBackup = true
+            }
+        } else {
+            NavigationLink("Export a backup") {
+                ExportBackupView()
+            }
+
+            NavigationLink("Import a backup") {
+                ImportBackupView()
+            }
         }
     }
 
     private var statusMessage: String {
-        switch syncStatus {
+        switch iCloudSyncService.syncStatus {
         case .available:
-            return "Your records stay on this device. Full iCloud sync setup will be added later. For now, you can export or import a backup whenever you need one."
+            return iCloudSyncService.isSyncEnabled
+                ? "Rentory is set to keep this device in step with your private iCloud account."
+                : "iCloud is available on this device. Turn on sync when you want Rentory to keep your records in step across your devices."
         case .unavailable:
             return "Check that you are signed in to iCloud and that iCloud Drive is enabled."
         case .checking:
             return "Checking your iCloud status."
         case .unknown:
-            return "iCloud status could not be confirmed just now. Your records stay on this device."
+            return "iCloud status could not be confirmed just now."
         }
     }
 
-    private func refreshStatus() async {
-        syncStatus = .checking
-        let checkedStatus = await statusService.checkStatus()
-        syncStatus = checkedStatus
+    private var toggleBinding: Binding<Bool> {
+        Binding(
+            get: { iCloudSyncService.isSyncEnabled },
+            set: { newValue in
+                Task {
+                    await iCloudSyncService.setSyncEnabled(newValue, context: modelContext)
+                }
+            }
+        )
+    }
 
-        if checkedStatus == .unavailable {
-            alertContent = RRAlertContent(
-                title: "iCloud is not available",
-                message: "Check that you are signed in to iCloud and that iCloud Drive is enabled."
-            )
+    private var lastSyncedText: String {
+        guard let lastSyncDate = iCloudSyncService.lastSyncDate else {
+            return iCloudSyncService.isSyncEnabled ? "Waiting for first sync" : "Not turned on"
         }
+
+        return lastSyncDate.formatted(date: .abbreviated, time: .shortened)
     }
 }

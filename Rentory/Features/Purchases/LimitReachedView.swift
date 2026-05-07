@@ -42,13 +42,6 @@ struct LimitReachedView: View {
             }
             .navigationTitle("Unlock Rentory")
             .rrInlineNavigationTitle()
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Not now") {
-                        dismiss()
-                    }
-                }
-            }
             .sheet(isPresented: $isShowingPaywall) {
                 PaywallView()
             }

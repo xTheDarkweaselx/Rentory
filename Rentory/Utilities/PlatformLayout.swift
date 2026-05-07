@@ -24,9 +24,11 @@ enum PlatformLayout {
     static let isPhone = false
     #endif
 
-    static let preferredFormMaxWidth: CGFloat = isMac ? 780 : (isPad ? 700 : .infinity)
-    static let preferredDialogWidth: CGFloat = isMac ? 700 : (isPad ? 640 : .infinity)
+    static let preferredFormMaxWidth: CGFloat = isMac ? 1120 : (isPad ? 1000 : .infinity)
+    static let preferredDialogWidth: CGFloat = isMac ? 760 : (isPad ? 700 : .infinity)
     static let preferredContentMaxWidth: CGFloat = isMac ? 980 : (isPad ? 860 : .infinity)
+    static let preferredRecordDialogWidth: CGFloat = isMac ? 1120 : (isPad ? 1000 : .infinity)
+    static let preferredSettingsDialogWidth: CGFloat = isMac ? 1180 : (isPad ? 1000 : .infinity)
     static let preferredSidebarMinWidth: CGFloat = isMac ? 280 : 250
     static let preferredSidebarIdealWidth: CGFloat = isMac ? 320 : 280
     static let preferredSidebarMaxWidth: CGFloat = isMac ? 360 : 320
@@ -53,6 +55,16 @@ enum PlatformLayout {
     }
 
     static var prefersFooterButtons: Bool {
-        isMac
+        isMac || isPad
+    }
+
+    static func responsiveColumnCount(for width: CGFloat) -> Int {
+        if width < 720 {
+            return 1
+        } else if width <= 1050 {
+            return 2
+        } else {
+            return 3
+        }
     }
 }

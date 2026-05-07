@@ -95,6 +95,7 @@ struct TimelineListView: View {
         }
         .sheet(isPresented: $isShowingAddEventView) {
             AddTimelineEventView(propertyPack: propertyPack)
+                .rrAdaptiveSheetPresentation()
         }
     }
 

@@ -31,9 +31,17 @@ func isLightweightEmail(_ value: String) -> Bool {
     return true
 }
 
-struct PropertyFormView<Footer: View, ManageSection: View>: View {
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+enum PropertyEditorTab: String, CaseIterable, Identifiable {
+    case basics = "Basics"
+    case tenancy = "Tenancy"
+    case contacts = "Contacts"
+    case files = "Files"
+    case notes = "Notes"
 
+    var id: String { rawValue }
+}
+
+struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: View {
     let title: String
     let subtitle: String
     let systemImage: String
@@ -52,8 +60,11 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
     @Binding var depositSchemeName: String
     @Binding var depositReference: String
     @Binding var notes: String
+    let filesContent: FilesContent
     let footer: Footer
     let manageSection: ManageSection
+
+    @State private var selectedTab: PropertyEditorTab = .basics
 
     init(
         title: String,
@@ -74,6 +85,7 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
         depositSchemeName: Binding<String>,
         depositReference: Binding<String>,
         notes: Binding<String>,
+        @ViewBuilder filesContent: () -> FilesContent,
         @ViewBuilder footer: () -> Footer,
         @ViewBuilder manageSection: () -> ManageSection = { EmptyView() }
     ) {
@@ -95,113 +107,148 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
         _depositSchemeName = depositSchemeName
         _depositReference = depositReference
         _notes = notes
+        self.filesContent = filesContent()
         self.footer = footer()
         self.manageSection = manageSection()
     }
 
     var body: some View {
-        Group {
-            if PlatformLayout.prefersSplitView(for: horizontalSizeClass) {
-                RRFormContainer {
-                    RRSheetHeader(
-                        title: title,
-                        subtitle: subtitle,
-                        systemImage: systemImage
-                    )
-
-                    helperPanel
-                    propertySection
-                    tenancySection
-                    contactSection
-                    depositSection
-                    notesSection
-
-                    if !isManageSectionEmpty {
-                        RRFormSection(title: "Manage record") {
-                            manageSection
-                        }
-                    }
-
-                    footer
-                }
-            } else {
-                Form {
-                    Section {
-                        RRSheetHeader(
-                            title: title,
-                            subtitle: subtitle,
-                            systemImage: systemImage
-                        )
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                    }
-
-                    Section {
-                        helperText
-
-                        if let validationMessage {
-                            validationLabel(message: validationMessage)
-                        }
-                    }
-
-                    compactPropertySection
-                    compactTenancySection
-                    compactContactSection
-                    compactDepositSection
-                    compactNotesSection
-
-                    if !isManageSectionEmpty {
-                        Section {
-                            manageSection
-                        }
-                    }
-
-                    Section {
-                        footer
-                    }
-                }
-                .scrollContentBackground(.hidden)
-                .background(RRBackgroundView())
-            }
-        }
-    }
-
-    private var helperPanel: some View {
-        RRGlassPanel {
-            VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
-                helperText
-
+        RRAdaptiveModalContainer(
+            preferredWidth: PlatformLayout.preferredRecordDialogWidth,
+            preferredHeight: 760,
+            minWidth: 900,
+            minHeight: 640
+        ) {
+            RRSheetHeader(
+                title: title,
+                subtitle: subtitle,
+                systemImage: systemImage
+            )
+        } topBar: {
+            VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                 if let validationMessage {
                     validationLabel(message: validationMessage)
+                        .padding(.horizontal, 4)
+                }
+                tabPicker
+            }
+        } content: {
+            selectedTabContent
+        } footer: {
+            footer
+        }
+    }
+
+    private var tabPicker: some View {
+        RRGlassPanel(padding: 14) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    tabButtons
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        tabButtons
+                    }
                 }
             }
         }
     }
 
-    private var helperText: some View {
-        Text("Only the property name is needed. You can add more details now or later.")
-            .font(RRTypography.footnote)
-            .foregroundStyle(RRColours.mutedText)
-            .fixedSize(horizontal: false, vertical: true)
+    private var tabButtons: some View {
+        ForEach(PropertyEditorTab.allCases) { tab in
+            Button {
+                selectedTab = tab
+            } label: {
+                Text(tab.rawValue)
+                    .font(RRTypography.body.weight(.semibold))
+                    .foregroundStyle(selectedTab == tab ? Color.white : RRColours.primary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.94) : RRColours.cardBackground.opacity(0.55))
+                    )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var selectedTabContent: some View {
+        switch selectedTab {
+        case .basics:
+            RRResponsiveFormGrid(items: [
+                RRResponsiveFormGridItem {
+                    basicsSection
+                },
+                RRResponsiveFormGridItem {
+                    addressSection
+                },
+            ])
+        case .tenancy:
+            RRResponsiveFormGrid(items: [
+                RRResponsiveFormGridItem {
+                    tenancyDatesSection
+                },
+                RRResponsiveFormGridItem {
+                    depositSection
+                },
+            ])
+        case .contacts:
+            RRResponsiveFormGrid(items: [
+                RRResponsiveFormGridItem {
+                    contactsSection
+                },
+            ])
+        case .files:
+            filesContent
+        case .notes:
+            RRResponsiveFormGrid(items: noteTabItems)
+        }
+    }
+
+    private var noteTabItems: [RRResponsiveFormGridItem] {
+        var items: [RRResponsiveFormGridItem] = [
+            RRResponsiveFormGridItem(span: .fullWidth) {
+                notesSection
+            },
+        ]
+
+        if !isManageSectionEmpty {
+            items.append(
+                RRResponsiveFormGridItem(span: .fullWidth) {
+                    RRFormSection(title: "Manage record") {
+                        manageSection
+                    }
+                }
+            )
+        }
+
+        return items
     }
 
     private func validationLabel(message: String) -> some View {
         Text(message)
             .font(RRTypography.footnote)
             .foregroundStyle(RRColours.danger)
-            .accessibilityLabel("Validation message. \(message)")
             .fixedSize(horizontal: false, vertical: true)
     }
 
-    private var propertySection: some View {
-        RRFormSection(title: "Property") {
+    private var basicsSection: some View {
+        RRFormSection(title: "Basics", message: propertyValidationMessage) {
             RRFormFieldRow(title: "Property name") {
                 TextField("Property name", text: $nickname)
                     .rrTextInputAutocapitalizationWords()
                     .textFieldStyle(.roundedBorder)
                     .accessibilityHint("Required")
             }
+        }
+    }
 
+    private var addressSection: some View {
+        RRFormSection(title: "Address") {
             RRFormFieldRow(title: "Address line 1") {
                 TextField("Address line 1", text: $addressLine1)
                     .rrTextInputAutocapitalizationWords()
@@ -228,9 +275,9 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
         }
     }
 
-    private var tenancySection: some View {
-        RRFormSection(title: "Tenancy") {
-            Toggle("Add start date", isOn: $hasTenancyStartDate.animation())
+    private var tenancyDatesSection: some View {
+        RRFormSection(title: "Tenancy", message: tenancyValidationMessage) {
+            Toggle("Add tenancy start date", isOn: $hasTenancyStartDate.animation())
                 .toggleStyle(.switch)
 
             if hasTenancyStartDate {
@@ -241,7 +288,7 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
                 }
             }
 
-            Toggle("Add end date", isOn: $hasTenancyEndDate.animation())
+            Toggle("Add tenancy end date", isOn: $hasTenancyEndDate.animation())
                 .toggleStyle(.switch)
 
             if hasTenancyEndDate {
@@ -250,24 +297,6 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
                         .labelsHidden()
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-            }
-        }
-    }
-
-    private var contactSection: some View {
-        RRFormSection(title: "Landlord or letting agent") {
-            RRFormFieldRow(title: "Name") {
-                TextField("Name", text: $landlordOrAgentName)
-                    .rrTextInputAutocapitalizationWords()
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            RRFormFieldRow(title: "Email") {
-                TextField("Email", text: $landlordOrAgentEmail)
-                    .rrEmailKeyboard()
-                    .rrTextInputAutocapitalizationNever()
-                    .autocorrectionDisabled()
-                    .textFieldStyle(.roundedBorder)
             }
         }
     }
@@ -288,106 +317,81 @@ struct PropertyFormView<Footer: View, ManageSection: View>: View {
         }
     }
 
+    private var contactsSection: some View {
+        RRFormSection(title: "Contacts", message: contactValidationMessage) {
+            RRFormFieldRow(title: "Landlord or letting agent name") {
+                TextField("Name", text: $landlordOrAgentName)
+                    .rrTextInputAutocapitalizationWords()
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            RRFormFieldRow(title: "Landlord or letting agent email") {
+                TextField("Email", text: $landlordOrAgentEmail)
+                    .rrEmailKeyboard()
+                    .rrTextInputAutocapitalizationNever()
+                    .autocorrectionDisabled()
+                    .textFieldStyle(.roundedBorder)
+            }
+        }
+    }
+
     private var notesSection: some View {
-        RRFormSection(title: "Notes") {
-            RRFormFieldRow(
-                title: "Notes",
-                message: "Add anything you want to keep with this record."
-            ) {
-                ZStack(alignment: .topLeading) {
+        RRFormSection(title: "Notes", message: "Add anything useful you want to remember.") {
+            VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                Text("Notes")
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
+
+                notesEditor
+            }
+        }
+    }
+
+    private var notesEditor: some View {
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: RRTheme.cornerRadius, style: .continuous)
+                .fill(RRColours.cardBackground.opacity(0.55))
+                .overlay {
                     RoundedRectangle(cornerRadius: RRTheme.cornerRadius, style: .continuous)
-                        .fill(RRColours.cardBackground.opacity(0.55))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: RRTheme.cornerRadius, style: .continuous)
-                                .stroke(RRColours.border.opacity(0.3), lineWidth: 1)
-                        }
-
-                    if trimmed(notes).isEmpty {
-                        Text("Add any notes you want to keep here")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 14)
-                            .allowsHitTesting(false)
-                    }
-
-                    TextEditor(text: $notes)
-                        .scrollContentBackground(.hidden)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
-                        .frame(minHeight: 140)
+                        .stroke(RRColours.border.opacity(0.3), lineWidth: 1)
                 }
-                .frame(minHeight: 140)
-            }
-        }
-    }
 
-    private var compactPropertySection: some View {
-        Section("Property") {
-            TextField("Property name", text: $nickname)
-                .rrTextInputAutocapitalizationWords()
-                .accessibilityHint("Required")
-
-            TextField("Address line 1", text: $addressLine1)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Address line 2", text: $addressLine2)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Town or city", text: $townCity)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Postcode", text: $postcode)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var compactTenancySection: some View {
-        Section("Tenancy") {
-            Toggle("Add tenancy start date", isOn: $hasTenancyStartDate.animation())
-
-            if hasTenancyStartDate {
-                DatePicker("Tenancy start date", selection: $tenancyStartDate, displayedComponents: .date)
+            if trimmed(notes).isEmpty {
+                Text("Add anything useful you want to remember.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 14)
+                    .allowsHitTesting(false)
             }
 
-            Toggle("Add tenancy end date", isOn: $hasTenancyEndDate.animation())
-
-            if hasTenancyEndDate {
-                DatePicker("Tenancy end date", selection: $tenancyEndDate, displayedComponents: .date)
-            }
+            TextEditor(text: $notes)
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .frame(minHeight: 180)
         }
-    }
-
-    private var compactContactSection: some View {
-        Section("Landlord or letting agent") {
-            TextField("Name", text: $landlordOrAgentName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Email", text: $landlordOrAgentEmail)
-                .rrEmailKeyboard()
-                .rrTextInputAutocapitalizationNever()
-                .autocorrectionDisabled()
-        }
-    }
-
-    private var compactDepositSection: some View {
-        Section("Deposit") {
-            TextField("Scheme name", text: $depositSchemeName)
-                .rrTextInputAutocapitalizationWords()
-
-            TextField("Reference", text: $depositReference)
-                .rrTextInputAutocapitalizationCharacters()
-        }
-    }
-
-    private var compactNotesSection: some View {
-        Section("Notes") {
-            TextField("Add any notes you want to keep here", text: $notes, axis: .vertical)
-                .lineLimit(4...8)
-        }
+        .frame(minHeight: 180)
     }
 
     private var isManageSectionEmpty: Bool {
         ManageSection.self == EmptyView.self
+    }
+
+    private var propertyValidationMessage: String? {
+        switch validationMessage {
+        case "Add a property name to save this record.", "Add a property name to continue.":
+            validationMessage
+        default:
+            nil
+        }
+    }
+
+    private var tenancyValidationMessage: String? {
+        validationMessage == "Check the tenancy dates. The end date can’t be before the start date." ? validationMessage : nil
+    }
+
+    private var contactValidationMessage: String? {
+        validationMessage == "Check the email address or leave it blank." ? validationMessage : nil
     }
 }

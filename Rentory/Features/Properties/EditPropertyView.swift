@@ -11,7 +11,6 @@ import SwiftUI
 struct EditPropertyView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-
     let propertyPack: PropertyPack
 
     @State private var nickname: String
@@ -78,6 +77,8 @@ struct EditPropertyView: View {
                 depositReference: $depositReference,
                 notes: $notes
             ) {
+                filesTabSummary
+            } footer: {
                 footerButtons
             } manageSection: {
                 RRDestructiveButton(title: "Archive record") {
@@ -123,14 +124,14 @@ struct EditPropertyView: View {
                         }
                         .frame(width: 150)
 
-                        RRPrimaryButton(title: "Save") {
+                        RRPrimaryButton(title: "Save changes") {
                             saveChanges()
                         }
                         .frame(width: 150)
                     }
                 } else {
                     VStack(spacing: RRTheme.controlSpacing) {
-                        RRPrimaryButton(title: "Save") {
+                        RRPrimaryButton(title: "Save changes") {
                             saveChanges()
                         }
 
@@ -141,6 +142,39 @@ struct EditPropertyView: View {
                 }
             }
         }
+    }
+
+    private var filesTabSummary: some View {
+        RRResponsiveFormGrid(items: [
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("Files")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("Documents and photos already added to this record stay available here.")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                }
+            },
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("Current files")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("\(propertyPack.documents.count) document\(propertyPack.documents.count == 1 ? "" : "s")")
+                            .font(RRTypography.body)
+                        Text("\(propertyPack.rooms.flatMap(\.checklistItems).flatMap(\.photos).count) photo\(propertyPack.rooms.flatMap(\.checklistItems).flatMap(\.photos).count == 1 ? "" : "s")")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                }
+            },
+        ])
     }
 
     private func saveChanges() {

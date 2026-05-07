@@ -12,6 +12,7 @@ struct RRSheetHeader: View {
     var subtitle: String? = nil
     var systemImage: String? = nil
     var showsCloseButton = false
+    var closeLabel = "Close"
     var closeAction: (() -> Void)? = nil
 
     var body: some View {
@@ -40,10 +41,13 @@ struct RRSheetHeader: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(RRColours.primary)
-                        .frame(width: 36, height: 36)
-                        .background(RRTheme.accentMaterial, in: Circle())
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Close")
+                .buttonStyle(.plain)
+                .background(.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .accessibilityLabel(closeLabel)
             }
         }
         .padding(RRTheme.cardSpacing)

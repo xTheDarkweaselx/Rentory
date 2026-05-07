@@ -86,6 +86,7 @@ struct DocumentsListView: View {
         }
         .sheet(isPresented: $isShowingAddDocumentView) {
             AddDocumentView(propertyPack: propertyPack)
+                .rrAdaptiveSheetPresentation()
         }
     }
 }

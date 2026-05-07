@@ -19,6 +19,14 @@ struct PropertiesListView: View {
         propertyPacks.filter { !$0.isArchived }
     }
 
+    private var realPropertyPacksCount: Int {
+        propertyPacks.filter { !isSampleProperty($0) }.count
+    }
+
+    private var isOnlySampleDataUsingFreeRecord: Bool {
+        propertyPacks.contains(where: isSampleProperty) && realPropertyPacksCount == 0
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -79,9 +87,11 @@ struct PropertiesListView: View {
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
+                .rrAdaptiveSheetPresentation()
         }
         .sheet(isPresented: $isShowingCreateProperty) {
             CreatePropertyView()
+                .rrAdaptiveSheetPresentation()
         }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
@@ -95,8 +105,18 @@ struct PropertiesListView: View {
         ) {
             isShowingCreateProperty = true
         } else {
-            upgradePromptContent = FeatureAccessService.propertyLimitPrompt
+            upgradePromptContent = FeatureAccessService.propertyLimitPrompt(
+                isSampleDataUsingFreeRecord: isOnlySampleDataUsingFreeRecord
+            )
         }
+    }
+
+    private func isSampleProperty(_ propertyPack: PropertyPack) -> Bool {
+#if DEBUG
+        DemoModeSettings.matchesDemoRecord(propertyPack)
+#else
+        false
+#endif
     }
 }
 

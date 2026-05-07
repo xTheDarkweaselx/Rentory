@@ -1,0 +1,25 @@
+{
+  "type" : "local",
+  "version" : 3,
+  "products" : [
+    {
+      "displayPrice" : "14.99",
+      "familyShareable" : false,
+      "internalID" : "RENTORY_LIFETIME_UNLOCK",
+      "localizations" : [
+        {
+          "description" : "Unlock unlimited rental records, rooms, photos, full reports and App Lock.",
+          "displayName" : "Rentory Lifetime Unlock",
+          "locale" : "en_GB"
+        }
+      ],
+      "productID" : "com.fusionstudios.rentory.lifetimeunlock",
+      "referenceName" : "Rentory Lifetime Unlock",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_locale" : "en_GB",
+    "_storefront" : "GBR"
+  }
+}

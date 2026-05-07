@@ -43,7 +43,7 @@ extension UserFacingError {
 
     static let purchaseCouldNotBeChecked = UserFacingError(
         title: "Rentory could not check your purchase",
-        message: "Please try again.",
+        message: "The unlock option is not available right now. Please try again in a moment.",
         recoveryActionTitle: "Try again"
     )
 }

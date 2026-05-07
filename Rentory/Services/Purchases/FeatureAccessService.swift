@@ -28,10 +28,19 @@ struct FeatureAccessService {
         isUnlocked || !FreePlanLimits.appLockRequiresUnlock
     }
 
-    static let propertyLimitPrompt = UpgradePromptContent(
-        title: "You’ve used your free record",
-        message: "You can keep using this record. Unlock Rentory when you want to create more."
-    )
+    static func propertyLimitPrompt(isSampleDataUsingFreeRecord: Bool) -> UpgradePromptContent {
+        if isSampleDataUsingFreeRecord {
+            return UpgradePromptContent(
+                title: "Sample records are using your free slot",
+                message: "You can keep the sample records and make them your own, clear them in Settings > Demo data, or unlock Rentory to create more records."
+            )
+        }
+
+        return UpgradePromptContent(
+            title: "You’ve used your free record",
+            message: "You can keep using this record. Unlock Rentory when you want to create more."
+        )
+    }
 
     static let roomLimitPrompt = UpgradePromptContent(
         title: "You’ve added two rooms",
