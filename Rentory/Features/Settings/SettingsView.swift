@@ -9,6 +9,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var appSecurityState: AppSecurityState
@@ -147,6 +148,8 @@ struct SettingsView: View {
                     settingsDetailGrid(items: privacySecurityItems)
                 case .appLock:
                     settingsDetailGrid(items: appLockItems)
+                case .appearance:
+                    settingsDetailGrid(items: appearanceItems)
                 case .iCloudSync:
                     settingsDetailGrid(items: iCloudItems)
                 case .backups:
@@ -224,6 +227,28 @@ struct SettingsView: View {
                     title: "How it works",
                     body: "When App Lock is on, Rentory asks you to unlock before showing your rental records."
                 )
+            },
+        ]
+    }
+
+    private var appearanceItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "App appearance",
+                    body: "Choose how Rentory looks on this device."
+                ) {
+                    Picker("App appearance", selection: $appAppearanceRawValue) {
+                        ForEach(AppAppearance.allCases) { appearance in
+                            Text(appearance.title).tag(appearance.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(selectedAppearance.description)
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+                }
             },
         ]
     }
@@ -380,6 +405,12 @@ struct SettingsView: View {
                         handleAppLockChange(from: oldValue, to: newValue)
                     }
 
+                Picker("Appearance", selection: $appAppearanceRawValue) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.title).tag(appearance.rawValue)
+                    }
+                }
+
                 NavigationLink("iCloud sync", value: SettingsDestination.iCloudSync)
                 NavigationLink("Backups", value: SettingsDestination.backups)
                 NavigationLink("Rentory unlock", value: SettingsDestination.purchases)
@@ -519,6 +550,10 @@ struct SettingsView: View {
         }
     }
 
+    private var selectedAppearance: AppAppearance {
+        AppAppearance(rawValue: appAppearanceRawValue) ?? .deviceDefault
+    }
+
     private var appVersion: String? {
         guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
             return nil
@@ -535,6 +570,7 @@ struct SettingsView: View {
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case privacySecurity
     case appLock
+    case appearance
     case iCloudSync
     case backups
     case rentoryUnlock
@@ -547,6 +583,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .privacySecurity: "Privacy & Security"
         case .appLock: "App Lock"
+        case .appearance: "Appearance"
         case .iCloudSync: "iCloud Sync"
         case .backups: "Backups"
         case .rentoryUnlock: "Rentory Unlock"
@@ -559,6 +596,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .privacySecurity: "See how Rentory keeps your records private and where to manage data controls."
         case .appLock: "Choose whether Rentory should ask you to unlock before showing your records."
+        case .appearance: "Choose light, dark or this device’s default appearance."
         case .iCloudSync: "Check whether iCloud sync is available on this device."
         case .backups: "Keep a copy of your records when you want one."
         case .rentoryUnlock: "View your unlock status and restore earlier purchases."
@@ -571,6 +609,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .privacySecurity: "hand.raised.fill"
         case .appLock: "lock.shield.fill"
+        case .appearance: "circle.lefthalf.filled"
         case .iCloudSync: "icloud"
         case .backups: "externaldrive"
         case .rentoryUnlock: "sparkles"

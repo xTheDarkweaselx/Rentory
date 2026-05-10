@@ -82,6 +82,12 @@ extension UserFacingError {
         recoveryActionTitle: "Share report"
     )
 
+    static let reportCouldNotBeSaved = UserFacingError(
+        title: "Report not saved",
+        message: "Rentory could not save a copy of this report. Please try again.",
+        recoveryActionTitle: "Try again"
+    )
+
     static let recordCouldNotBeSaved = UserFacingError(
         title: "Record not saved",
         message: "Your changes could not be saved. Please try again.",

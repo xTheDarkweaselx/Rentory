@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		664E07C72FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
+		664E07C82FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
+		664E07C92FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		6691EEC42FA67181006FC53C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6691EEC32FA67181006FC53C /* StoreKit.framework */; };
 		66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 66C91F7E2FAAA38000EA887C /* Rentory.storekit */; };
 /* End PBXBuildFile section */
@@ -29,6 +32,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = "Rentory App Icon.icon"; sourceTree = "<group>"; };
 		6691EBCE2FA3DC04006FC53C /* Rentory.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Rentory.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6691EBDD2FA3DC06006FC53C /* RentoryTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RentoryTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6691EBE72FA3DC06006FC53C /* RentoryUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RentoryUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -83,6 +87,7 @@
 		6691EBC52FA3DC04006FC53C = {
 			isa = PBXGroup;
 			children = (
+				664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */,
 				66C91F7E2FAAA38000EA887C /* Rentory.storekit */,
 				6691EBD02FA3DC04006FC53C /* Rentory */,
 				6691EBE02FA3DC06006FC53C /* RentoryTests */,
@@ -232,6 +237,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */,
+				664E07C92FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +245,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				664E07C82FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,6 +253,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				664E07C72FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -408,8 +416,9 @@
 		6691EBF22FA3DC06006FC53C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Rentory/Rentory.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -454,7 +463,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.70;
+				MARKETING_VERSION = 0.80;
 				PRODUCT_BUNDLE_IDENTIFIER = "Fusion-Studios.Rentory";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
@@ -474,8 +483,9 @@
 		6691EBF32FA3DC06006FC53C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = Rentory/Rentory.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -520,7 +530,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
 				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.4;
-				MARKETING_VERSION = 0.70;
+				MARKETING_VERSION = 0.80;
 				PRODUCT_BUNDLE_IDENTIFIER = "Fusion-Studios.Rentory";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;

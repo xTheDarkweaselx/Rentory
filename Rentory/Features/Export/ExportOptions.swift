@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct ExportOptions: Codable, Equatable {
+struct ExportOptions: Codable, Equatable, Sendable {
     var includePropertyName: Bool
     var includeTownOrPostcode: Bool
     var includeFullAddress: Bool

@@ -19,8 +19,6 @@ struct ExportOptionsView: View {
     @State private var isCreatingReport = false
     @State private var upgradePromptContent: UpgradePromptContent?
 
-    private let exportService = PDFExportService()
-
     var body: some View {
         RRMacSheetContainer(maxWidth: 760) {
             HStack {
@@ -129,13 +127,24 @@ struct ExportOptionsView: View {
         }
 
         isCreatingReport = true
+        let snapshot = PDFReportSnapshot(propertyPack: propertyPack)
+        let selectedOptions = options
 
-        do {
-            createdReportURL = try exportService.createReport(for: propertyPack, options: options)
-        } catch {
-            userFacingError = .reportCouldNotBeCreated
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result {
+                try PDFExportService().createReport(for: snapshot, options: selectedOptions)
+            }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let reportURL):
+                    createdReportURL = reportURL
+                case .failure:
+                    userFacingError = .reportCouldNotBeCreated
+                }
+
+                isCreatingReport = false
+            }
         }
-
-        isCreatingReport = false
     }
 }

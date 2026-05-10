@@ -13,6 +13,8 @@ struct ReportShareView: View {
     var body: some View {
         ShareLink(item: reportURL) {
             Label("Share report", systemImage: "square.and.arrow.up")
+                .lineLimit(1)
+                .frame(width: 190)
         }
         .accessibilityHint("Opens the share sheet.")
     }

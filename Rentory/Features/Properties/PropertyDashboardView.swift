@@ -301,23 +301,47 @@ struct PropertyDashboardView: View {
                     TimelineListView(propertyPack: propertyPack)
                 } label: {
                     RRGlassCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(propertyPack.timelineEvents.sorted(by: { $0.eventDate < $1.eventDate }).prefix(3)) { event in
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.title)
-                                        .font(RRTypography.headline)
-                                        .foregroundStyle(RRColours.primary)
-
-                                    Text("\(event.eventType.rawValue) • \(event.eventDate.formatted(date: .abbreviated, time: .omitted))")
-                                        .font(RRTypography.footnote)
-                                        .foregroundStyle(RRColours.mutedText)
-                                }
+                        VStack(alignment: .leading, spacing: 0) {
+                            let previewEvents = Array(propertyPack.timelineEvents.sorted(by: { $0.eventDate > $1.eventDate }).prefix(3))
+                            ForEach(Array(previewEvents.enumerated()), id: \.element.id) { index, event in
+                                DashboardTimelinePreviewRow(
+                                    event: event,
+                                    isFirst: index == 0,
+                                    isLast: index == previewEvents.count - 1
+                                )
                             }
                         }
                     }
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private func timelineSymbol(for eventType: TimelineEventType) -> String {
+        switch eventType {
+        case .moveIn:
+            return "key.fill"
+        case .inventoryReviewed:
+            return "checkmark.square.fill"
+        case .issueNoticed:
+            return "exclamationmark.circle.fill"
+        case .issueReported:
+            return "paperplane.fill"
+        case .repairRequested:
+            return "wrench.fill"
+        case .repairCompleted:
+            return "checkmark.seal.fill"
+        case .cleaningCompleted:
+            return "sparkles"
+        case .inspection:
+            return "magnifyingglass"
+        case .moveOut:
+            return "rectangle.portrait.and.arrow.right"
+        case .depositDiscussion:
+            return "sterlingsign.circle.fill"
+        case .other:
+            return "circle.fill"
         }
     }
 
@@ -357,5 +381,89 @@ struct PropertyDashboardView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityHint(message)
+    }
+}
+
+private struct DashboardTimelinePreviewRow: View {
+    let event: TimelineEvent
+    let isFirst: Bool
+    let isLast: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            previewConnector
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(event.title)
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
+                    .lineLimit(2)
+
+                Text("\(event.eventType.rawValue) • \(event.eventDate.formatted(date: .abbreviated, time: .omitted))")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .lineLimit(2)
+            }
+            .padding(.vertical, 10)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(event.title), \(event.eventType.rawValue), \(event.eventDate.formatted(date: .abbreviated, time: .omitted))")
+    }
+
+    private var previewConnector: some View {
+        ZStack(alignment: .top) {
+            VStack(spacing: 0) {
+                Rectangle()
+                    .fill(isFirst ? Color.clear : RRColours.border.opacity(0.55))
+                    .frame(width: 2, height: 14)
+
+                Rectangle()
+                    .fill(isLast ? Color.clear : RRColours.border.opacity(0.55))
+                    .frame(width: 2)
+            }
+            .frame(width: 32)
+
+            ZStack {
+                Circle()
+                    .fill(.thinMaterial)
+                    .overlay {
+                        Circle()
+                            .stroke(RRColours.secondary.opacity(0.26), lineWidth: 1)
+                    }
+
+                Image(systemName: symbolName)
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(RRColours.secondary)
+            }
+            .frame(width: 32, height: 32)
+        }
+        .frame(minWidth: 32, idealWidth: 32, maxWidth: 32, minHeight: 68, alignment: .top)
+    }
+
+    private var symbolName: String {
+        switch event.eventType {
+        case .moveIn:
+            return "key.fill"
+        case .inventoryReviewed:
+            return "checkmark.square.fill"
+        case .issueNoticed:
+            return "exclamationmark.circle.fill"
+        case .issueReported:
+            return "paperplane.fill"
+        case .repairRequested:
+            return "wrench.fill"
+        case .repairCompleted:
+            return "checkmark.seal.fill"
+        case .cleaningCompleted:
+            return "sparkles"
+        case .inspection:
+            return "magnifyingglass"
+        case .moveOut:
+            return "rectangle.portrait.and.arrow.right"
+        case .depositDiscussion:
+            return "sterlingsign.circle.fill"
+        case .other:
+            return "circle.fill"
+        }
     }
 }

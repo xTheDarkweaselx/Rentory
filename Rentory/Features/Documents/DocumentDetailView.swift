@@ -11,6 +11,7 @@ import SwiftUI
 struct DocumentDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let document: DocumentRecord
 
@@ -36,57 +37,36 @@ struct DocumentDetailView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                 RRSheetHeader(
                     title: document.displayName,
                     subtitle: "Keep this document organised with a clear name and simple details.",
                     systemImage: "doc.text"
                 )
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
+
+                RRResponsiveFormGrid(items: [
+                    RRResponsiveFormGridItem {
+                        documentSection
+                    },
+                    RRResponsiveFormGridItem {
+                        reportSection
+                    },
+                    RRResponsiveFormGridItem(span: .fullWidth) {
+                        notesSection
+                    },
+                    RRResponsiveFormGridItem(span: .fullWidth) {
+                        actionsSection
+                    },
+                ])
             }
-
-            Section("Document") {
-                TextField("Document name", text: $displayName)
-                    .rrTextInputAutocapitalizationWords()
-
-                DocumentTypePickerView(selectedType: $documentType)
-
-                Toggle("Add document date", isOn: $hasDocumentDate.animation())
-
-                if hasDocumentDate {
-                    DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
-                }
-            }
-
-            Section("Notes") {
-                TextField("Add a short note", text: $notes, axis: .vertical)
-                    .lineLimit(3...6)
-            }
-
-            Section {
-                Toggle("Include in report", isOn: $includeInReport)
-                    .accessibilityLabel("Include in report")
-            }
-
-            Section {
-                NavigationLink("Open preview") {
-                    DocumentPreviewView(document: document)
-                }
-            }
-
-            Section {
-                RRDestructiveButton(title: "Delete document") {
-                    isShowingDeleteConfirmation = true
-                }
-                .accessibilityHint("Removes this document from this record.")
-            }
+            .frame(maxWidth: DeviceLayout.contentWidth(for: horizontalSizeClass, maximum: 900), alignment: .leading)
+            .padding(RRTheme.screenPadding)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
+        .background(RRBackgroundView())
         .navigationTitle(document.displayName)
         .rrInlineNavigationTitle()
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
                 Button("Save") {
@@ -103,6 +83,77 @@ struct DocumentDetailView: View {
                 message: Text(content.message),
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
+        }
+    }
+
+    private var documentSection: some View {
+        RRFormSection(title: "Document details") {
+            RRFormFieldRow(title: "Document name") {
+                TextField("Document name", text: $displayName)
+                    .rrTextInputAutocapitalizationWords()
+                    .textFieldStyle(.roundedBorder)
+            }
+
+            RRFormFieldRow(title: "Document type") {
+                DocumentTypePickerView(selectedType: $documentType)
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            Toggle("Add document date", isOn: $hasDocumentDate.animation())
+                .toggleStyle(.switch)
+
+            if hasDocumentDate {
+                RRFormFieldRow(title: "Document date") {
+                    DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+
+    private var reportSection: some View {
+        RRFormSection(title: "Report") {
+            Toggle("Include in report", isOn: $includeInReport)
+                .toggleStyle(.switch)
+                .accessibilityLabel("Include in report")
+
+            NavigationLink {
+                DocumentPreviewView(document: document)
+            } label: {
+                Label("Open preview", systemImage: "doc.richtext")
+                    .font(RRTypography.body.weight(.semibold))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
+                    .fill(RRColours.cardBackground.opacity(0.55))
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
+                    .stroke(RRColours.border.opacity(0.22), lineWidth: 1)
+            }
+        }
+    }
+
+    private var notesSection: some View {
+        RRFormSection(title: "Notes", message: "Add anything useful about this document.") {
+            TextField("Add a short note", text: $notes, axis: .vertical)
+                .lineLimit(4...8)
+                .textFieldStyle(.roundedBorder)
+        }
+    }
+
+    private var actionsSection: some View {
+        RRFormSection(title: "Manage document") {
+            RRDestructiveButton(title: "Delete document") {
+                isShowingDeleteConfirmation = true
+            }
+            .accessibilityHint("Removes this document from this record.")
         }
     }
 

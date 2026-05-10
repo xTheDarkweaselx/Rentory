@@ -10,11 +10,11 @@ import CoreGraphics
 import CoreText
 
 struct PDFReportBuilder {
-    private let photoStorageService: PhotoStorageService
+    private let fileStorageService: FileStorageService
     private let dateFormatter: DateFormatter
 
-    init(photoStorageService: PhotoStorageService = PhotoStorageService()) {
-        self.photoStorageService = photoStorageService
+    init(fileStorageService: FileStorageService = FileStorageService()) {
+        self.fileStorageService = fileStorageService
 
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_GB")
@@ -22,8 +22,16 @@ struct PDFReportBuilder {
         self.dateFormatter = formatter
     }
 
+    init(photoStorageService: PhotoStorageService) {
+        self.init()
+    }
+
     func buildReportData(for propertyPack: PropertyPack, options: ExportOptions) throws -> Data {
-        let content = makeReportSections(for: propertyPack, options: options)
+        try buildReportData(for: PDFReportSnapshot(propertyPack: propertyPack), options: options)
+    }
+
+    func buildReportData(for snapshot: PDFReportSnapshot, options: ExportOptions) throws -> Data {
+        let content = makeReportSections(for: snapshot, options: options)
         let pageBounds = CGRect(x: 0, y: 0, width: 595, height: 842)
         let data = NSMutableData()
         var mediaBox = pageBounds
@@ -47,26 +55,30 @@ struct PDFReportBuilder {
     }
 
     func makeReportSections(for propertyPack: PropertyPack, options: ExportOptions) -> [PDFReportSection] {
+        makeReportSections(for: PDFReportSnapshot(propertyPack: propertyPack), options: options)
+    }
+
+    func makeReportSections(for snapshot: PDFReportSnapshot, options: ExportOptions) -> [PDFReportSection] {
         let enforcedOptions = sanitised(options)
         var sections: [PDFReportSection] = []
 
-        sections.append(makeCoverSection(for: propertyPack, options: enforcedOptions))
-        sections.append(makePropertySummarySection(for: propertyPack, options: enforcedOptions))
+        sections.append(makeCoverSection(for: snapshot, options: enforcedOptions))
+        sections.append(makePropertySummarySection(for: snapshot, options: enforcedOptions))
 
         if enforcedOptions.includeRooms {
-            sections.append(makeRoomsSection(for: propertyPack, options: enforcedOptions))
+            sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
         }
 
         if enforcedOptions.includePhotos {
-            sections.append(makePhotosSection(for: propertyPack))
+            sections.append(makePhotosSection(for: snapshot))
         }
 
         if enforcedOptions.includeDocumentsList {
-            sections.append(makeDocumentsSection(for: propertyPack))
+            sections.append(makeDocumentsSection(for: snapshot))
         }
 
         if enforcedOptions.includeTimeline {
-            sections.append(makeTimelineSection(for: propertyPack))
+            sections.append(makeTimelineSection(for: snapshot))
         }
 
         sections.append(
@@ -85,7 +97,7 @@ struct PDFReportBuilder {
         return options
     }
 
-    private func makeCoverSection(for propertyPack: PropertyPack, options: ExportOptions) -> PDFReportSection {
+    private func makeCoverSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         var lines = ["Date created: \(dateFormatter.string(from: .now))"]
 
         if options.includePropertyName {
@@ -107,7 +119,7 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Rentory report", lines: lines)
     }
 
-    private func makePropertySummarySection(for propertyPack: PropertyPack, options: ExportOptions) -> PDFReportSection {
+    private func makePropertySummarySection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         var lines: [String] = []
 
         if options.includePropertyName {
@@ -153,7 +165,7 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Property summary", lines: lines)
     }
 
-    private func makeRoomsSection(for propertyPack: PropertyPack, options: ExportOptions) -> PDFReportSection {
+    private func makeRoomsSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         let rooms = propertyPack.rooms.sorted { $0.sortOrder < $1.sortOrder }
         var lines: [String] = []
 
@@ -182,7 +194,7 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Rooms and checklist", lines: lines)
     }
 
-    private func makePhotosSection(for propertyPack: PropertyPack) -> PDFReportSection {
+    private func makePhotosSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
         var lines: [String] = []
         var photos: [PDFReportPhotoEntry] = []
 
@@ -195,7 +207,7 @@ struct PDFReportBuilder {
                     }
                     details.append(dateFormatter.string(from: photo.capturedAt))
 
-                    let image = try? photoStorageService.loadPhoto(fileName: photo.localFileName).rrCGImage
+                    let image = try? thumbnailImage(for: photo.localFileName)
                     photos.append(PDFReportPhotoEntry(image: image, details: details))
                 }
             }
@@ -208,7 +220,7 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Photos", lines: lines, photos: photos)
     }
 
-    private func makeDocumentsSection(for propertyPack: PropertyPack) -> PDFReportSection {
+    private func makeDocumentsSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
         let documents = propertyPack.documents
             .filter(\.includeInExport)
             .sorted { $0.addedAt > $1.addedAt }
@@ -230,7 +242,7 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Documents list", lines: lines)
     }
 
-    private func makeTimelineSection(for propertyPack: PropertyPack) -> PDFReportSection {
+    private func makeTimelineSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
         let events = propertyPack.timelineEvents
             .filter(\.includeInExport)
             .sorted { $0.eventDate < $1.eventDate }
@@ -252,13 +264,13 @@ struct PDFReportBuilder {
         return PDFReportSection(title: "Timeline", lines: lines)
     }
 
-    private func townOrPostcode(for propertyPack: PropertyPack) -> String? {
+    private func townOrPostcode(for propertyPack: PDFReportSnapshot) -> String? {
         let parts = [trimmed(propertyPack.townCity), trimmed(propertyPack.postcode)].compactMap { $0 }
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " • ")
     }
 
-    private func fullAddress(for propertyPack: PropertyPack) -> String? {
+    private func fullAddress(for propertyPack: PDFReportSnapshot) -> String? {
         let parts = [
             trimmed(propertyPack.addressLine1),
             trimmed(propertyPack.addressLine2),
@@ -270,7 +282,7 @@ struct PDFReportBuilder {
         return parts.joined(separator: ", ")
     }
 
-    private func tenancyDates(for propertyPack: PropertyPack) -> String? {
+    private func tenancyDates(for propertyPack: PDFReportSnapshot) -> String? {
         guard let startDate = propertyPack.tenancyStartDate else {
             return nil
         }
@@ -285,6 +297,12 @@ struct PDFReportBuilder {
         let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmedValue.isEmpty ? nil : trimmedValue
     }
+
+    private func thumbnailImage(for fileName: String) throws -> CGImage {
+        let photoURL = try fileStorageService.urlForEvidencePhoto(fileName: fileName)
+        return try PhotoStorageService.makeThumbnailCGImage(for: photoURL, maxPixelSize: 900)
+    }
+
     private func draw(section: PDFReportSection, in pageBounds: CGRect, context: CGContext, pageNumber: Int) {
         let margin: CGFloat = 40
         let contentWidth = pageBounds.width - (margin * 2)
