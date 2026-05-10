@@ -20,6 +20,12 @@ struct DeveloperDemoSettingsView: View {
     @State private var isShowingClearConfirmation = false
     @State private var alertContent: RRAlertContent?
     @State private var isWorking = false
+    @State private var loadProgress = DemoDataFactory.LoadProgress(
+        completedRecords: 0,
+        totalRecords: 1,
+        stageDescription: "Getting ready."
+    )
+    @State private var loadTask: Task<Void, Never>?
     @State private var loadsFullSampleSet = true
 
     private let demoDataFactory = DemoDataFactory()
@@ -72,15 +78,13 @@ struct DeveloperDemoSettingsView: View {
         .rrInlineNavigationTitle()
         .overlay {
             if isWorking {
-                ZStack {
-                    Color.black.opacity(0.12)
-                        .ignoresSafeArea()
-
-                    RRLoadingView(
-                        title: "Preparing demo data",
-                        message: "Please wait while fake sample content is created."
-                    )
-                    .padding(24)
+                RRProgressDialog(
+                    title: "Preparing demo data",
+                    message: loadProgress.stageDescription,
+                    progress: loadProgress.fractionCompleted,
+                    cancelTitle: "Cancel"
+                ) {
+                    loadTask?.cancel()
                 }
             }
         }
@@ -95,7 +99,9 @@ struct DeveloperDemoSettingsView: View {
             ),
             isPresented: $isShowingLoadConfirmation
         ) {
-            loadDemoRecord()
+            loadTask = Task {
+                await loadDemoRecord()
+            }
         }
         .rrConfirmationDialog(
             RRDialogContent(
@@ -107,7 +113,9 @@ struct DeveloperDemoSettingsView: View {
             ),
             isPresented: $isShowingClearConfirmation
         ) {
-            clearDemoData()
+            Task {
+                await clearDemoData()
+            }
         }
         .alert(item: $alertContent) { content in
             Alert(
@@ -187,26 +195,51 @@ struct DeveloperDemoSettingsView: View {
         }
     }
 
-    private func loadDemoRecord() {
+    private func loadDemoRecord() async {
+        guard !isWorking else { return }
         isWorking = true
-        defer { isWorking = false }
+        let totalRecords = loadsFullSampleSet ? 8 : 1
+        loadProgress = DemoDataFactory.LoadProgress(
+            completedRecords: 0,
+            totalRecords: totalRecords,
+            stageDescription: "Getting the sample data ready."
+        )
+        await Task.yield()
+        defer {
+            isWorking = false
+            loadTask = nil
+        }
 
         do {
             let style: DemoDataFactory.SampleDataStyle = loadsFullSampleSet ? .fullSampleSet : .singleRecord
-            let loadedRecords = try demoDataFactory.loadSampleData(context: modelContext, style: style)
+            let loadedRecords = try await demoDataFactory.loadSampleData(context: modelContext, style: style) { progress in
+                Task { @MainActor in
+                    loadProgress = progress
+                }
+            }
             alertContent = RRAlertContent(
                 title: loadsFullSampleSet ? "Sample set ready" : "Sample record ready",
                 message: loadsFullSampleSet
                     ? "\(loadedRecords.count) fake sample records are ready for testing and screenshots."
                     : "Fake sample data is ready for testing and screenshots."
             )
+        } catch is CancellationError {
+            alertContent = RRAlertContent(
+                title: "Sample data cancelled",
+                message: "Rentory removed the sample data that had already been created."
+            )
         } catch {
-            alertContent = RRAlertContent(error: .somethingWentWrong)
+            alertContent = RRAlertContent(
+                title: "Sample data could not be loaded",
+                message: "Rentory could not load the sample data just now. Anything partly created has been removed."
+            )
         }
     }
 
-    private func clearDemoData() {
+    private func clearDemoData() async {
+        guard !isWorking else { return }
         isWorking = true
+        await Task.yield()
         defer { isWorking = false }
 
         do {

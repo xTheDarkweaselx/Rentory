@@ -49,6 +49,13 @@ struct ICloudSyncSettingsView: View {
             ImportBackupView()
                 .rrUsesEmbeddedNavigationLayout(false)
         }
+        .alert(item: $iCloudSyncService.alertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
+        }
         .task {
             await iCloudSyncService.refreshStatus()
         }

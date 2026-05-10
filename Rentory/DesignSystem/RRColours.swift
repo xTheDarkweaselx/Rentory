@@ -15,16 +15,55 @@ import AppKit
 
 enum RRColours {
     static let primary = Color.primary
-    static let secondary = Color.accentColor
-    static let background = platformBackground
-    static let groupedBackground = platformGroupedBackground
-    static let cardBackground = platformCardBackground
-    static let cardHighlight = Color.white.opacity(0.22)
-    static let success = Color.green.opacity(0.8)
-    static let warning = Color.orange.opacity(0.8)
+    static var secondary: Color { palette.secondary }
+    static var background: Color { palette.background }
+    static var groupedBackground: Color { palette.groupedBackground }
+    static var cardBackground: Color { palette.cardBackground }
+    static var cardHighlight: Color { palette.cardHighlight }
+    static var success: Color { palette.success }
+    static var warning: Color { palette.warning }
     static let danger = Color.red.opacity(0.75)
     static let mutedText = Color.secondary
     static let border = Color.primary.opacity(0.08)
+
+    private static var palette: RRColourPalette {
+        switch AppColourTheme.current {
+        case .defaultLook:
+            return .defaultLook
+        case .appIcon:
+            return .appIcon
+        }
+    }
+}
+
+private struct RRColourPalette {
+    let secondary: Color
+    let background: Color
+    let groupedBackground: Color
+    let cardBackground: Color
+    let cardHighlight: Color
+    let success: Color
+    let warning: Color
+
+    static let defaultLook = RRColourPalette(
+        secondary: Color.accentColor,
+        background: platformBackground,
+        groupedBackground: platformGroupedBackground,
+        cardBackground: platformCardBackground,
+        cardHighlight: Color.white.opacity(0.22),
+        success: Color.green.opacity(0.8),
+        warning: Color.orange.opacity(0.8)
+    )
+
+    static let appIcon = RRColourPalette(
+        secondary: Color(red: 0.96, green: 0.30, blue: 0.22),
+        background: platformBackground,
+        groupedBackground: Color(red: 1.00, green: 0.72, blue: 0.33).opacity(0.18),
+        cardBackground: Color(red: 1.00, green: 0.52, blue: 0.34).opacity(0.14),
+        cardHighlight: Color(red: 1.00, green: 0.82, blue: 0.42).opacity(0.28),
+        success: Color(red: 0.95, green: 0.55, blue: 0.12).opacity(0.82),
+        warning: Color(red: 0.98, green: 0.42, blue: 0.18).opacity(0.86)
+    )
 
 #if canImport(UIKit)
     private static let platformBackground = Color(uiColor: .systemBackground)

@@ -131,17 +131,20 @@ struct PropertiesListView: View {
         RRGlassPanel {
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: RRTheme.controlSpacing) {
-                    filterControls
+                    primaryFilterControls
+                    clearFiltersButton
                 }
+
                 VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                    filterControls
+                    primaryFilterControls
+                    clearFiltersButton
                 }
             }
         }
     }
 
-    private var filterControls: some View {
-        Group {
+    private var primaryFilterControls: some View {
+        HStack(spacing: RRTheme.controlSpacing) {
             Picker("Record type", selection: $filterState.typeFilter) {
                 ForEach(PropertyRecordTypeFilter.allCases) { filter in
                     Text(filter.rawValue).tag(filter)
@@ -154,13 +157,17 @@ struct PropertiesListView: View {
                 Label("Favourites", systemImage: "star.fill")
             }
             .toggleStyle(.button)
+            .fixedSize(horizontal: true, vertical: false)
+        }
+    }
 
-            if filterState.hasActiveFilters {
-                Button("Clear") {
-                    clearFilters()
-                }
-                .buttonStyle(.borderless)
+    @ViewBuilder
+    private var clearFiltersButton: some View {
+        if filterState.hasActiveFilters {
+            Button("Clear") {
+                clearFilters()
             }
+            .buttonStyle(.borderless)
         }
     }
 
@@ -192,11 +199,7 @@ struct PropertiesListView: View {
     }
 
     private func isSampleProperty(_ propertyPack: PropertyPack) -> Bool {
-#if DEBUG
         DemoModeSettings.matchesDemoRecord(propertyPack)
-#else
-        false
-#endif
     }
 }
 

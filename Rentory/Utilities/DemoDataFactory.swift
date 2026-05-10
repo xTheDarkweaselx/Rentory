@@ -14,12 +14,22 @@ import UIKit
 import AppKit
 #endif
 
-#if DEBUG
 @MainActor
 struct DemoDataFactory {
     enum SampleDataStyle {
         case singleRecord
         case fullSampleSet
+    }
+
+    struct LoadProgress: Equatable {
+        let completedRecords: Int
+        let totalRecords: Int
+        let stageDescription: String
+
+        var fractionCompleted: Double {
+            guard totalRecords > 0 else { return 0 }
+            return Double(completedRecords) / Double(totalRecords)
+        }
     }
 
     private let fileStorageService: FileStorageService
@@ -49,7 +59,7 @@ struct DemoDataFactory {
     func loadSampleData(context: ModelContext, style: SampleDataStyle) throws -> [PropertyPack] {
         var existingDemoRecords = try fetchDemoRecords(context: context)
         if !existingDemoRecords.isEmpty {
-            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < 8
+            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet).count
             if !needsFullSampleRefresh {
                 DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
                 return existingDemoRecords
@@ -59,22 +69,7 @@ struct DemoDataFactory {
             existingDemoRecords = []
         }
 
-        let records: [PropertyPack]
-        switch style {
-        case .singleRecord:
-            records = [try makePrimaryRecord()]
-        case .fullSampleSet:
-            records = try [
-                makePrimaryRecord(),
-                makeSharedHomeRecord(),
-                makeFamilyHouseRecord(),
-                makeApartmentRecord(),
-                makeGarageRecord(),
-                makeAnnexRecord(),
-                makeStudioRecord(),
-                makeArchivedRecord(),
-            ]
-        }
+        let records = try sampleRecordMakers(for: style).map { try $0() }
 
         for record in records {
             context.insert(record)
@@ -83,6 +78,64 @@ struct DemoDataFactory {
         try context.save()
         DemoModeSettings.demoPropertyIdentifier = records.first?.id
         return records
+    }
+
+    @discardableResult
+    func loadSampleData(
+        context: ModelContext,
+        style: SampleDataStyle,
+        progress: @escaping @MainActor (LoadProgress) -> Void
+    ) async throws -> [PropertyPack] {
+        let makers = sampleRecordMakers(for: style)
+        var loadedRecords: [PropertyPack] = []
+
+        progress(LoadProgress(completedRecords: 0, totalRecords: makers.count, stageDescription: "Checking for existing example records."))
+        await Task.yield()
+
+        do {
+            var existingDemoRecords = try fetchDemoRecords(context: context)
+            if !existingDemoRecords.isEmpty {
+                let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet).count
+                if !needsFullSampleRefresh {
+                    DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
+                    progress(LoadProgress(completedRecords: existingDemoRecords.count, totalRecords: existingDemoRecords.count, stageDescription: "Example records are already ready."))
+                    return existingDemoRecords
+                }
+
+                progress(LoadProgress(completedRecords: 0, totalRecords: makers.count, stageDescription: "Refreshing the existing example records."))
+                try clearDemoData(context: context)
+                existingDemoRecords = []
+                _ = existingDemoRecords
+                await Task.yield()
+            }
+
+            for (index, maker) in makers.enumerated() {
+                try Task.checkCancellation()
+                let stage = "Creating \(sampleRecordNames(for: style)[index])."
+                progress(LoadProgress(completedRecords: index, totalRecords: makers.count, stageDescription: stage))
+                await Task.yield()
+
+                let record = try maker()
+                context.insert(record)
+                try context.save()
+                loadedRecords.append(record)
+
+                if DemoModeSettings.demoPropertyIdentifier == nil {
+                    DemoModeSettings.demoPropertyIdentifier = record.id
+                }
+
+                progress(LoadProgress(completedRecords: index + 1, totalRecords: makers.count, stageDescription: "Saved \(record.nickname)."))
+                await Task.yield()
+            }
+
+            return loadedRecords
+        } catch is CancellationError {
+            try? clearDemoData(context: context)
+            throw CancellationError()
+        } catch {
+            try? clearDemoData(context: context)
+            throw error
+        }
     }
 
     func clearDemoData(context: ModelContext) throws {
@@ -98,6 +151,42 @@ struct DemoDataFactory {
     private func fetchDemoRecords(context: ModelContext) throws -> [PropertyPack] {
         try context.fetch(FetchDescriptor<PropertyPack>())
             .filter(DemoModeSettings.matchesDemoRecord)
+    }
+
+    private func sampleRecordMakers(for style: SampleDataStyle) -> [() throws -> PropertyPack] {
+        switch style {
+        case .singleRecord:
+            return [makePrimaryRecord]
+        case .fullSampleSet:
+            return [
+                makePrimaryRecord,
+                makeSharedHomeRecord,
+                makeFamilyHouseRecord,
+                makeApartmentRecord,
+                makeGarageRecord,
+                makeAnnexRecord,
+                makeStudioRecord,
+                makeArchivedRecord,
+            ]
+        }
+    }
+
+    private func sampleRecordNames(for style: SampleDataStyle) -> [String] {
+        switch style {
+        case .singleRecord:
+            return ["the main example record"]
+        case .fullSampleSet:
+            return [
+                "the main example record",
+                "the shared flat example",
+                "the family house example",
+                "the apartment example",
+                "the storage garage example",
+                "the garden annex example",
+                "the compact rented space example",
+                "the previous tenancy example",
+            ]
+        }
     }
 
     private func makePrimaryRecord() throws -> PropertyPack {
@@ -662,9 +751,10 @@ private enum DemoPhotoColour {
 
 #if canImport(UIKit)
 private func makeSampleImage(title: String, subtitle: String, colour: DemoPhotoColour) -> UIImage {
-    let renderer = UIGraphicsImageRenderer(size: CGSize(width: 1600, height: 1200))
+    let imageSize = CGSize(width: 1600, height: 1200)
+    let renderer = UIGraphicsImageRenderer(size: imageSize)
     return renderer.image { context in
-        let bounds = CGRect(origin: .zero, size: CGSize(width: 1600, height: 1200))
+        let bounds = CGRect(origin: .zero, size: imageSize)
         let cgContext = context.cgContext
         cgContext.setFillColor(colour.cgColor)
         cgContext.fill(bounds)
@@ -717,5 +807,4 @@ private func makeSampleImage(title: String, subtitle: String, colour: DemoPhotoC
 
     return image
 }
-#endif
 #endif

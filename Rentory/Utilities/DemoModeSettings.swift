@@ -7,7 +7,6 @@
 
 import Foundation
 
-#if DEBUG
 enum DemoModeSettings {
     static let demoRecordName = "Demo rental record"
     static let demoTownCity = "Sampletown"
@@ -47,4 +46,3 @@ enum DemoModeSettings {
         ) || propertyPack.notes?.contains(demoMarker) == true
     }
 }
-#endif

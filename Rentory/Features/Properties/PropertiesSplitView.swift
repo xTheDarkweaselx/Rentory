@@ -16,6 +16,8 @@ struct PropertiesSplitView: View {
     @State private var isShowingCreateProperty = false
     @State private var isShowingSettings = false
     @State private var selectedPropertyID: UUID?
+    @State private var detailNavigationPath = NavigationPath()
+    @State private var detailResetID = UUID()
     @State private var upgradePromptContent: UpgradePromptContent?
     @State private var filterState = PropertyRecordFilterState()
 
@@ -41,7 +43,7 @@ struct PropertiesSplitView: View {
 
     var body: some View {
         NavigationSplitView {
-            List(selection: $selectedPropertyID) {
+            List {
                 if !activePropertyPacks.isEmpty {
                     Section {
                         sidebarFilters
@@ -70,18 +72,30 @@ struct PropertiesSplitView: View {
                     }
                 } else {
                     ForEach(filteredPropertyPacks) { propertyPack in
-                        PropertySidebarRow(propertyPack: propertyPack)
-                            .tag(propertyPack.id)
-                            .contextMenu {
-                                Button {
-                                    toggleFavourite(for: propertyPack)
-                                } label: {
-                                    Label(
-                                        propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
-                                        systemImage: propertyPack.isFavourite ? "star.slash" : "star"
-                                    )
-                                }
+                        Button {
+                            selectProperty(propertyPack)
+                        } label: {
+                            PropertySidebarRow(
+                                propertyPack: propertyPack,
+                                isSelected: selectedPropertyID == propertyPack.id
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(
+                            selectedPropertyID == propertyPack.id
+                            ? RRColours.secondary.opacity(0.10)
+                            : Color.clear
+                        )
+                        .contextMenu {
+                            Button {
+                                toggleFavourite(for: propertyPack)
+                            } label: {
+                                Label(
+                                    propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
+                                    systemImage: propertyPack.isFavourite ? "star.slash" : "star"
+                                )
                             }
+                        }
                     }
                 }
             }
@@ -112,9 +126,10 @@ struct PropertiesSplitView: View {
                 }
             }
         } detail: {
-            NavigationStack {
+            NavigationStack(path: $detailNavigationPath) {
                 if let selectedPropertyPack {
                     PropertyDashboardView(propertyPack: selectedPropertyPack)
+                        .id(selectedPropertyPack.id)
                 } else {
                     RRFormContainer(maxWidth: 620) {
                         RREmptyStateView(
@@ -128,6 +143,7 @@ struct PropertiesSplitView: View {
                     .navigationTitle("Rentory")
                 }
             }
+            .id(detailResetID)
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
@@ -142,6 +158,7 @@ struct PropertiesSplitView: View {
         }
         .onChange(of: activePropertyPacks.map(\.id)) { _, newIDs in
             if let selectedPropertyID, !newIDs.contains(selectedPropertyID) {
+                resetDetailNavigation()
                 self.selectedPropertyID = nil
             }
         }
@@ -176,6 +193,20 @@ struct PropertiesSplitView: View {
         }
     }
 
+    private func selectProperty(_ propertyPack: PropertyPack) {
+        guard selectedPropertyID != propertyPack.id else { return }
+
+        let nextPropertyID = propertyPack.id
+        NotificationCenter.default.post(name: .rentoryPropertySelectionDidChange, object: nextPropertyID)
+        selectedPropertyID = nextPropertyID
+        resetDetailNavigation()
+    }
+
+    private func resetDetailNavigation() {
+        detailNavigationPath = NavigationPath()
+        detailResetID = UUID()
+    }
+
     private func toggleFavourite(for propertyPack: PropertyPack) {
         withAnimation(RRTheme.quickAnimation) {
             propertyPack.isFavourite.toggle()
@@ -198,22 +229,23 @@ struct PropertiesSplitView: View {
     }
 
     private func isSampleProperty(_ propertyPack: PropertyPack) -> Bool {
-#if DEBUG
         DemoModeSettings.matchesDemoRecord(propertyPack)
-#else
-        false
-#endif
     }
+}
+
+extension Notification.Name {
+    static let rentoryPropertySelectionDidChange = Notification.Name("RentoryPropertySelectionDidChange")
 }
 
 private struct PropertySidebarRow: View {
     let propertyPack: PropertyPack
+    let isSelected: Bool
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: propertyPack.recordIconName)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(RRColours.secondary)
+                .foregroundStyle(isSelected ? RRColours.secondary : RRColours.secondary.opacity(0.82))
                 .frame(width: 24, height: 24)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -233,7 +265,7 @@ private struct PropertySidebarRow: View {
 
                 Text(propertyPack.recordType.rawValue)
                     .font(RRTypography.caption.weight(.semibold))
-                    .foregroundStyle(RRColours.secondary)
+                    .foregroundStyle(isSelected ? RRColours.secondary : RRColours.secondary.opacity(0.82))
                     .lineLimit(1)
 
                 if let detailSummary = firstNonEmpty(propertyPack.typeDetailSummary, locationSummary) {

@@ -14,6 +14,7 @@ struct RentoryApp: App {
     @StateObject private var entitlementManager = EntitlementManager()
     @StateObject private var iCloudSyncService = ICloudSyncService()
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
     // Rentory is local-first. User evidence must remain on device by default.
     // Do not add networking, analytics, account creation or third-party data collection without an explicit architecture decision.
@@ -67,6 +68,8 @@ struct RentoryApp: App {
                     .environmentObject(iCloudSyncService)
                     .modelContainer(sharedModelContainer)
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
+                    .tint(RRColours.secondary)
+                    .id(appColourThemeRawValue)
             } else {
                 RRErrorStateView(
                     symbolName: "exclamationmark.triangle",

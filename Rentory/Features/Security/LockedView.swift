@@ -13,37 +13,97 @@ struct LockedView: View {
     let unlockAction: () -> Void
 
     var body: some View {
-        ZStack {
-            RRBackgroundView()
+        GeometryReader { proxy in
+            ZStack {
+                RRBackgroundView()
 
-            RRGlassPanel {
-                VStack(spacing: 24) {
-                    RRIconBadge(systemName: isAvailable ? "lock.shield" : "lock.slash", tint: RRColours.secondary, size: 64)
-                        .accessibilityHidden(true)
+                VStack(spacing: 28) {
+                    Spacer(minLength: 24)
 
-                    VStack(spacing: 8) {
-                        Text(isAvailable ? "Rentory is locked" : "App Lock is not available")
-                            .font(RRTypography.largeTitle)
-                            .foregroundStyle(RRColours.primary)
+                    RRGlassPanel(padding: panelPadding(for: proxy.size)) {
+                        ViewThatFits(in: .horizontal) {
+                            lockContent(isWide: true)
+                            lockContent(isWide: false)
+                        }
+                    }
+                    .frame(maxWidth: min(proxy.size.width - 40, 780))
 
-                        Text(
-                            isAvailable
-                                ? "Unlock to view your rental records."
-                                : "You can still use Rentory, but this device does not currently support Face ID, Touch ID or passcode unlock for the app."
-                        )
-                        .font(RRTypography.body)
+                    Text(isAvailable ? "Use Face ID, Touch ID or your passcode to continue." : "You can continue using Rentory, but app lock is not available on this device.")
+                        .font(RRTypography.footnote)
                         .foregroundStyle(RRColours.mutedText)
                         .multilineTextAlignment(.center)
-                    }
+                        .frame(maxWidth: min(proxy.size.width - 48, 560))
 
-                    if isAvailable {
-                        RRPrimaryButton(title: isAuthenticating ? "Unlocking…" : "Unlock", isDisabled: isAuthenticating, action: unlockAction)
-                            .accessibilityHint("Uses Face ID, Touch ID or your passcode.")
-                    }
+                    Spacer(minLength: 24)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(RRTheme.screenPadding)
             }
-            .padding(RRTheme.screenPadding)
         }
         .accessibilityElement(children: .contain)
+    }
+
+    private func lockContent(isWide: Bool) -> some View {
+        Group {
+            if isWide {
+                HStack(spacing: 30) {
+                    lockIcon
+                    lockText(alignment: .leading, textAlignment: .leading)
+                }
+            } else {
+                VStack(spacing: 20) {
+                    lockIcon
+                    lockText(alignment: .center, textAlignment: .center)
+                }
+            }
+        }
+    }
+
+    private var lockIcon: some View {
+        ZStack {
+            Circle()
+                .fill(RRColours.secondary.opacity(0.14))
+                .frame(width: 124, height: 124)
+
+            RRIconBadge(systemName: isAvailable ? "lock.shield" : "lock.slash", tint: RRColours.secondary, size: 78)
+                .accessibilityHidden(true)
+        }
+        .frame(width: 138, height: 138)
+    }
+
+    private func lockText(alignment: HorizontalAlignment, textAlignment: TextAlignment) -> some View {
+        VStack(alignment: alignment, spacing: 16) {
+            VStack(alignment: alignment, spacing: 10) {
+                Text(isAvailable ? "Rentory is locked" : "App Lock is not available")
+                    .font(RRTypography.largeTitle)
+                    .foregroundStyle(RRColours.primary)
+                    .multilineTextAlignment(textAlignment)
+
+                Text(
+                    isAvailable
+                        ? "Unlock to view your rental records."
+                        : "This device does not currently support Face ID, Touch ID or passcode unlock for the app."
+                )
+                .font(RRTypography.body)
+                .foregroundStyle(RRColours.mutedText)
+                .multilineTextAlignment(textAlignment)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if isAvailable {
+                RRPrimaryButton(title: isAuthenticating ? "Unlocking..." : "Unlock", isDisabled: isAuthenticating, action: unlockAction)
+                    .frame(maxWidth: 260)
+                    .accessibilityHint("Uses Face ID, Touch ID or your passcode.")
+            }
+        }
+        .frame(maxWidth: 440, alignment: frameAlignment(for: alignment))
+    }
+
+    private func panelPadding(for size: CGSize) -> CGFloat {
+        size.width > 620 ? 38 : 28
+    }
+
+    private func frameAlignment(for alignment: HorizontalAlignment) -> Alignment {
+        alignment == .leading ? .leading : .center
     }
 }

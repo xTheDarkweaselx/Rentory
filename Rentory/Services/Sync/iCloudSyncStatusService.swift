@@ -167,11 +167,11 @@ final class ICloudSyncService: ObservableObject {
                 )
             }
         } catch {
-            userDefaults.set(false, forKey: isEnabledKey)
-            isSyncEnabled = false
+            userDefaults.set(true, forKey: isEnabledKey)
+            isSyncEnabled = true
             alertContent = RRAlertContent(
-                title: "iCloud sync could not be turned on",
-                message: "Rentory could not start syncing just now. Please try again."
+                title: "iCloud sync is on",
+                message: "Rentory will keep trying to sync. The first sync could not finish just now, so please check your connection and try Sync now again in a moment."
             )
         }
     }

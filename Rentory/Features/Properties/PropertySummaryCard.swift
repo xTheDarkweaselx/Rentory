@@ -40,12 +40,14 @@ struct PropertySummaryCard: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(propertyPack.recordType.rawValue)
-                            .font(RRTypography.footnote.weight(.semibold))
+                            .font(RRTypography.title.weight(.semibold))
                             .foregroundStyle(RRColours.secondary)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.85)
 
                         if let typeDetailSummary = propertyPack.typeDetailSummary {
                             Text(typeDetailSummary)
-                                .font(RRTypography.caption)
+                                .font(RRTypography.footnote)
                                 .foregroundStyle(RRColours.mutedText)
                                 .lineLimit(1)
                                 .truncationMode(.tail)

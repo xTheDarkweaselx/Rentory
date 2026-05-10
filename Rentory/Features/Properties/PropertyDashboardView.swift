@@ -180,9 +180,11 @@ struct PropertyDashboardView: View {
         .rrInlineNavigationTitle()
         .navigationDestination(isPresented: $isShowingProgressView) {
             CompletionChecklistView(result: completionScore)
+                .dismissOnPropertySelectionChange()
         }
         .navigationDestination(isPresented: $isShowingExportOptions) {
             ExportOptionsView(propertyPack: propertyPack, showsHelpfulNote: shouldShowExportNote)
+                .dismissOnPropertySelectionChange()
         }
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
@@ -217,6 +219,19 @@ struct PropertyDashboardView: View {
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
         }
+        .onChange(of: propertyPack.id) { _, _ in
+            resetPresentedViews()
+        }
+    }
+
+    private func resetPresentedViews() {
+        isShowingAddDocumentView = false
+        isShowingExportOptions = false
+        isShowingAddRoomView = false
+        isShowingEditView = false
+        isShowingAddEventView = false
+        isShowingProgressView = false
+        infoAlertContent = nil
     }
 
     private var documentsSection: some View {
@@ -229,6 +244,7 @@ struct PropertyDashboardView: View {
             ) {
                 NavigationLink("View all") {
                     DocumentsListView(propertyPack: propertyPack)
+                        .dismissOnPropertySelectionChange()
                 }
                 .font(RRTypography.footnote.weight(.semibold))
             }
@@ -246,6 +262,7 @@ struct PropertyDashboardView: View {
             } else {
                 NavigationLink {
                     DocumentsListView(propertyPack: propertyPack)
+                        .dismissOnPropertySelectionChange()
                 } label: {
                     RRGlassCard {
                         VStack(alignment: .leading, spacing: 12) {
@@ -282,6 +299,7 @@ struct PropertyDashboardView: View {
             ) {
                 NavigationLink("View all") {
                     TimelineListView(propertyPack: propertyPack)
+                        .dismissOnPropertySelectionChange()
                 }
                 .font(RRTypography.footnote.weight(.semibold))
             }
@@ -299,6 +317,7 @@ struct PropertyDashboardView: View {
             } else {
                 NavigationLink {
                     TimelineListView(propertyPack: propertyPack)
+                        .dismissOnPropertySelectionChange()
                 } label: {
                     RRGlassCard {
                         VStack(alignment: .leading, spacing: 0) {
@@ -381,6 +400,25 @@ struct PropertyDashboardView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(title)
         .accessibilityHint(message)
+    }
+}
+
+private extension View {
+    func dismissOnPropertySelectionChange() -> some View {
+        modifier(DismissOnPropertySelectionChangeModifier())
+    }
+}
+
+private struct DismissOnPropertySelectionChangeModifier: ViewModifier {
+    @Environment(\.dismiss) private var dismiss
+
+    func body(content: Content) -> some View {
+        content.task {
+            let notifications = NotificationCenter.default.notifications(named: .rentoryPropertySelectionDidChange)
+            for await _ in notifications {
+                dismiss()
+            }
+        }
     }
 }
 

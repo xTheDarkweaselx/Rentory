@@ -10,6 +10,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var appSecurityState: AppSecurityState
@@ -250,6 +251,23 @@ struct SettingsView: View {
                         .foregroundStyle(RRColours.mutedText)
                 }
             },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Colour theme",
+                    body: "Choose the colour style Rentory uses for highlights, panels and buttons."
+                ) {
+                    Picker("Colour theme", selection: $appColourThemeRawValue) {
+                        ForEach(AppColourTheme.allCases) { theme in
+                            Text(theme.title).tag(theme.rawValue)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(selectedColourTheme.description)
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+                }
+            },
         ]
     }
 
@@ -331,14 +349,14 @@ struct SettingsView: View {
             },
             RRResponsiveFormGridItem {
                 settingsCard(
-                    title: "Welcome screens",
-                    body: "Show the welcome screens again if you want a quick refresher."
+                    title: "Welcome guide",
+                    body: "Open the welcome guide again if you want a quick reminder of the basics."
                 ) {
-                    RRSecondaryButton(title: "Reset welcome screens") {
+                    RRSecondaryButton(title: "Show welcome guide again") {
                         hasCompletedOnboarding = false
                         dismiss()
                     }
-                    .frame(maxWidth: 240)
+                    .frame(maxWidth: 260)
                 }
             },
         ]
@@ -411,17 +429,17 @@ struct SettingsView: View {
                     }
                 }
 
+                Picker("Colour theme", selection: $appColourThemeRawValue) {
+                    ForEach(AppColourTheme.allCases) { theme in
+                        Text(theme.title).tag(theme.rawValue)
+                    }
+                }
+
                 NavigationLink("iCloud sync", value: SettingsDestination.iCloudSync)
                 NavigationLink("Backups", value: SettingsDestination.backups)
                 NavigationLink("Rentory unlock", value: SettingsDestination.purchases)
                 NavigationLink("Data on this device", value: SettingsDestination.privacyAndData)
-            }
-
-            Section("About") {
-                Text("Rentory helps you organise your own rental records.")
-                Text("Rentory does not give legal, financial or tenancy advice.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
+                NavigationLink("Info", value: SettingsDestination.info)
             }
         }
         .scrollContentBackground(.hidden)
@@ -481,6 +499,8 @@ struct SettingsView: View {
             BackupsSettingsView()
         case .purchases:
             PurchaseSettingsView()
+        case .info:
+            InfoSettingsView()
 #if DEBUG
         case .developerDemo:
             DeveloperDemoSettingsView()
@@ -554,6 +574,161 @@ struct SettingsView: View {
         AppAppearance(rawValue: appAppearanceRawValue) ?? .deviceDefault
     }
 
+    private var selectedColourTheme: AppColourTheme {
+        AppColourTheme(rawValue: appColourThemeRawValue) ?? .defaultLook
+    }
+
+    private var appVersion: String? {
+        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
+            return nil
+        }
+
+        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
+            return "Version \(version) (\(build))"
+        }
+
+        return "Version \(version)"
+    }
+}
+
+private struct InfoSettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+
+    var body: some View {
+        Group {
+            if PlatformLayout.isPhone && horizontalSizeClass != .regular {
+                compactView
+            } else {
+                RRFormContainer(maxWidth: 760) {
+                    RRResponsiveFormGrid(items: infoItems)
+                }
+            }
+        }
+        .navigationTitle("Info")
+        .rrInlineNavigationTitle()
+    }
+
+    private var compactView: some View {
+        Form {
+            Section("About Rentory") {
+                Text("Rentory helps you organise your own rental records.")
+
+                if let appVersion {
+                    Text(appVersion)
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+                }
+            }
+
+            Section("Privacy") {
+                Text("Your records stay on your device by default.")
+                Text("Rentory does not give legal, financial or tenancy advice.")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+            }
+
+            Section("Welcome guide") {
+                Button("Show welcome guide again") {
+                    hasCompletedOnboarding = false
+                    dismiss()
+                }
+            }
+
+#if DEBUG
+            Section("Developer tools") {
+                NavigationLink("Demo data", value: SettingsDestination.developerDemo)
+            }
+#endif
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+    }
+
+    private var infoItems: [RRResponsiveFormGridItem] {
+        var items: [RRResponsiveFormGridItem] = [
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("About Rentory")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("Rentory helps you organise your own rental records.")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+
+                        if let appVersion {
+                            Text(appVersion)
+                                .font(RRTypography.footnote)
+                                .foregroundStyle(RRColours.mutedText)
+                        }
+                    }
+                }
+            },
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("Privacy")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("Your records stay on your device by default.")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+
+                        Text("Rentory does not give legal, financial or tenancy advice.")
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                }
+            },
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("Welcome guide")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("Open the welcome guide again if you want a quick reminder of the basics.")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+
+                        RRSecondaryButton(title: "Show welcome guide again") {
+                            hasCompletedOnboarding = false
+                            dismiss()
+                        }
+                    }
+                }
+            },
+        ]
+
+#if DEBUG
+        items.append(
+            RRResponsiveFormGridItem {
+                RRGlassPanel {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Text("Developer tools")
+                            .font(RRTypography.headline)
+                            .foregroundStyle(RRColours.primary)
+
+                        Text("Use fake sample content for testing and screenshots.")
+                            .font(RRTypography.body)
+                            .foregroundStyle(RRColours.mutedText)
+
+                        NavigationLink("Demo data", value: SettingsDestination.developerDemo)
+                            .font(RRTypography.body.weight(.semibold))
+                            .foregroundStyle(Color.accentColor)
+                    }
+                }
+            }
+        )
+#endif
+
+        return items
+    }
+
     private var appVersion: String? {
         guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
             return nil
@@ -624,6 +799,7 @@ private enum SettingsDestination: Hashable, Identifiable {
     case iCloudSync
     case backups
     case purchases
+    case info
 #if DEBUG
     case developerDemo
 #endif
@@ -638,6 +814,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "backups"
         case .purchases:
             return "purchases"
+        case .info:
+            return "info"
 #if DEBUG
         case .developerDemo:
             return "developerDemo"
@@ -655,6 +833,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Backups"
         case .purchases:
             return "Rentory Unlock"
+        case .info:
+            return "Info"
 #if DEBUG
         case .developerDemo:
             return "Demo data"
@@ -672,6 +852,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Export or import a Rentory backup when you want to keep a copy."
         case .purchases:
             return "Manage your lifetime unlock and restore earlier purchases."
+        case .info:
+            return "About Rentory, privacy notes and the welcome guide."
 #if DEBUG
         case .developerDemo:
             return "Use fake sample data for testing and screenshots."

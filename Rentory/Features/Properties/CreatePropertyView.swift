@@ -103,8 +103,6 @@ struct CreatePropertyView: View {
             } footer: {
                 footerButtons
             }
-            .navigationTitle("Create a record")
-            .rrInlineNavigationTitle()
         }
         .fileImporter(
             isPresented: $isShowingDocumentImporter,
@@ -498,11 +496,7 @@ struct CreatePropertyView: View {
     }
 
     private func isSampleProperty(_ propertyPack: PropertyPack) -> Bool {
-#if DEBUG
         DemoModeSettings.matchesDemoRecord(propertyPack)
-#else
-        false
-#endif
     }
 }
 
