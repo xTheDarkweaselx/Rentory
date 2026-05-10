@@ -117,15 +117,12 @@ struct PurchaseSettingsView: View {
                 Text("Purchase options")
                     .font(RRTypography.headline)
 
-                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockOffer == nil {
+                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockProduct == nil {
                     Text("Loading unlock option…")
                         .font(RRTypography.body)
                         .foregroundStyle(RRColours.mutedText)
-                } else if let offer = entitlementManager.lifetimeUnlockOffer {
-                    PurchaseRowView(
-                        product: entitlementManager.products.first(where: { $0.id == offer.productID }),
-                        fallbackPriceText: offer.displayPrice
-                    )
+                } else if let product = entitlementManager.lifetimeUnlockProduct {
+                    PurchaseRowView(product: product)
                 } else {
                     Text("The lifetime unlock is not available in the current StoreKit setup.")
                         .font(RRTypography.body)

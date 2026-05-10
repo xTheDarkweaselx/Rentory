@@ -1,11 +1,13 @@
 {
-  "type" : "local",
-  "version" : 3,
+  "identifier" : "C2436D2E",
+  "nonRenewingSubscriptions" : [
+
+  ],
   "products" : [
     {
       "displayPrice" : "14.99",
       "familyShareable" : false,
-      "internalID" : "RENTORY_LIFETIME_UNLOCK",
+      "internalID" : "A1F9D6C4",
       "localizations" : [
         {
           "description" : "Unlock unlimited rental records, rooms, photos, full reports and App Lock.",
@@ -19,7 +21,64 @@
     }
   ],
   "settings" : {
+    "_applicationInternalID" : "C2436D2E",
+    "_developerTeamID" : "",
+    "_failTransactionsEnabled" : false,
     "_locale" : "en_GB",
-    "_storefront" : "GBR"
+    "_storefront" : "GBR",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
   }
 }

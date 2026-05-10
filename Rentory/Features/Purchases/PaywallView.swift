@@ -91,11 +91,6 @@ struct PaywallView: View {
             }
             .navigationTitle("Unlock Rentory")
             .rrInlineNavigationTitle()
-            .onChange(of: entitlementManager.isUnlocked) { _, isUnlocked in
-                if isUnlocked {
-                    dismiss()
-                }
-            }
             .overlay {
                 if entitlementManager.purchaseInProgress {
                     ZStack {
@@ -149,17 +144,14 @@ struct PaywallView: View {
                     .font(RRTypography.headline)
                     .foregroundStyle(RRColours.primary)
 
-                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockOffer == nil {
+                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockProduct == nil {
                     RRLoadingView(
                         title: "Loading unlock option",
                         message: "Please wait a moment."
                     )
-                } else if let offer = entitlementManager.lifetimeUnlockOffer {
+                } else if let product = entitlementManager.lifetimeUnlockProduct {
                     VStack(alignment: .leading, spacing: 12) {
-                        PurchaseRowView(
-                            product: entitlementManager.products.first(where: { $0.id == offer.productID }),
-                            fallbackPriceText: offer.displayPrice
-                        )
+                        PurchaseRowView(product: product)
 
                         RRPrimaryButton(
                             title: entitlementManager.purchaseInProgress ? "Unlocking…" : "Unlock for life",
@@ -167,6 +159,9 @@ struct PaywallView: View {
                         ) {
                             Task {
                                 await entitlementManager.purchaseLifetimeUnlock()
+                                if entitlementManager.isUnlocked {
+                                    successAlertContent = DialogCopy.purchaseCompleted
+                                }
                             }
                         }
                     }

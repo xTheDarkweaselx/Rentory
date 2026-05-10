@@ -12,26 +12,26 @@ import StoreKit
 @MainActor
 final class EntitlementManager: ObservableObject {
     static let lifetimeUnlockProductID = PurchaseCatalog.lifetimeUnlockProductID
-    static let debugLifetimeUnlockKey = "debugLifetimeUnlockActive"
 
-    @Published private(set) var isUnlocked = false
+    @Published private(set) var isUnlocked: Bool
     @Published private(set) var isLoadingProducts = false
     @Published private(set) var products: [Product] = []
     @Published private(set) var purchaseInProgress = false
-    @Published private(set) var lifetimeUnlockOffer: LocalStoreKitOffer?
+    @Published private(set) var lifetimeUnlockProduct: Product?
     @Published var lastError: UserFacingError?
 
+    private static let storedLifetimeUnlockKey = "rentory.hasVerifiedLifetimeUnlock"
+    private let defaults: UserDefaults
     private var transactionListenerTask: Task<Void, Never>?
-    private let userDefaults: UserDefaults
-    private let localStoreKitConfiguration = LocalStoreKitConfiguration()
 
-    init(userDefaults: UserDefaults = .standard) {
-        self.userDefaults = userDefaults
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        self.isUnlocked = defaults.bool(forKey: Self.storedLifetimeUnlockKey)
         transactionListenerTask = listenForTransactions()
 
         Task {
+            await refreshEntitlements()
             await loadProducts()
-            await updatePurchasedProducts()
         }
     }
 
@@ -47,41 +47,42 @@ final class EntitlementManager: ObservableObject {
 
         do {
             products = try await fetchProducts()
-            lifetimeUnlockOffer = makeOffer(from: products.first(where: { $0.id == Self.lifetimeUnlockProductID }))
+            lifetimeUnlockProduct = products.first(where: { $0.id == Self.lifetimeUnlockProductID })
 
-            if products.isEmpty, lifetimeUnlockOffer == nil {
+            if lifetimeUnlockProduct == nil {
                 lastError = .purchaseCouldNotBeChecked
             }
         } catch {
             products = []
-            lifetimeUnlockOffer = localStoreKitConfiguration.lifetimeUnlockOffer()
-
-            if lifetimeUnlockOffer == nil {
-                lastError = .purchaseCouldNotBeChecked
-            }
+            lifetimeUnlockProduct = nil
+            lastError = .purchaseCouldNotBeChecked
         }
+    }
+
+    func refreshEntitlements() async {
+        let hasLifetimeUnlock = await hasVerifiedLifetimeUnlock()
+        setUnlocked(hasLifetimeUnlock)
     }
 
     func purchaseLifetimeUnlock() async {
         purchaseInProgress = true
         defer { purchaseInProgress = false }
 
-        if let product = products.first(where: { $0.id == Self.lifetimeUnlockProductID }) {
-            await purchaseStoreKitProduct(product)
+        if isUnlocked {
             return
         }
 
-        guard lifetimeUnlockOffer != nil else {
+        if await hasVerifiedLifetimeUnlock() {
+            setUnlocked(true)
+            return
+        }
+
+        guard let product = lifetimeUnlockProduct else {
             lastError = .purchaseCouldNotBeChecked
             return
         }
 
-#if DEBUG
-        userDefaults.set(true, forKey: Self.debugLifetimeUnlockKey)
-        isUnlocked = true
-#else
-        lastError = .purchaseCouldNotBeChecked
-#endif
+        await purchaseStoreKitProduct(product)
     }
 
     func restorePurchases() async {
@@ -90,42 +91,14 @@ final class EntitlementManager: ObservableObject {
 
         do {
             try await AppStore.sync()
-            await updatePurchasedProducts()
+            await refreshEntitlements()
 
             if !isUnlocked {
-#if DEBUG
-                if userDefaults.bool(forKey: Self.debugLifetimeUnlockKey) {
-                    isUnlocked = true
-                } else {
-                    lastError = .purchaseCouldNotBeRestored
-                }
-#else
                 lastError = .purchaseCouldNotBeRestored
-#endif
             }
         } catch {
             lastError = .purchaseCouldNotBeRestored
         }
-    }
-
-    func updatePurchasedProducts() async {
-        var hasLifetimeUnlock = false
-
-        for await verification in Transaction.currentEntitlements {
-            guard let transaction = verifiedTransaction(from: verification) else {
-                continue
-            }
-
-            guard transaction.revocationDate == nil else {
-                continue
-            }
-
-            if transaction.productID == Self.lifetimeUnlockProductID {
-                hasLifetimeUnlock = true
-            }
-        }
-
-        isUnlocked = hasLifetimeUnlock || userDefaults.bool(forKey: Self.debugLifetimeUnlockKey)
     }
 
     func clearLastError() {
@@ -148,13 +121,28 @@ final class EntitlementManager: ObservableObject {
             return
         }
 
-        if transaction.productID == Self.lifetimeUnlockProductID, transaction.revocationDate == nil {
-            isUnlocked = true
-        } else if transaction.productID == Self.lifetimeUnlockProductID {
-            isUnlocked = false
+        if transaction.productID == Self.lifetimeUnlockProductID {
+            setUnlocked(transaction.revocationDate == nil)
         }
 
         await transaction.finish()
+    }
+
+    private func hasVerifiedLifetimeUnlock() async -> Bool {
+        for await verification in Transaction.currentEntitlements(for: Self.lifetimeUnlockProductID) {
+            guard let transaction = verifiedTransaction(from: verification), transaction.revocationDate == nil else {
+                continue
+            }
+            return true
+        }
+
+        guard let latestVerification = await Transaction.latest(for: Self.lifetimeUnlockProductID),
+              let latestTransaction = verifiedTransaction(from: latestVerification),
+              latestTransaction.revocationDate == nil else {
+            return false
+        }
+
+        return true
     }
 
     private func verifiedTransaction(from verification: VerificationResult<Transaction>) -> Transaction? {
@@ -180,10 +168,6 @@ final class EntitlementManager: ObservableObject {
             }
         }
 
-        if let fallbackOffer = localStoreKitConfiguration.lifetimeUnlockOffer() {
-            lifetimeUnlockOffer = fallbackOffer
-        }
-
         return []
     }
 
@@ -198,8 +182,14 @@ final class EntitlementManager: ObservableObject {
                     return
                 }
 
-                userDefaults.set(false, forKey: Self.debugLifetimeUnlockKey)
-                isUnlocked = true
+                guard transaction.productID == Self.lifetimeUnlockProductID,
+                      transaction.revocationDate == nil else {
+                    lastError = .purchaseCouldNotBeChecked
+                    return
+                }
+
+                setUnlocked(true)
+                lastError = nil
                 await transaction.finish()
             case .userCancelled:
                 lastError = .purchaseCancelled
@@ -213,95 +203,8 @@ final class EntitlementManager: ObservableObject {
         }
     }
 
-    private func makeOffer(from product: Product?) -> LocalStoreKitOffer? {
-        if let product {
-            return LocalStoreKitOffer(
-                productID: product.id,
-                displayName: product.displayName,
-                description: product.description,
-                displayPrice: product.displayPrice
-            )
-        }
-
-        return localStoreKitConfiguration.lifetimeUnlockOffer()
-    }
-}
-struct LocalStoreKitOffer {
-    let productID: String
-    let displayName: String
-    let description: String
-    let displayPrice: String
-}
-
-private struct LocalStoreKitConfiguration {
-    private struct ConfigurationFile: Decodable {
-        struct ProductConfiguration: Decodable {
-            struct Localization: Decodable {
-                let description: String
-                let displayName: String
-                let locale: String
-            }
-
-            let displayPrice: String?
-            let localizations: [Localization]
-            let productID: String
-        }
-
-        struct Settings: Decodable {
-            let locale: String?
-
-            private enum CodingKeys: String, CodingKey {
-                case locale = "_locale"
-            }
-        }
-
-        let products: [ProductConfiguration]
-        let settings: Settings?
-    }
-
-    func lifetimeUnlockOffer() -> LocalStoreKitOffer? {
-        guard
-            let url = Bundle.main.url(forResource: "Rentory", withExtension: "storekit"),
-            let data = try? Data(contentsOf: url),
-            let configuration = try? JSONDecoder().decode(ConfigurationFile.self, from: data),
-            let product = configuration.products.first(where: { $0.productID == PurchaseCatalog.lifetimeUnlockProductID })
-        else {
-            return nil
-        }
-
-        let localisation = product.localizations.first(where: { $0.locale == configuration.settings?.locale })
-            ?? product.localizations.first
-
-        let localeIdentifier = localisation?.locale ?? configuration.settings?.locale ?? "en_GB"
-        let formattedPrice = formatPrice(product.displayPrice, localeIdentifier: localeIdentifier)
-
-        return LocalStoreKitOffer(
-            productID: product.productID,
-            displayName: localisation?.displayName ?? "Rentory Lifetime Unlock",
-            description: localisation?.description ?? "Unlock unlimited rental records, rooms, photos, full reports and App Lock.",
-            displayPrice: formattedPrice ?? "£14.99"
-        )
-    }
-
-    private func formatPrice(_ rawPrice: String?, localeIdentifier: String) -> String? {
-        guard let rawPrice, let amount = Decimal(string: rawPrice) else {
-            return nil
-        }
-
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.locale = Locale(identifier: localeIdentifier)
-        formatter.currencyCode = currencyCode(for: localeIdentifier)
-
-        return formatter.string(from: amount as NSDecimalNumber)
-    }
-
-    private func currencyCode(for localeIdentifier: String) -> String {
-        switch localeIdentifier {
-        case "en_GB":
-            return "GBP"
-        default:
-            return Locale(identifier: localeIdentifier).currency?.identifier ?? "GBP"
-        }
+    private func setUnlocked(_ newValue: Bool) {
+        isUnlocked = newValue
+        defaults.set(newValue, forKey: Self.storedLifetimeUnlockKey)
     }
 }

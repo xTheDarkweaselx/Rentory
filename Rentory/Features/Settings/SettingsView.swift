@@ -13,13 +13,12 @@ struct SettingsView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var appSecurityState: AppSecurityState
     @EnvironmentObject private var entitlementManager: EntitlementManager
+    @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
     @State private var selectedCategory: SettingsCategory = .privacySecurity
     @State private var selectedDestination: SettingsDestination?
     @State private var appLockToggleIsOn = false
     @State private var upgradePromptContent: UpgradePromptContent?
-
-    private let iCloudStatusService = ICloudSyncStatusService()
 
     var body: some View {
         NavigationStack {
@@ -508,13 +507,15 @@ struct SettingsView: View {
     }
 
     private var iCloudSettingsValue: String {
-        switch iCloudStatusService.currentStatus() {
+        switch iCloudSyncService.syncStatus {
         case .available:
-            return "Off"
+            return iCloudSyncService.isSyncEnabled ? "On" : "Off"
         case .unavailable:
             return "Unavailable"
-        case .checking, .unknown:
-            return "Off"
+        case .checking:
+            return "Checking"
+        case .unknown:
+            return "Unknown"
         }
     }
 

@@ -14,6 +14,13 @@ struct EditPropertyView: View {
     let propertyPack: PropertyPack
 
     @State private var nickname: String
+    @State private var recordType: PropertyRecordType
+    @State private var isFavourite: Bool
+    @State private var buildingName: String
+    @State private var spaceIdentifier: String
+    @State private var floorLevel: String
+    @State private var mainPropertyName: String
+    @State private var accessDetails: String
     @State private var addressLine1: String
     @State private var addressLine2: String
     @State private var townCity: String
@@ -40,6 +47,13 @@ struct EditPropertyView: View {
         self.propertyPack = propertyPack
         self.onDelete = onDelete
         _nickname = State(initialValue: propertyPack.nickname)
+        _recordType = State(initialValue: propertyPack.recordType)
+        _isFavourite = State(initialValue: propertyPack.isFavourite)
+        _buildingName = State(initialValue: propertyPack.buildingName ?? "")
+        _spaceIdentifier = State(initialValue: propertyPack.spaceIdentifier ?? "")
+        _floorLevel = State(initialValue: propertyPack.floorLevel ?? "")
+        _mainPropertyName = State(initialValue: propertyPack.mainPropertyName ?? "")
+        _accessDetails = State(initialValue: propertyPack.accessDetails ?? "")
         _addressLine1 = State(initialValue: propertyPack.addressLine1 ?? "")
         _addressLine2 = State(initialValue: propertyPack.addressLine2 ?? "")
         _townCity = State(initialValue: propertyPack.townCity ?? "")
@@ -60,9 +74,16 @@ struct EditPropertyView: View {
             PropertyFormView(
                 title: "Edit record",
                 subtitle: "Update your record when details change.",
-                systemImage: "slider.horizontal.3",
+                systemImage: recordType.iconName,
                 validationMessage: validationMessage,
+                recordType: $recordType,
+                isFavourite: $isFavourite,
                 nickname: $nickname,
+                buildingName: $buildingName,
+                spaceIdentifier: $spaceIdentifier,
+                floorLevel: $floorLevel,
+                mainPropertyName: $mainPropertyName,
+                accessDetails: $accessDetails,
                 addressLine1: $addressLine1,
                 addressLine2: $addressLine2,
                 townCity: $townCity,
@@ -197,10 +218,17 @@ struct EditPropertyView: View {
         }
 
         propertyPack.nickname = trimmedNickname
+        propertyPack.recordType = recordType
+        propertyPack.isFavourite = isFavourite
         propertyPack.addressLine1 = optionalText(addressLine1)
         propertyPack.addressLine2 = optionalText(addressLine2)
         propertyPack.townCity = optionalText(townCity)
         propertyPack.postcode = optionalText(postcode)
+        propertyPack.buildingName = optionalText(buildingName)
+        propertyPack.spaceIdentifier = optionalText(spaceIdentifier)
+        propertyPack.floorLevel = optionalText(floorLevel)
+        propertyPack.mainPropertyName = optionalText(mainPropertyName)
+        propertyPack.accessDetails = optionalText(accessDetails)
         propertyPack.tenancyStartDate = hasTenancyStartDate ? tenancyStartDate : nil
         propertyPack.tenancyEndDate = hasTenancyEndDate ? tenancyEndDate : nil
         propertyPack.landlordOrAgentName = optionalText(landlordOrAgentName)

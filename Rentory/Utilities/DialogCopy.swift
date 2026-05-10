@@ -86,6 +86,12 @@ enum DialogCopy {
         buttonTitle: "OK"
     )
 
+    static let purchaseCompleted = RRAlertContent(
+        title: "Thank you for unlocking Rentory",
+        message: "Your lifetime unlock is now ready to use. Thank you for supporting Rentory.",
+        buttonTitle: "OK"
+    )
+
     static let purchaseNotCompleted = RRAlertContent(error: .purchaseNotCompleted)
 
     static let appUnlockFailed = RRAlertContent(error: .appCouldNotBeUnlocked)

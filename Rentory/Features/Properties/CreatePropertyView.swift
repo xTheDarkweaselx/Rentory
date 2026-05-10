@@ -21,6 +21,13 @@ struct CreatePropertyView: View {
     @Query private var allPhotos: [EvidencePhoto]
 
     @State private var nickname = ""
+    @State private var recordType: PropertyRecordType = .house
+    @State private var isFavourite = false
+    @State private var buildingName = ""
+    @State private var spaceIdentifier = ""
+    @State private var floorLevel = ""
+    @State private var mainPropertyName = ""
+    @State private var accessDetails = ""
     @State private var addressLine1 = ""
     @State private var addressLine2 = ""
     @State private var townCity = ""
@@ -68,9 +75,16 @@ struct CreatePropertyView: View {
             PropertyFormView(
                 title: "Create a record",
                 subtitle: "Start with the basics. You can add more now or come back later.\n\nOnly the property name is needed to save a draft.",
-                systemImage: "house",
+                systemImage: recordType.iconName,
                 validationMessage: validationMessage,
+                recordType: $recordType,
+                isFavourite: $isFavourite,
                 nickname: $nickname,
+                buildingName: $buildingName,
+                spaceIdentifier: $spaceIdentifier,
+                floorLevel: $floorLevel,
+                mainPropertyName: $mainPropertyName,
+                accessDetails: $accessDetails,
                 addressLine1: $addressLine1,
                 addressLine2: $addressLine2,
                 townCity: $townCity,
@@ -295,10 +309,17 @@ struct CreatePropertyView: View {
 
         let propertyPack = PropertyPack(
             nickname: trimmedNickname,
+            recordType: recordType,
+            isFavourite: isFavourite,
             addressLine1: optionalText(addressLine1),
             addressLine2: optionalText(addressLine2),
             townCity: optionalText(townCity),
             postcode: optionalText(postcode),
+            buildingName: optionalText(buildingName),
+            spaceIdentifier: optionalText(spaceIdentifier),
+            floorLevel: optionalText(floorLevel),
+            mainPropertyName: optionalText(mainPropertyName),
+            accessDetails: optionalText(accessDetails),
             tenancyStartDate: hasTenancyStartDate ? tenancyStartDate : nil,
             tenancyEndDate: hasTenancyEndDate ? tenancyEndDate : nil,
             landlordOrAgentName: optionalText(landlordOrAgentName),

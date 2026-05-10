@@ -49,7 +49,7 @@ struct DemoDataFactory {
     func loadSampleData(context: ModelContext, style: SampleDataStyle) throws -> [PropertyPack] {
         var existingDemoRecords = try fetchDemoRecords(context: context)
         if !existingDemoRecords.isEmpty {
-            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < 6
+            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < 8
             if !needsFullSampleRefresh {
                 DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
                 return existingDemoRecords
@@ -68,7 +68,9 @@ struct DemoDataFactory {
                 makePrimaryRecord(),
                 makeSharedHomeRecord(),
                 makeFamilyHouseRecord(),
-                makeLodgerRoomRecord(),
+                makeApartmentRecord(),
+                makeGarageRecord(),
+                makeAnnexRecord(),
                 makeStudioRecord(),
                 makeArchivedRecord(),
             ]
@@ -101,6 +103,8 @@ struct DemoDataFactory {
     private func makePrimaryRecord() throws -> PropertyPack {
         try makePropertyRecord(
             nickname: DemoModeSettings.demoRecordName,
+            recordType: .house,
+            isFavourite: true,
             addressLine1: "14 Sample Street",
             townCity: DemoModeSettings.demoTownCity,
             postcode: DemoModeSettings.demoPostcode,
@@ -146,7 +150,12 @@ struct DemoDataFactory {
 
     private func makeSharedHomeRecord() throws -> PropertyPack {
         try makePropertyRecord(
-            nickname: "Shared home sample",
+            nickname: "Shared flat sample",
+            recordType: .flat,
+            isFavourite: true,
+            buildingName: "Example Terrace",
+            spaceIdentifier: "Flat 2B",
+            floorLevel: "2",
             addressLine1: "8 Example Terrace",
             townCity: "Riverford",
             postcode: "EF3 4GH",
@@ -182,7 +191,11 @@ struct DemoDataFactory {
 
     private func makeArchivedRecord() throws -> PropertyPack {
         let record = try makePropertyRecord(
-            nickname: "Previous student let",
+            nickname: "Previous student flat",
+            recordType: .flat,
+            buildingName: "College Mews",
+            spaceIdentifier: "Flat 4",
+            floorLevel: "1",
             addressLine1: "2 College Mews",
             townCity: "Oakford",
             postcode: "JK5 6LM",
@@ -219,6 +232,7 @@ struct DemoDataFactory {
     private func makeFamilyHouseRecord() throws -> PropertyPack {
         try makePropertyRecord(
             nickname: "Family house sample",
+            recordType: .house,
             addressLine1: "22 Orchard Lane",
             townCity: "Westbridge",
             postcode: "MN7 8PQ",
@@ -265,9 +279,127 @@ struct DemoDataFactory {
         )
     }
 
+    private func makeApartmentRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Apartment sample",
+            recordType: .apartment,
+            buildingName: "Canal Point",
+            spaceIdentifier: "Apartment 18",
+            floorLevel: "5",
+            addressLine1: "18 Canal Point",
+            townCity: "Eastbank",
+            postcode: "AP1 8RT",
+            tenancyStartDate: demoDate(year: 2026, month: 3, day: 1),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "Canal Living",
+            landlordOrAgentEmail: "hello@canalliving.test",
+            depositSchemeName: "Apartment Deposit Scheme",
+            depositReference: "APT-1805",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This apartment sample includes block, apartment and floor details so the type-specific fields are visible.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Open-plan living area", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Balcony", .garden),
+            ],
+            documentDefinitions: [
+                ("Apartment tenancy agreement", .tenancyAgreement),
+                ("Apartment check-in inventory", .checkInInventory),
+                ("Apartment meter reading", .meterReading),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the apartment sample."),
+                ("Inventory reviewed", .inventoryReviewed, "Inventory checked for the apartment sample."),
+                ("Inspection", .inspection, "Building inspection access was noted."),
+            ]
+        )
+    }
+
+    private func makeGarageRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Storage garage sample",
+            recordType: .garage,
+            spaceIdentifier: "Garage 12",
+            accessDetails: "Key fob for the main gate, manual lock on the garage door.",
+            addressLine1: "Rear of 6 Station Yard",
+            townCity: "Northmere",
+            postcode: "GA2 4GE",
+            tenancyStartDate: demoDate(year: 2026, month: 2, day: 5),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "Station Yard Storage",
+            landlordOrAgentEmail: "storage@stationyard.test",
+            depositSchemeName: nil,
+            depositReference: nil,
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This storage garage sample shows how Rentory can track a rented garage or parking space.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Garage space", .garage),
+                ("Access area", .other),
+            ],
+            documentDefinitions: [
+                ("Garage rental agreement", .tenancyAgreement),
+                ("Garage access note", .other),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Keys and access were received."),
+                ("Issue noticed", .issueNoticed, "Small dent noted on the garage door."),
+                ("Issue reported", .issueReported, "Garage door dent reported for the record."),
+            ]
+        )
+    }
+
+    private func makeAnnexRecord() throws -> PropertyPack {
+        try makePropertyRecord(
+            nickname: "Garden annex sample",
+            recordType: .annex,
+            isFavourite: true,
+            mainPropertyName: "Rose House",
+            accessDetails: "Side gate access with shared bins near the main house.",
+            addressLine1: "Rose House Annex",
+            townCity: "Meadowford",
+            postcode: "AN6 2EX",
+            tenancyStartDate: demoDate(year: 2025, month: 7, day: 20),
+            tenancyEndDate: nil,
+            landlordOrAgentName: "Private landlord sample",
+            landlordOrAgentEmail: "rosehouse@landlord.test",
+            depositSchemeName: "Annex Deposit Protection",
+            depositReference: "ANNEX-9204",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "This annex sample shows the main house and shared access fields.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living area", .livingRoom),
+                ("Kitchenette", .kitchen),
+                ("Bedroom", .bedroom),
+                ("Shower room", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Annex agreement", .tenancyAgreement),
+                ("Annex inventory", .checkInInventory),
+                ("Shared access note", .other),
+            ],
+            timelineDefinitions: [
+                ("Move-in", .moveIn, "Move-in added for the annex sample."),
+                ("Cleaning completed", .cleaningCompleted, "Annex clean was logged."),
+                ("Deposit discussion", .depositDiscussion, "Deposit note added for the annex."),
+            ]
+        )
+    }
+
     private func makeStudioRecord() throws -> PropertyPack {
         try makePropertyRecord(
-            nickname: "Studio flat sample",
+            nickname: "Other rented space sample",
+            recordType: .other,
+            buildingName: "Market Court",
+            spaceIdentifier: "Studio room",
+            accessDetails: "Shared entrance, private internal door and separate meter cupboard.",
             addressLine1: "4 Market Court",
             townCity: "Southmere",
             postcode: "RS2 3TU",
@@ -335,6 +467,13 @@ struct DemoDataFactory {
 
     private func makePropertyRecord(
         nickname: String,
+        recordType: PropertyRecordType = .house,
+        isFavourite: Bool = false,
+        buildingName: String? = nil,
+        spaceIdentifier: String? = nil,
+        floorLevel: String? = nil,
+        mainPropertyName: String? = nil,
+        accessDetails: String? = nil,
         addressLine1: String,
         townCity: String,
         postcode: String,
@@ -351,9 +490,16 @@ struct DemoDataFactory {
     ) throws -> PropertyPack {
         let propertyPack = PropertyPack(
             nickname: nickname,
+            recordType: recordType,
+            isFavourite: isFavourite,
             addressLine1: addressLine1,
             townCity: townCity,
             postcode: postcode,
+            buildingName: buildingName,
+            spaceIdentifier: spaceIdentifier,
+            floorLevel: floorLevel,
+            mainPropertyName: mainPropertyName,
+            accessDetails: accessDetails,
             tenancyStartDate: tenancyStartDate,
             tenancyEndDate: tenancyEndDate,
             landlordOrAgentName: landlordOrAgentName,

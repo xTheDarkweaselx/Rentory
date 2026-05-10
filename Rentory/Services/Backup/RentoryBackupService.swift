@@ -159,10 +159,17 @@ struct RentoryBackupService {
                 BackupPropertyPack(
                     id: propertyPack.id,
                     nickname: propertyPack.nickname,
+                    recordTypeRawValue: propertyPack.recordTypeRawValue,
+                    isFavourite: propertyPack.isFavourite,
                     addressLine1: propertyPack.addressLine1,
                     addressLine2: propertyPack.addressLine2,
                     townCity: propertyPack.townCity,
                     postcode: propertyPack.postcode,
+                    buildingName: propertyPack.buildingName,
+                    spaceIdentifier: propertyPack.spaceIdentifier,
+                    floorLevel: propertyPack.floorLevel,
+                    mainPropertyName: propertyPack.mainPropertyName,
+                    accessDetails: propertyPack.accessDetails,
                     tenancyStartDate: propertyPack.tenancyStartDate,
                     tenancyEndDate: propertyPack.tenancyEndDate,
                     landlordOrAgentName: propertyPack.landlordOrAgentName,
@@ -432,10 +439,17 @@ struct RentoryBackupService {
         for property in payload.properties {
             propertyPacksByID[property.id] = PropertyPack(
                 nickname: property.nickname,
+                recordType: property.recordTypeRawValue.flatMap(PropertyRecordType.init(rawValue:)) ?? .house,
+                isFavourite: property.isFavourite ?? false,
                 addressLine1: property.addressLine1,
                 addressLine2: property.addressLine2,
                 townCity: property.townCity,
                 postcode: property.postcode,
+                buildingName: property.buildingName,
+                spaceIdentifier: property.spaceIdentifier,
+                floorLevel: property.floorLevel,
+                mainPropertyName: property.mainPropertyName,
+                accessDetails: property.accessDetails,
                 tenancyStartDate: property.tenancyStartDate,
                 tenancyEndDate: property.tenancyEndDate,
                 landlordOrAgentName: property.landlordOrAgentName,
@@ -546,10 +560,17 @@ private struct RentoryBackupPayload: Codable {
 private struct BackupPropertyPack: Codable {
     let id: UUID
     let nickname: String
+    let recordTypeRawValue: String?
+    let isFavourite: Bool?
     let addressLine1: String?
     let addressLine2: String?
     let townCity: String?
     let postcode: String?
+    let buildingName: String?
+    let spaceIdentifier: String?
+    let floorLevel: String?
+    let mainPropertyName: String?
+    let accessDetails: String?
     let tenancyStartDate: Date?
     let tenancyEndDate: Date?
     let landlordOrAgentName: String?

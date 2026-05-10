@@ -35,7 +35,32 @@ struct PropertySummaryCard: View {
     var body: some View {
         RRGlassPanel {
             VStack(alignment: .leading, spacing: 16) {
-                RRIconBadge(systemName: "house.fill", tint: RRColours.secondary)
+                HStack(alignment: .top, spacing: RRTheme.controlSpacing) {
+                    RRIconBadge(systemName: propertyPack.recordIconName, tint: RRColours.secondary)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(propertyPack.recordType.rawValue)
+                            .font(RRTypography.footnote.weight(.semibold))
+                            .foregroundStyle(RRColours.secondary)
+
+                        if let typeDetailSummary = propertyPack.typeDetailSummary {
+                            Text(typeDetailSummary)
+                                .font(RRTypography.caption)
+                                .foregroundStyle(RRColours.mutedText)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
+
+                    Spacer(minLength: 12)
+
+                    if propertyPack.isFavourite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundStyle(RRColours.warning)
+                            .accessibilityLabel("Favourite")
+                    }
+                }
 
                 VStack(alignment: .leading, spacing: 6) {
                     Text(propertyPack.nickname)
@@ -86,7 +111,13 @@ struct PropertySummaryCard: View {
     }
 
     private var accessibilitySummary: String {
-        var parts = [propertyPack.nickname]
+        var parts = [propertyPack.nickname, propertyPack.recordType.rawValue]
+        if propertyPack.isFavourite {
+            parts.append("Favourite")
+        }
+        if let typeDetailSummary = propertyPack.typeDetailSummary {
+            parts.append(typeDetailSummary)
+        }
         if let locationSummary {
             parts.append(locationSummary)
         }

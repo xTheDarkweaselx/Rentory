@@ -10,10 +10,9 @@ import SwiftUI
 
 struct PurchaseRowView: View {
     let product: Product?
-    let fallbackPriceText: String?
 
     private var priceText: String {
-        product?.displayPrice ?? fallbackPriceText ?? "Price unavailable"
+        product?.displayPrice ?? "Price unavailable"
     }
 
     var body: some View {

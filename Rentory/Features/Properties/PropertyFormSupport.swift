@@ -46,7 +46,14 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
     let subtitle: String
     let systemImage: String
     let validationMessage: String?
+    @Binding var recordType: PropertyRecordType
+    @Binding var isFavourite: Bool
     @Binding var nickname: String
+    @Binding var buildingName: String
+    @Binding var spaceIdentifier: String
+    @Binding var floorLevel: String
+    @Binding var mainPropertyName: String
+    @Binding var accessDetails: String
     @Binding var addressLine1: String
     @Binding var addressLine2: String
     @Binding var townCity: String
@@ -71,7 +78,14 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
         subtitle: String,
         systemImage: String,
         validationMessage: String?,
+        recordType: Binding<PropertyRecordType>,
+        isFavourite: Binding<Bool>,
         nickname: Binding<String>,
+        buildingName: Binding<String>,
+        spaceIdentifier: Binding<String>,
+        floorLevel: Binding<String>,
+        mainPropertyName: Binding<String>,
+        accessDetails: Binding<String>,
         addressLine1: Binding<String>,
         addressLine2: Binding<String>,
         townCity: Binding<String>,
@@ -93,7 +107,14 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
         self.subtitle = subtitle
         self.systemImage = systemImage
         self.validationMessage = validationMessage
+        _recordType = recordType
+        _isFavourite = isFavourite
         _nickname = nickname
+        _buildingName = buildingName
+        _spaceIdentifier = spaceIdentifier
+        _floorLevel = floorLevel
+        _mainPropertyName = mainPropertyName
+        _accessDetails = accessDetails
         _addressLine1 = addressLine1
         _addressLine2 = addressLine2
         _townCity = townCity
@@ -179,14 +200,7 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
     private var selectedTabContent: some View {
         switch selectedTab {
         case .basics:
-            RRResponsiveFormGrid(items: [
-                RRResponsiveFormGridItem {
-                    basicsSection
-                },
-                RRResponsiveFormGridItem {
-                    addressSection
-                },
-            ])
+            RRResponsiveFormGrid(items: basicsTabItems)
         case .tenancy:
             RRResponsiveFormGrid(items: [
                 RRResponsiveFormGridItem {
@@ -236,6 +250,33 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private var basicsTabItems: [RRResponsiveFormGridItem] {
+        var items: [RRResponsiveFormGridItem] = [
+            RRResponsiveFormGridItem {
+                basicsSection
+            },
+            RRResponsiveFormGridItem {
+                recordTypeSection
+            },
+        ]
+
+        if !recordType.extraFields.isEmpty {
+            items.append(
+                RRResponsiveFormGridItem {
+                    typeDetailsSection
+                }
+            )
+        }
+
+        items.append(
+            RRResponsiveFormGridItem {
+                addressSection
+            }
+        )
+
+        return items
+    }
+
     private var basicsSection: some View {
         RRFormSection(title: "Basics", message: propertyValidationMessage) {
             RRFormFieldRow(title: "Property name") {
@@ -244,6 +285,74 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
                     .textFieldStyle(.roundedBorder)
                     .accessibilityHint("Required")
             }
+
+            Toggle(isOn: $isFavourite.animation()) {
+                Label("Favourite", systemImage: isFavourite ? "star.fill" : "star")
+            }
+            .toggleStyle(.switch)
+        }
+    }
+
+    private var recordTypeSection: some View {
+        RRFormSection(title: "Record type", message: recordType.shortDescription) {
+            Picker("Record type", selection: $recordType) {
+                ForEach(PropertyRecordType.allCases) { type in
+                    Label(type.rawValue, systemImage: type.iconName)
+                        .tag(type)
+                }
+            }
+            .pickerStyle(.menu)
+
+            HStack(spacing: RRTheme.controlSpacing) {
+                RRIconBadge(systemName: recordType.iconName, tint: RRColours.secondary)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recordType.rawValue)
+                        .font(RRTypography.headline)
+                        .foregroundStyle(RRColours.primary)
+                    Text(recordType.shortDescription)
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
+    private var typeDetailsSection: some View {
+        RRFormSection(title: "Type details", message: "Add the details that make this record easy to recognise later.") {
+            ForEach(recordType.extraFields) { field in
+                RRFormFieldRow(title: field.title(for: recordType)) {
+                    textField(for: field)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func textField(for field: PropertyExtraField) -> some View {
+        switch field {
+        case .buildingName:
+            TextField(field.title(for: recordType), text: $buildingName)
+                .rrTextInputAutocapitalizationWords()
+                .textFieldStyle(.roundedBorder)
+        case .spaceIdentifier:
+            TextField(field.title(for: recordType), text: $spaceIdentifier)
+                .rrTextInputAutocapitalizationWords()
+                .textFieldStyle(.roundedBorder)
+        case .floorLevel:
+            TextField(field.title(for: recordType), text: $floorLevel)
+                .rrTextInputAutocapitalizationWords()
+                .textFieldStyle(.roundedBorder)
+        case .mainPropertyName:
+            TextField(field.title(for: recordType), text: $mainPropertyName)
+                .rrTextInputAutocapitalizationWords()
+                .textFieldStyle(.roundedBorder)
+        case .accessDetails:
+            TextField(field.title(for: recordType), text: $accessDetails, axis: .vertical)
+                .lineLimit(2...4)
+                .rrTextInputAutocapitalizationWords()
+                .textFieldStyle(.roundedBorder)
         }
     }
 

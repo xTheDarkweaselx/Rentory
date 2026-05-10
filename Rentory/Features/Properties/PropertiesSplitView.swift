@@ -10,15 +10,21 @@ import SwiftUI
 
 struct PropertiesSplitView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
+    @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var entitlementManager: EntitlementManager
 
     @State private var isShowingCreateProperty = false
     @State private var isShowingSettings = false
     @State private var selectedPropertyID: UUID?
     @State private var upgradePromptContent: UpgradePromptContent?
+    @State private var filterState = PropertyRecordFilterState()
 
     private var activePropertyPacks: [PropertyPack] {
         propertyPacks.filter { !$0.isArchived }
+    }
+
+    private var filteredPropertyPacks: [PropertyPack] {
+        filterState.filteredRecords(from: activePropertyPacks)
     }
 
     private var realPropertyPacksCount: Int {
@@ -36,6 +42,12 @@ struct PropertiesSplitView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selectedPropertyID) {
+                if !activePropertyPacks.isEmpty {
+                    Section {
+                        sidebarFilters
+                    }
+                }
+
                 if activePropertyPacks.isEmpty {
                     ContentUnavailableView {
                         Label("No rental records yet", systemImage: "house")
@@ -46,14 +58,35 @@ struct PropertiesSplitView: View {
                             showCreatePropertyOrUpgradePrompt()
                         }
                     }
+                } else if filteredPropertyPacks.isEmpty {
+                    ContentUnavailableView {
+                        Label("No matching records", systemImage: "line.3.horizontal.decrease.circle")
+                    } description: {
+                        Text("Try changing the search or filters.")
+                    } actions: {
+                        Button("Clear filters") {
+                            clearFilters()
+                        }
+                    }
                 } else {
-                    ForEach(activePropertyPacks) { propertyPack in
+                    ForEach(filteredPropertyPacks) { propertyPack in
                         PropertySidebarRow(propertyPack: propertyPack)
                             .tag(propertyPack.id)
+                            .contextMenu {
+                                Button {
+                                    toggleFavourite(for: propertyPack)
+                                } label: {
+                                    Label(
+                                        propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
+                                        systemImage: propertyPack.isFavourite ? "star.slash" : "star"
+                                    )
+                                }
+                            }
                     }
                 }
             }
             .navigationTitle("Rentory")
+            .searchable(text: $filterState.searchText, prompt: "Search records")
             .navigationSplitViewColumnWidth(
                 min: PlatformLayout.preferredSidebarMinWidth,
                 ideal: PlatformLayout.preferredSidebarIdealWidth,
@@ -114,6 +147,43 @@ struct PropertiesSplitView: View {
         }
     }
 
+    private var sidebarFilters: some View {
+        VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+            Picker("Record type", selection: $filterState.typeFilter) {
+                ForEach(PropertyRecordTypeFilter.allCases) { filter in
+                    Text(filter.rawValue).tag(filter)
+                }
+            }
+            .pickerStyle(.menu)
+
+            Toggle(isOn: $filterState.showsFavouritesOnly.animation()) {
+                Label("Favourites", systemImage: "star.fill")
+            }
+
+            if filterState.hasActiveFilters {
+                Button("Clear filters") {
+                    clearFilters()
+                }
+                .buttonStyle(.borderless)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func clearFilters() {
+        withAnimation(RRTheme.quickAnimation) {
+            filterState = PropertyRecordFilterState()
+        }
+    }
+
+    private func toggleFavourite(for propertyPack: PropertyPack) {
+        withAnimation(RRTheme.quickAnimation) {
+            propertyPack.isFavourite.toggle()
+            propertyPack.updatedAt = .now
+            try? modelContext.save()
+        }
+    }
+
     private func showCreatePropertyOrUpgradePrompt() {
         if FeatureAccessService.canCreateProperty(
             currentPropertyCount: propertyPacks.count,
@@ -140,35 +210,57 @@ private struct PropertySidebarRow: View {
     let propertyPack: PropertyPack
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(propertyPack.nickname)
-                .font(RRTypography.headline)
-                .foregroundStyle(RRColours.primary)
-                .lineLimit(1)
-                .truncationMode(.tail)
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: propertyPack.recordIconName)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(RRColours.secondary)
+                .frame(width: 24, height: 24)
 
-            if let location = locationSummary {
-                Text(location)
-                    .font(RRTypography.footnote)
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(propertyPack.nickname)
+                        .font(RRTypography.headline)
+                        .foregroundStyle(RRColours.primary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+
+                    if propertyPack.isFavourite {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(RRColours.warning)
+                    }
+                }
+
+                Text(propertyPack.recordType.rawValue)
+                    .font(RRTypography.caption.weight(.semibold))
+                    .foregroundStyle(RRColours.secondary)
+                    .lineLimit(1)
+
+                if let detailSummary = firstNonEmpty(propertyPack.typeDetailSummary, locationSummary) {
+                    Text(detailSummary)
+                        .font(RRTypography.footnote)
+                        .foregroundStyle(RRColours.mutedText)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+
+                Text("Updated \(propertyPack.updatedAt.formatted(date: .abbreviated, time: .omitted))")
+                    .font(RRTypography.caption)
                     .foregroundStyle(RRColours.mutedText)
                     .lineLimit(1)
-                    .truncationMode(.tail)
             }
-
-            Text("Updated \(propertyPack.updatedAt.formatted(date: .abbreviated, time: .omitted))")
-                .font(RRTypography.caption)
-                .foregroundStyle(RRColours.mutedText)
-                .lineLimit(1)
         }
         .padding(.vertical, 4)
     }
 
     private var locationSummary: String? {
-        [propertyPack.townCity, propertyPack.postcode]
-            .compactMap { value in
-                let trimmedValue = value?.trimmingCharacters(in: .whitespacesAndNewlines)
-                return trimmedValue?.isEmpty == false ? trimmedValue : nil
-            }
-            .first
+        firstNonEmpty(propertyPack.townCity, propertyPack.postcode)
+    }
+
+    private func firstNonEmpty(_ values: String?...) -> String? {
+        values.first(where: { value in
+            guard let value else { return false }
+            return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }) ?? nil
     }
 }

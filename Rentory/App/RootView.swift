@@ -14,6 +14,7 @@ struct RootView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var appSecurityState: AppSecurityState
+    @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
     var body: some View {
@@ -47,6 +48,7 @@ struct RootView: View {
             Task {
                 switch newPhase {
                 case .active:
+                    await entitlementManager.refreshEntitlements()
                     await iCloudSyncService.refreshStatus()
                     await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
                 case .background:
@@ -60,6 +62,7 @@ struct RootView: View {
         }
         .task {
             try? FileStorageService().cleanupOldTemporaryExports()
+            await entitlementManager.refreshEntitlements()
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
         }
@@ -96,5 +99,6 @@ struct RootView: View {
 #Preview("Onboarding") {
     RootView()
         .environmentObject(AppSecurityState())
+        .environmentObject(EntitlementManager())
         .environmentObject(ICloudSyncService())
 }
