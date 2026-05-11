@@ -17,6 +17,8 @@ struct ExportOptionsView: View {
     @State private var createdReportURL: URL?
     @State private var userFacingError: UserFacingError?
     @State private var isCreatingReport = false
+    @State private var reportProgress = ReportCreationProgress(stage: "Getting the report ready.", fractionCompleted: 0.12)
+    @State private var reportTask: Task<Void, Never>?
     @State private var upgradePromptContent: UpgradePromptContent?
 
     var body: some View {
@@ -92,11 +94,14 @@ struct ExportOptionsView: View {
                     Color.black.opacity(0.12)
                         .ignoresSafeArea()
 
-                    RRLoadingView(
+                    RRProgressDialog(
                         title: "Creating report",
-                        message: "Please wait while your report is created."
-                    )
-                    .padding(24)
+                        message: reportProgress.stage,
+                        progress: reportProgress.fractionCompleted,
+                        cancelTitle: "Cancel"
+                    ) {
+                        reportTask?.cancel()
+                    }
                 }
             }
         }
@@ -126,25 +131,46 @@ struct ExportOptionsView: View {
             return
         }
 
+        guard !isCreatingReport else { return }
+
         isCreatingReport = true
+        reportProgress = ReportCreationProgress(stage: "Collecting record details.", fractionCompleted: 0.18)
         let snapshot = PDFReportSnapshot(propertyPack: propertyPack)
         let selectedOptions = options
 
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = Result {
-                try PDFExportService().createReport(for: snapshot, options: selectedOptions)
+        reportTask = Task {
+            do {
+                reportProgress = ReportCreationProgress(stage: "Preparing photos and documents.", fractionCompleted: 0.42)
+                try Task.checkCancellation()
+
+                let reportURL = try await Task.detached(priority: .userInitiated) {
+                    try Task.checkCancellation()
+                    let url = try await PDFExportService().createReport(for: snapshot, options: selectedOptions)
+                    try Task.checkCancellation()
+                    return url
+                }.value
+
+                try Task.checkCancellation()
+                reportProgress = ReportCreationProgress(stage: "Finishing the report.", fractionCompleted: 0.9)
+                RentoryActivityLog.record(
+                    kind: .report,
+                    title: "Report created",
+                    message: "A report was created for “\(snapshot.nickname)”."
+                )
+                createdReportURL = reportURL
+            } catch is CancellationError {
+                userFacingError = nil
+            } catch {
+                userFacingError = .reportCouldNotBeCreated
             }
 
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let reportURL):
-                    createdReportURL = reportURL
-                case .failure:
-                    userFacingError = .reportCouldNotBeCreated
-                }
-
-                isCreatingReport = false
-            }
+            isCreatingReport = false
+            reportTask = nil
         }
     }
+}
+
+private struct ReportCreationProgress {
+    let stage: String
+    let fractionCompleted: Double
 }

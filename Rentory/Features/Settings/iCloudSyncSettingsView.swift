@@ -83,6 +83,7 @@ struct ICloudSyncSettingsView: View {
                     .disabled(iCloudSyncService.syncStatus != .available || iCloudSyncService.isSyncing)
 
                 RRSecondaryButton(title: iCloudSyncService.isSyncing ? "Syncing…" : "Sync now", isDisabled: !iCloudSyncService.isSyncEnabled || iCloudSyncService.isSyncing) {
+                    recordSyncAttempt()
                     Task {
                         await iCloudSyncService.syncNow(context: modelContext)
                     }
@@ -120,6 +121,7 @@ struct ICloudSyncSettingsView: View {
                 LabeledContent("Last synced", value: lastSyncedText)
 
                 RRSecondaryButton(title: iCloudSyncService.isSyncing ? "Syncing…" : "Sync now", isDisabled: !iCloudSyncService.isSyncEnabled || iCloudSyncService.isSyncing) {
+                    recordSyncAttempt()
                     Task {
                         await iCloudSyncService.syncNow(context: modelContext)
                     }
@@ -191,6 +193,11 @@ struct ICloudSyncSettingsView: View {
         Binding(
             get: { iCloudSyncService.isSyncEnabled },
             set: { newValue in
+                RentoryActivityLog.record(
+                    kind: .iCloudSync,
+                    title: newValue ? "iCloud sync enabled" : "iCloud sync disabled",
+                    message: newValue ? "Sync was turned on for this device." : "Sync was turned off for this device."
+                )
                 Task {
                     await iCloudSyncService.setSyncEnabled(newValue, context: modelContext)
                 }
@@ -204,5 +211,13 @@ struct ICloudSyncSettingsView: View {
         }
 
         return lastSyncDate.formatted(date: .abbreviated, time: .shortened)
+    }
+
+    private func recordSyncAttempt() {
+        RentoryActivityLog.record(
+            kind: .iCloudSync,
+            title: "iCloud sync started",
+            message: "A manual iCloud sync was started from Settings."
+        )
     }
 }

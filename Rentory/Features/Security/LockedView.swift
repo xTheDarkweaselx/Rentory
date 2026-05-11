@@ -28,7 +28,7 @@ struct LockedView: View {
                     }
                     .frame(maxWidth: min(proxy.size.width - 40, 780))
 
-                    Text(isAvailable ? "Use Face ID, Touch ID or your passcode to continue." : "You can continue using Rentory, but app lock is not available on this device.")
+                    Text(isAvailable ? unlockHint : "You can continue using Rentory, but app lock is not available on this device.")
                         .font(RRTypography.footnote)
                         .foregroundStyle(RRColours.mutedText)
                         .multilineTextAlignment(.center)
@@ -59,6 +59,22 @@ struct LockedView: View {
         }
     }
 
+    private var unlockHint: String {
+        #if os(macOS)
+        "Use Touch ID to continue. If Touch ID needs your password, macOS will ask for it."
+        #else
+        "Use Face ID or Touch ID to continue."
+        #endif
+    }
+
+    private var unavailableMessage: String {
+        #if os(macOS)
+        "This Mac does not currently have Touch ID set up for app unlock."
+        #else
+        "Face ID or Touch ID is not available for Rentory on this device."
+        #endif
+    }
+
     private var lockIcon: some View {
         ZStack {
             Circle()
@@ -82,7 +98,7 @@ struct LockedView: View {
                 Text(
                     isAvailable
                         ? "Unlock to view your rental records."
-                        : "This device does not currently support Face ID, Touch ID or passcode unlock for the app."
+                        : unavailableMessage
                 )
                 .font(RRTypography.body)
                 .foregroundStyle(RRColours.mutedText)

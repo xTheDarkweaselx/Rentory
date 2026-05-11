@@ -159,6 +159,11 @@ struct ImportBackupView: View {
                 title: "Backup imported",
                 message: "Your Rentory records have been added to this device."
             )
+            RentoryActivityLog.record(
+                kind: .importBackup,
+                title: "Backup imported",
+                message: "Imported \(loadedBackup.manifest.propertyCount) record\(loadedBackup.manifest.propertyCount == 1 ? "" : "s") using “\(importMode.rawValue)”."
+            )
             self.loadedBackup = nil
         } catch let error as RentoryBackupError {
             userFacingError = mapBackupError(error)

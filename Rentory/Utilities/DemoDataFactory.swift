@@ -692,7 +692,7 @@ struct DemoDataFactory {
                 displayName: document.0,
                 type: document.1,
                 localFileName: fileName,
-                notes: "Sample document for testing and screenshots.",
+                notes: "Sample document for exploring Rentory.",
                 documentDate: demoDate(year: 2026, month: 1, day: 12 + index)
             )
         }
@@ -715,7 +715,7 @@ struct DemoDataFactory {
             "",
             title,
             "",
-            "This file contains fake content for testing, screenshots and App Review.",
+            "This file contains sample content for exploring Rentory.",
             "It does not contain a real address, name, agreement or deposit reference.",
         ].joined(separator: "\n")
 

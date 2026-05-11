@@ -1,5 +1,5 @@
 //
-//  DeveloperDemoSettingsView.swift
+//  SampleDataSettingsView.swift
 //  Rentory
 //
 //  Created by OpenAI on 02/05/2026.
@@ -8,9 +8,8 @@
 import SwiftData
 import SwiftUI
 
-#if DEBUG
 @MainActor
-struct DeveloperDemoSettingsView: View {
+struct SampleDataSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
@@ -57,8 +56,8 @@ struct DeveloperDemoSettingsView: View {
                 RRMacSheetContainer(maxWidth: 880, minHeight: PlatformLayout.isMac ? 560 : nil) {
                     VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                         RRSheetHeader(
-                            title: "Demo Data",
-                            subtitle: "Use fake sample data for testing and screenshots.",
+                            title: "Sample Data",
+                            subtitle: "Use example records to understand how Rentory works.",
                             systemImage: "wand.and.stars"
                         )
 
@@ -74,7 +73,7 @@ struct DeveloperDemoSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Demo data")
+        .navigationTitle("Sample data")
         .rrInlineNavigationTitle()
         .overlay {
             if isWorking {
@@ -92,8 +91,8 @@ struct DeveloperDemoSettingsView: View {
             RRDialogContent(
                 title: loadsFullSampleSet ? "Load sample set?" : "Load sample record?",
                 message: loadsFullSampleSet
-                    ? "This adds a fuller set of fake records, rooms, photos, documents and timeline events for testing and screenshots."
-                    : "This adds one fake rental record for testing and screenshots.",
+                    ? "This adds a fuller set of example records, rooms, photos, documents and timeline events for exploring Rentory."
+                    : "This adds one example rental record for exploring Rentory.",
                 confirmTitle: loadsFullSampleSet ? "Load sample set" : "Load sample record",
                 cancelTitle: "Cancel"
             ),
@@ -106,7 +105,7 @@ struct DeveloperDemoSettingsView: View {
         .rrConfirmationDialog(
             RRDialogContent(
                 title: "Clear demo data?",
-                message: "This removes the fake sample records and their sample files.",
+                message: "This removes the sample records and their sample files.",
                 confirmTitle: "Clear demo data",
                 cancelTitle: "Cancel",
                 confirmRole: .destructive
@@ -128,7 +127,7 @@ struct DeveloperDemoSettingsView: View {
 
     private var compactView: some View {
         Form {
-            Section("Demo data") {
+            Section("Sample data") {
                 Text(
                     hasDemoRecord
                     ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
@@ -157,10 +156,10 @@ struct DeveloperDemoSettingsView: View {
     private var statusPanel: some View {
         RRGlassPanel {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                Text("Demo data")
+                Text("Sample data")
                     .font(RRTypography.headline)
 
-                Text("Use fake data for testing and screenshots.")
+                Text("Use example records to understand how Rentory works.")
                     .font(RRTypography.body)
                     .foregroundStyle(RRColours.mutedText)
 
@@ -220,8 +219,13 @@ struct DeveloperDemoSettingsView: View {
             alertContent = RRAlertContent(
                 title: loadsFullSampleSet ? "Sample set ready" : "Sample record ready",
                 message: loadsFullSampleSet
-                    ? "\(loadedRecords.count) fake sample records are ready for testing and screenshots."
-                    : "Fake sample data is ready for testing and screenshots."
+                    ? "\(loadedRecords.count) sample records are ready to explore."
+                    : "Sample data is ready to explore."
+            )
+            RentoryActivityLog.record(
+                kind: .sampleData,
+                title: loadsFullSampleSet ? "Sample set loaded" : "Sample record loaded",
+                message: "Added \(loadedRecords.count) sample record\(loadedRecords.count == 1 ? "" : "s") to this device."
             )
         } catch is CancellationError {
             alertContent = RRAlertContent(
@@ -245,12 +249,16 @@ struct DeveloperDemoSettingsView: View {
         do {
             try demoDataFactory.clearDemoData(context: modelContext)
             alertContent = RRAlertContent(
-                title: "Demo data cleared",
-                message: "The fake sample records and their files have been removed."
+                title: "Sample data cleared",
+                message: "The sample records and their files have been removed."
+            )
+            RentoryActivityLog.record(
+                kind: .sampleData,
+                title: "Sample data cleared",
+                message: "Removed sample records and sample files from this device."
             )
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)
         }
     }
 }
-#endif

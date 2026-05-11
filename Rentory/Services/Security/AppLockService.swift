@@ -27,46 +27,128 @@ enum AppLockError: LocalizedError {
 
 struct AppLockService {
     func isAuthenticationAvailable() -> Bool {
-        let context = LAContext()
+        let context = configuredContext()
         var error: NSError?
-
-        return context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+        return context.canEvaluatePolicy(primaryPolicy, error: &error)
     }
 
-    func authenticate(reason: String = "Unlock Rentory to view your rental records.") async throws -> Bool {
-        let context = LAContext()
+    func authenticate(reason: String = "Unlock your rental records.") async throws -> Bool {
+        let context = configuredContext()
         var error: NSError?
+        var policy = primaryPolicy
 
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
-            throw AppLockError.notAvailable
+        if !context.canEvaluatePolicy(policy, error: &error) {
+            if shouldRetryWithPasswordFallback(after: error) {
+                policy = .deviceOwnerAuthentication
+                error = nil
+
+                guard context.canEvaluatePolicy(policy, error: &error) else {
+                    throw mappedError(from: error)
+                }
+            } else {
+                throw mappedError(from: error)
+            }
         }
 
         return try await withCheckedThrowingContinuation { continuation in
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, evaluationError in
+            context.evaluatePolicy(policy, localizedReason: reason) { success, evaluationError in
                 if success {
                     continuation.resume(returning: true)
                     return
                 }
 
-                if let laError = evaluationError as? LAError {
-                    switch laError.code {
-                    case .authenticationFailed, .userCancel, .userFallback, .systemCancel, .appCancel:
-                        continuation.resume(returning: false)
-                    case .biometryNotAvailable, .biometryNotEnrolled, .passcodeNotSet, .biometryLockout:
-                        continuation.resume(throwing: AppLockError.notAvailable)
-                    default:
-                        continuation.resume(throwing: AppLockError.unableToUnlock)
+                if let evaluationError = evaluationError as? NSError,
+                   shouldRetryWithPasswordFallback(after: evaluationError) {
+                    let fallbackContext = configuredContext()
+                    fallbackContext.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { fallbackSuccess, fallbackError in
+                        handleEvaluationResult(
+                            success: fallbackSuccess,
+                            error: fallbackError,
+                            continuation: continuation
+                        )
                     }
-
                     return
                 }
 
-                if evaluationError != nil {
-                    continuation.resume(throwing: AppLockError.unableToUnlock)
-                } else {
-                    continuation.resume(returning: false)
-                }
+                handleEvaluationResult(
+                    success: success,
+                    error: evaluationError,
+                    continuation: continuation
+                )
             }
         }
+    }
+
+    private var primaryPolicy: LAPolicy {
+        .deviceOwnerAuthenticationWithBiometrics
+    }
+
+    private func configuredContext() -> LAContext {
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+
+        #if os(macOS)
+        context.localizedFallbackTitle = "Use Password"
+        context.touchIDAuthenticationAllowableReuseDuration = 10
+        #else
+        context.localizedFallbackTitle = "Use Passcode"
+        #endif
+
+        return context
+    }
+
+    private func shouldRetryWithPasswordFallback(after error: Error?) -> Bool {
+        #if os(macOS)
+        guard let laError = error as? LAError else { return false }
+        return laError.code == .biometryLockout || laError.code == .userFallback
+        #else
+        return false
+        #endif
+    }
+
+    private func mappedError(from error: Error?) -> AppLockError {
+        guard let laError = error as? LAError else {
+            return .notAvailable
+        }
+
+        switch laError.code {
+        case .biometryNotAvailable, .biometryNotEnrolled, .passcodeNotSet:
+            return .notAvailable
+        case .biometryLockout:
+            return .tryAgainLater
+        default:
+            return .unableToUnlock
+        }
+    }
+}
+
+private func handleEvaluationResult(
+    success: Bool,
+    error: Error?,
+    continuation: CheckedContinuation<Bool, Error>
+) {
+    if success {
+        continuation.resume(returning: true)
+        return
+    }
+
+    if let laError = error as? LAError {
+        switch laError.code {
+        case .authenticationFailed, .userCancel, .userFallback, .systemCancel, .appCancel:
+            continuation.resume(returning: false)
+        case .biometryNotAvailable, .biometryNotEnrolled, .passcodeNotSet:
+            continuation.resume(throwing: AppLockError.notAvailable)
+        case .biometryLockout:
+            continuation.resume(throwing: AppLockError.tryAgainLater)
+        default:
+            continuation.resume(throwing: AppLockError.unableToUnlock)
+        }
+        return
+    }
+
+    if error != nil {
+        continuation.resume(throwing: AppLockError.unableToUnlock)
+    } else {
+        continuation.resume(returning: false)
     }
 }

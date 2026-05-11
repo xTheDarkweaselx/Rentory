@@ -81,6 +81,7 @@ struct PropertiesSplitView: View {
                             )
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Rectangle())
                         .listRowBackground(
                             selectedPropertyID == propertyPack.id
                             ? RRColours.secondary.opacity(0.10)
@@ -94,6 +95,12 @@ struct PropertiesSplitView: View {
                                     propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
                                     systemImage: propertyPack.isFavourite ? "star.slash" : "star"
                                 )
+                            }
+
+                            Button {
+                                duplicateProperty(propertyPack)
+                            } label: {
+                                Label("Duplicate record", systemImage: "plus.square.on.square")
                             }
                         }
                     }
@@ -183,8 +190,11 @@ struct PropertiesSplitView: View {
                 }
                 .buttonStyle(.borderless)
             }
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
+        .contentShape(Rectangle())
     }
 
     private func clearFilters() {
@@ -215,6 +225,33 @@ struct PropertiesSplitView: View {
         }
     }
 
+    private func duplicateProperty(_ propertyPack: PropertyPack) {
+        guard FeatureAccessService.canCreateProperty(
+            currentPropertyCount: propertyPacks.count,
+            isUnlocked: entitlementManager.isUnlocked
+        ) else {
+            upgradePromptContent = FeatureAccessService.propertyLimitPrompt(
+                isSampleDataUsingFreeRecord: isOnlySampleDataUsingFreeRecord
+            )
+            return
+        }
+
+        let duplicate = propertyPack.duplicateForEditing()
+        modelContext.insert(duplicate)
+
+        do {
+            try modelContext.save()
+            RentoryActivityLog.record(
+                kind: .record,
+                title: "Record duplicated",
+                message: "“\(propertyPack.nickname)” was duplicated as “\(duplicate.nickname)”."
+            )
+            selectProperty(duplicate)
+        } catch {
+            modelContext.delete(duplicate)
+        }
+    }
+
     private func showCreatePropertyOrUpgradePrompt() {
         if FeatureAccessService.canCreateProperty(
             currentPropertyCount: propertyPacks.count,
@@ -235,6 +272,76 @@ struct PropertiesSplitView: View {
 
 extension Notification.Name {
     static let rentoryPropertySelectionDidChange = Notification.Name("RentoryPropertySelectionDidChange")
+}
+
+private extension PropertyPack {
+    func duplicateForEditing() -> PropertyPack {
+        let now = Date.now
+        return PropertyPack(
+            nickname: "\(nickname) copy",
+            recordType: recordType,
+            isFavourite: false,
+            addressLine1: addressLine1,
+            addressLine2: addressLine2,
+            townCity: townCity,
+            postcode: postcode,
+            buildingName: buildingName,
+            spaceIdentifier: spaceIdentifier,
+            floorLevel: floorLevel,
+            mainPropertyName: mainPropertyName,
+            accessDetails: accessDetails,
+            tenancyStartDate: tenancyStartDate,
+            tenancyEndDate: tenancyEndDate,
+            landlordOrAgentName: landlordOrAgentName,
+            landlordOrAgentEmail: landlordOrAgentEmail,
+            depositSchemeName: depositSchemeName,
+            depositReference: depositReference,
+            notes: notes,
+            createdAt: now,
+            updatedAt: now,
+            rooms: rooms.sorted { $0.sortOrder < $1.sortOrder }.map { $0.duplicateForEditing() },
+            timelineEvents: timelineEvents.sorted { $0.eventDate < $1.eventDate }.map { $0.duplicateForEditing() }
+        )
+    }
+}
+
+private extension RoomRecord {
+    func duplicateForEditing() -> RoomRecord {
+        RoomRecord(
+            name: name,
+            type: type,
+            sortOrder: sortOrder,
+            notes: notes,
+            checklistItems: checklistItems.sorted { $0.sortOrder < $1.sortOrder }.map { $0.duplicateForEditing() }
+        )
+    }
+}
+
+private extension ChecklistItemRecord {
+    func duplicateForEditing() -> ChecklistItemRecord {
+        ChecklistItemRecord(
+            title: title,
+            sortOrder: sortOrder,
+            category: category,
+            moveInConditionRawValue: moveInConditionRawValue,
+            moveOutConditionRawValue: moveOutConditionRawValue,
+            moveInNotes: moveInNotes,
+            moveOutNotes: moveOutNotes,
+            isFlagged: isFlagged
+        )
+    }
+}
+
+private extension TimelineEvent {
+    func duplicateForEditing() -> TimelineEvent {
+        TimelineEvent(
+            title: title,
+            type: eventType,
+            eventDate: eventDate,
+            notes: notes,
+            includeInExport: includeInExport
+        )
+    }
 }
 
 private struct PropertySidebarRow: View {

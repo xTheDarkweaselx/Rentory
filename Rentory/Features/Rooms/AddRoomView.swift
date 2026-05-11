@@ -20,60 +20,115 @@ struct AddRoomView: View {
 
     var body: some View {
         NavigationStack {
-            RRMacSheetContainer {
-                Form {
-                    Section {
+            ZStack {
+                RRBackgroundView()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                         RRSheetHeader(
                             title: "Add a room",
                             subtitle: "Choose a room type and Rentory will add a simple checklist to get you started.",
                             systemImage: "door.left.hand.open"
                         )
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                    }
-
-                    Section {
-                        Text("Choose a room type and Rentory will add a simple checklist to get you started.")
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
 
                         if let validationMessage {
-                            Text(validationMessage)
-                                .font(RRTypography.footnote)
-                                .foregroundStyle(RRColours.danger)
+                            validationCard(validationMessage)
                         }
-                    }
 
-                    Section("Room") {
-                        TextField("Room name", text: $roomName)
-                            .rrTextInputAutocapitalizationWords()
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(
+                                    title: "Room details",
+                                    subtitle: "Give the room a clear name and choose the closest room type."
+                                )
 
-                        Picker("Room type", selection: $roomType) {
-                            ForEach(RoomType.allCases, id: \.self) { type in
-                                Text(type.rawValue).tag(type)
+                                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                    Text("Room name")
+                                        .font(RRTypography.footnote.weight(.semibold))
+                                        .foregroundStyle(RRColours.mutedText)
+
+                                    TextField("Room name", text: $roomName)
+                                        .textFieldStyle(.roundedBorder)
+                                        .rrTextInputAutocapitalizationWords()
+                                }
+
+                                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                    Text("Room type")
+                                        .font(RRTypography.footnote.weight(.semibold))
+                                        .foregroundStyle(RRColours.mutedText)
+
+                                    Picker("Room type", selection: $roomType) {
+                                        ForEach(RoomType.allCases, id: \.self) { type in
+                                            Text(type.rawValue).tag(type)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
                             }
                         }
+
+                        if !PlatformLayout.isMac {
+                            RRGlassPanel {
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: RRTheme.controlSpacing) {
+                                        Spacer()
+                                        actionButtons
+                                    }
+
+                                    VStack(spacing: RRTheme.controlSpacing) {
+                                        actionButtons
+                                    }
+                                }
+                            }
+                            .tint(RRColours.secondary)
+                        }
+                    }
+                    .frame(maxWidth: PlatformLayout.preferredDialogWidth, alignment: .leading)
+                    .padding(RRTheme.screenPadding)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .navigationTitle("Add a room")
+            .rrInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
                     }
                 }
-                .navigationTitle("Add a room")
-                .rrInlineNavigationTitle()
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            dismiss()
-                        }
-                    }
 
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            saveRoom()
-                        }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveRoom()
                     }
                 }
             }
         }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
+        }
+    }
+
+    private var actionButtons: some View {
+        Group {
+            RRSecondaryButton(title: "Cancel") {
+                dismiss()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 150 : .infinity)
+
+            RRPrimaryButton(title: "Save room") {
+                saveRoom()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 150 : .infinity)
+        }
+    }
+
+    private func validationCard(_ message: String) -> some View {
+        RRGlassPanel {
+            Text(message)
+                .font(RRTypography.footnote.weight(.semibold))
+                .foregroundStyle(RRColours.danger)
         }
     }
 

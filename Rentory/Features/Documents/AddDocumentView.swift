@@ -41,81 +41,100 @@ struct AddDocumentView: View {
 
     var body: some View {
         NavigationStack {
-            RRMacSheetContainer {
-                Form {
-                    Section {
+            ZStack {
+                RRBackgroundView()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                         RRSheetHeader(
                             title: "Add document",
                             subtitle: "Keep useful paperwork with this rental record.",
                             systemImage: "doc.text"
                         )
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                    }
-
-                    Section {
-                        Text("Add documents that may be useful to keep with this rental record.")
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
 
                         if let validationMessage {
-                            Text(validationMessage)
-                                .font(RRTypography.footnote)
-                                .foregroundStyle(RRColours.danger)
-                        }
-                    }
-
-                    Section("Document") {
-                        TextField("Document name", text: $displayName)
-                            .rrTextInputAutocapitalizationWords()
-
-                        DocumentTypePickerView(selectedType: $documentType)
-
-                        Toggle("Add document date", isOn: $hasDocumentDate.animation())
-
-                        if hasDocumentDate {
-                            DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
-                        }
-                    }
-
-                    Section("Notes") {
-                        TextField("Add a short note", text: $notes, axis: .vertical)
-                            .lineLimit(3...6)
-                    }
-
-                    Section {
-                        Toggle("Include in report", isOn: $includeInReport)
-                    }
-
-                    Section {
-                        RRSecondaryButton(title: selectedFileURL == nil ? "Choose file" : "Choose a different file") {
-                            isShowingFileImporter = true
+                            validationCard(validationMessage)
                         }
 
-                        if selectedFileURL != nil {
-                            Text("File selected")
-                                .font(RRTypography.footnote)
-                                .foregroundStyle(RRColours.mutedText)
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(
+                                    title: "Document details",
+                                    subtitle: "Name the file and choose what kind of paperwork it is."
+                                )
+
+                                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                    Text("Document name")
+                                        .font(RRTypography.footnote.weight(.semibold))
+                                        .foregroundStyle(RRColours.mutedText)
+
+                                    TextField("Document name", text: $displayName)
+                                        .textFieldStyle(.roundedBorder)
+                                        .rrTextInputAutocapitalizationWords()
+                                }
+
+                                DocumentTypePickerView(selectedType: $documentType)
+
+                                Toggle("Add document date", isOn: $hasDocumentDate.animation())
+                                    .tint(RRColours.secondary)
+
+                                if hasDocumentDate {
+                                    DatePicker("Document date", selection: $documentDate, displayedComponents: .date)
+                                }
+                            }
+                        }
+
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(
+                                    title: "File",
+                                    subtitle: "Choose the file that should be attached to this record."
+                                )
+
+                                RRSecondaryButton(title: selectedFileURL == nil ? "Choose file" : "Choose a different file") {
+                                    isShowingFileImporter = true
+                                }
+
+                                Text(selectedFileURL == nil ? "No file selected yet." : "File selected.")
+                                    .font(RRTypography.footnote)
+                                    .foregroundStyle(RRColours.mutedText)
+                            }
+                        }
+
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(title: "Notes and report")
+
+                                TextField("Add a short note", text: $notes, axis: .vertical)
+                                    .textFieldStyle(.roundedBorder)
+                                    .lineLimit(3...6)
+
+                                Toggle("Include in report", isOn: $includeInReport)
+                                    .tint(RRColours.secondary)
+                            }
+                        }
+
+                        if !PlatformLayout.isMac {
+                            RRGlassPanel {
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: RRTheme.controlSpacing) {
+                                        Spacer()
+                                        actionButtons
+                                    }
+
+                                    VStack(spacing: RRTheme.controlSpacing) {
+                                        actionButtons
+                                    }
+                                }
+                            }
+                            .tint(RRColours.secondary)
                         }
                     }
+                    .frame(maxWidth: PlatformLayout.preferredDialogWidth, alignment: .leading)
+                    .padding(RRTheme.screenPadding)
+                    .frame(maxWidth: .infinity, alignment: .center)
                 }
-                .navigationTitle("Add document")
-                .rrInlineNavigationTitle()
-                .scrollContentBackground(.hidden)
-                .background(RRBackgroundView())
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            dismiss()
-                        }
-                    }
-
-                    ToolbarItem(placement: .rrPrimaryAction) {
-                        Button("Save") {
-                            saveDocument()
-                        }
-                    }
-                }
+                .scrollIndicators(.hidden)
                 .overlay {
                     if isSavingDocument {
                         ZStack {
@@ -129,6 +148,23 @@ struct AddDocumentView: View {
                             .padding(24)
                         }
                     }
+                }
+            }
+            .navigationTitle("Add document")
+            .rrInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saveDocument()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(RRColours.secondary)
                 }
             }
         }
@@ -154,6 +190,28 @@ struct AddDocumentView: View {
                 message: Text(error.message),
                 dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK"))
             )
+        }
+    }
+
+    private var actionButtons: some View {
+        Group {
+            RRSecondaryButton(title: "Cancel") {
+                dismiss()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 150 : .infinity)
+
+            RRPrimaryButton(title: "Save document") {
+                saveDocument()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 170 : .infinity)
+        }
+    }
+
+    private func validationCard(_ message: String) -> some View {
+        RRGlassPanel {
+            Text(message)
+                .font(RRTypography.footnote.weight(.semibold))
+                .foregroundStyle(RRColours.danger)
         }
     }
 

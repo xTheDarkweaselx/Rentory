@@ -12,6 +12,7 @@ struct RRAdaptiveModalContainer<Header: View, TopBar: View, Content: View, Foote
     var preferredHeight: CGFloat
     var minWidth: CGFloat
     var minHeight: CGFloat
+    var outerPadding: CGFloat
 
     private let header: Header
     private let topBar: TopBar
@@ -23,6 +24,7 @@ struct RRAdaptiveModalContainer<Header: View, TopBar: View, Content: View, Foote
         preferredHeight: CGFloat,
         minWidth: CGFloat,
         minHeight: CGFloat,
+        outerPadding: CGFloat = 24,
         @ViewBuilder header: () -> Header,
         @ViewBuilder topBar: () -> TopBar = { EmptyView() },
         @ViewBuilder content: () -> Content,
@@ -32,6 +34,7 @@ struct RRAdaptiveModalContainer<Header: View, TopBar: View, Content: View, Foote
         self.preferredHeight = preferredHeight
         self.minWidth = minWidth
         self.minHeight = minHeight
+        self.outerPadding = outerPadding
         self.header = header()
         self.topBar = topBar()
         self.content = content()
@@ -104,7 +107,7 @@ struct RRAdaptiveModalContainer<Header: View, TopBar: View, Content: View, Foote
                 maxHeight: preferredHeight,
                 alignment: .top
             )
-            .padding(24)
+            .padding(outerPadding)
         }
         .frame(
             minWidth: minWidth,

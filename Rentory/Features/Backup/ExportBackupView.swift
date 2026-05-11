@@ -96,6 +96,11 @@ struct ExportBackupView: View {
 
         do {
             backupURL = try backupService.createBackup(context: modelContext)
+            RentoryActivityLog.record(
+                kind: .backup,
+                title: "Backup created",
+                message: "Created a backup with \(manifest.propertyCount) record\(manifest.propertyCount == 1 ? "" : "s")."
+            )
         } catch {
             userFacingError = .backupNotCreated
         }

@@ -13,11 +13,8 @@ struct PropertyDashboardView: View {
 
     let propertyPack: PropertyPack
 
-    @State private var isShowingAddDocumentView = false
+    @State private var activeSheet: DashboardSheet?
     @State private var isShowingExportOptions = false
-    @State private var isShowingAddRoomView = false
-    @State private var isShowingEditView = false
-    @State private var isShowingAddEventView = false
     @State private var isShowingProgressView = false
     @State private var infoAlertContent: RRAlertContent?
 
@@ -63,7 +60,7 @@ struct PropertyDashboardView: View {
                     spacing: 12
                 ) {
                     Button {
-                        isShowingAddRoomView = true
+                        activeSheet = .addRoom
                     } label: {
                         RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
@@ -83,9 +80,20 @@ struct PropertyDashboardView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add room")
                     .accessibilityHint("Adds a room to this rental record.")
-                    quickActionButton(title: "Add photo", icon: "camera", message: "Open a room item to add photos where they belong.")
                     Button {
-                        isShowingAddDocumentView = true
+                        activeSheet = .photoTargetPicker
+                    } label: {
+                        quickActionCard(
+                            title: "Add photo",
+                            icon: "camera",
+                            message: "Choose a room item, then add photo evidence."
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Add photo")
+                    .accessibilityHint("Choose the room and checklist item for this photo.")
+                    Button {
+                        activeSheet = .addDocument
                     } label: {
                         RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
@@ -106,7 +114,7 @@ struct PropertyDashboardView: View {
                     .accessibilityLabel("Add document")
                     .accessibilityHint("Adds a document to this rental record.")
                     Button {
-                        isShowingAddEventView = true
+                        activeSheet = .addEvent
                     } label: {
                         RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
@@ -126,6 +134,18 @@ struct PropertyDashboardView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add event")
                     .accessibilityHint("Adds a timeline event to this rental record.")
+                    Button {
+                        isShowingProgressView = true
+                    } label: {
+                        quickActionCard(
+                            title: "View progress",
+                            icon: "chart.line.uptrend.xyaxis",
+                            message: "See what is complete and what still needs attention."
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("View progress")
+                    .accessibilityHint("Shows the completion checklist for this record.")
                     Button {
                         isShowingExportOptions = true
                     } label: {
@@ -150,7 +170,7 @@ struct PropertyDashboardView: View {
                 }
 
                 RoomsListSection(rooms: propertyPack.rooms) {
-                    isShowingAddRoomView = true
+                    activeSheet = .addRoom
                 }
 
                 documentsSection
@@ -189,27 +209,13 @@ struct PropertyDashboardView: View {
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
                 Button("Edit") {
-                    isShowingEditView = true
+                    activeSheet = .edit
                 }
                 .accessibilityHint("Edits this rental record.")
             }
         }
-        .sheet(isPresented: $isShowingEditView) {
-            EditPropertyView(propertyPack: propertyPack) {
-                dismiss()
-            }
-            .rrAdaptiveSheetPresentation()
-        }
-        .sheet(isPresented: $isShowingAddDocumentView) {
-            AddDocumentView(propertyPack: propertyPack)
-                .rrAdaptiveSheetPresentation()
-        }
-        .sheet(isPresented: $isShowingAddRoomView) {
-            AddRoomView(propertyPack: propertyPack)
-                .rrAdaptiveSheetPresentation()
-        }
-        .sheet(isPresented: $isShowingAddEventView) {
-            AddTimelineEventView(propertyPack: propertyPack)
+        .sheet(item: $activeSheet) { sheet in
+            dashboardSheetContent(for: sheet)
                 .rrAdaptiveSheetPresentation()
         }
         .alert(item: $infoAlertContent) { content in
@@ -224,12 +230,31 @@ struct PropertyDashboardView: View {
         }
     }
 
+    @ViewBuilder
+    private func dashboardSheetContent(for sheet: DashboardSheet) -> some View {
+        switch sheet {
+        case .edit:
+            EditPropertyView(propertyPack: propertyPack) {
+                dismiss()
+            }
+        case .addDocument:
+            AddDocumentView(propertyPack: propertyPack)
+        case .photoTargetPicker:
+            PhotoChecklistItemPickerView(propertyPack: propertyPack) { item in
+                activeSheet = .addPhoto(item)
+            }
+        case .addPhoto(let item):
+            AddPhotoFlowView(checklistItem: item)
+        case .addRoom:
+            AddRoomView(propertyPack: propertyPack)
+        case .addEvent:
+            AddTimelineEventView(propertyPack: propertyPack)
+        }
+    }
+
     private func resetPresentedViews() {
-        isShowingAddDocumentView = false
+        activeSheet = nil
         isShowingExportOptions = false
-        isShowingAddRoomView = false
-        isShowingEditView = false
-        isShowingAddEventView = false
         isShowingProgressView = false
         infoAlertContent = nil
     }
@@ -256,7 +281,7 @@ struct PropertyDashboardView: View {
                     message: "Add tenancy paperwork, receipts or other useful files when you need them.",
                     buttonTitle: "Add document",
                     buttonAction: {
-                        isShowingAddDocumentView = true
+                        activeSheet = .addDocument
                     }
                 )
             } else {
@@ -283,7 +308,7 @@ struct PropertyDashboardView: View {
                 .buttonStyle(.plain)
 
                 RRSecondaryButton(title: "Add document") {
-                    isShowingAddDocumentView = true
+                    activeSheet = .addDocument
                 }
             }
         }
@@ -311,7 +336,7 @@ struct PropertyDashboardView: View {
                     message: "Add key dates, updates or notes when something useful happens.",
                     buttonTitle: "Add event",
                     buttonAction: {
-                        isShowingAddEventView = true
+                        activeSheet = .addEvent
                     }
                 )
             } else {
@@ -378,28 +403,47 @@ struct PropertyDashboardView: View {
         }
     }
 
-    private func quickActionButton(title: String, icon: String, message: String) -> some View {
-        Button {
-            infoAlertContent = RRAlertContent(title: title, message: message)
-        } label: {
-            RRGlassCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    RRIconBadge(systemName: icon, tint: RRColours.secondary)
+    private func quickActionCard(title: String, icon: String, message: String) -> some View {
+        RRGlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                RRIconBadge(systemName: icon, tint: RRColours.secondary)
 
-                    Text(title)
-                        .font(RRTypography.headline)
-                        .foregroundStyle(RRColours.primary)
+                Text(title)
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
 
-                    Text(message)
-                        .font(RRTypography.caption)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(message)
+                    .font(RRTypography.caption)
+                    .foregroundStyle(RRColours.mutedText)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-        .accessibilityHint(message)
+    }
+}
+
+private enum DashboardSheet: Identifiable {
+    case edit
+    case addDocument
+    case photoTargetPicker
+    case addPhoto(ChecklistItemRecord)
+    case addRoom
+    case addEvent
+
+    var id: String {
+        switch self {
+        case .edit:
+            return "edit"
+        case .addDocument:
+            return "addDocument"
+        case .photoTargetPicker:
+            return "photoTargetPicker"
+        case .addPhoto(let item):
+            return "addPhoto-\(item.id.uuidString)"
+        case .addRoom:
+            return "addRoom"
+        case .addEvent:
+            return "addEvent"
+        }
     }
 }
 

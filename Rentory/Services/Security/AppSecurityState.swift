@@ -119,8 +119,8 @@ final class AppSecurityState: ObservableObject {
         do {
             let didAuthenticate = try await appLockService.authenticate(
                 reason: isEnabled
-                    ? "Unlock Rentory to turn on App Lock."
-                    : "Unlock Rentory to turn off App Lock."
+                    ? "Confirm it is you before turning on App Lock."
+                    : "Confirm it is you before turning off App Lock."
             )
 
             guard didAuthenticate else {

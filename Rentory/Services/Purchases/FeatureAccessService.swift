@@ -32,7 +32,7 @@ struct FeatureAccessService {
         if isSampleDataUsingFreeRecord {
             return UpgradePromptContent(
                 title: "Sample records are using your free slot",
-                message: "You can keep the sample records and make them your own, clear them in Settings > Demo data, or unlock Rentory to create more records."
+                message: "You can keep the sample records and make them your own, clear them in Settings > Data on this device > Sample data, or unlock Rentory to create more records."
             )
         }
 

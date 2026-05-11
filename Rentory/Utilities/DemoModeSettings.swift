@@ -11,7 +11,7 @@ enum DemoModeSettings {
     static let demoRecordName = "Demo rental record"
     static let demoTownCity = "Sampletown"
     static let demoPostcode = "AB1 2CD"
-    static let demoRecordNote = "Sample data for testing and screenshots only."
+    static let demoRecordNote = "Sample data for exploring Rentory."
     static let demoMarker = "[Rentory sample data]"
 
     private static let demoPropertyIdentifierKey = "debugDemoPropertyIdentifier"

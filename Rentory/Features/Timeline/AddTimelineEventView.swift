@@ -24,63 +24,102 @@ struct AddTimelineEventView: View {
 
     var body: some View {
         NavigationStack {
-            RRMacSheetContainer {
-                Form {
-                    Section {
+            ZStack {
+                RRBackgroundView()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                         RRSheetHeader(
                             title: "Add event",
                             subtitle: "Keep useful dates, updates and notes together in your record.",
                             systemImage: "calendar.badge.plus"
                         )
-                        .listRowInsets(EdgeInsets())
-                        .listRowBackground(Color.clear)
-                    }
 
-                    Section {
                         if let validationMessage {
-                            Text(validationMessage)
-                                .font(RRTypography.footnote)
-                                .foregroundStyle(RRColours.danger)
+                            validationCard(validationMessage)
                         }
-                    }
 
-                    Section("Event") {
-                        TextField("Event title", text: $title)
-                            .rrTextInputAutocapitalizationWords()
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(
+                                    title: "Event details",
+                                    subtitle: "Add the date and the kind of update you want to remember."
+                                )
 
-                        Picker("Type", selection: $eventType) {
-                            ForEach(TimelineEventType.allCases, id: \.self) { type in
-                                Text(type.rawValue).tag(type)
+                                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                    Text("Event title")
+                                        .font(RRTypography.footnote.weight(.semibold))
+                                        .foregroundStyle(RRColours.mutedText)
+
+                                    TextField("Event title", text: $title)
+                                        .textFieldStyle(.roundedBorder)
+                                        .rrTextInputAutocapitalizationWords()
+                                }
+
+                                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                    Text("Type")
+                                        .font(RRTypography.footnote.weight(.semibold))
+                                        .foregroundStyle(RRColours.mutedText)
+
+                                    Picker("Type", selection: $eventType) {
+                                        ForEach(TimelineEventType.allCases, id: \.self) { type in
+                                            Text(type.rawValue).tag(type)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+
+                                DatePicker("Date", selection: $eventDate, displayedComponents: .date)
                             }
                         }
 
-                        DatePicker("Date", selection: $eventDate, displayedComponents: .date)
-                    }
+                        RRGlassPanel {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                RRSectionHeader(title: "Notes and report")
 
-                    Section("Notes") {
-                        TextField("Add a short note", text: $notes, axis: .vertical)
-                            .lineLimit(3...6)
-                    }
+                                TextField("Add a short note", text: $notes, axis: .vertical)
+                                    .textFieldStyle(.roundedBorder)
+                                    .lineLimit(3...6)
 
-                    Section {
-                        Toggle("Include in report", isOn: $includeInReport)
+                                Toggle("Include in report", isOn: $includeInReport)
+                                    .tint(RRColours.secondary)
+                            }
+                        }
+
+                        if !PlatformLayout.isMac {
+                            RRGlassPanel {
+                                ViewThatFits(in: .horizontal) {
+                                    HStack(spacing: RRTheme.controlSpacing) {
+                                        Spacer()
+                                        actionButtons
+                                    }
+
+                                    VStack(spacing: RRTheme.controlSpacing) {
+                                        actionButtons
+                                    }
+                                }
+                            }
+                            .tint(RRColours.secondary)
+                        }
+                    }
+                    .frame(maxWidth: PlatformLayout.preferredDialogWidth, alignment: .leading)
+                    .padding(RRTheme.screenPadding)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .scrollIndicators(.hidden)
+            }
+            .navigationTitle("Add event")
+            .rrInlineNavigationTitle()
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        dismiss()
                     }
                 }
-                .navigationTitle("Add event")
-                .rrInlineNavigationTitle()
-                .scrollContentBackground(.hidden)
-                .background(RRBackgroundView())
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") {
-                            dismiss()
-                        }
-                    }
 
-                    ToolbarItem(placement: .rrPrimaryAction) {
-                        Button("Save") {
-                            saveEvent()
-                        }
+                ToolbarItem(placement: .rrPrimaryAction) {
+                    Button("Save") {
+                        saveEvent()
                     }
                 }
             }
@@ -91,6 +130,28 @@ struct AddTimelineEventView: View {
                 message: Text(content.message),
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
+        }
+    }
+
+    private var actionButtons: some View {
+        Group {
+            RRSecondaryButton(title: "Cancel") {
+                dismiss()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 150 : .infinity)
+
+            RRPrimaryButton(title: "Save event") {
+                saveEvent()
+            }
+            .frame(maxWidth: PlatformLayout.prefersFooterButtons ? 150 : .infinity)
+        }
+    }
+
+    private func validationCard(_ message: String) -> some View {
+        RRGlassPanel {
+            Text(message)
+                .font(RRTypography.footnote.weight(.semibold))
+                .foregroundStyle(RRColours.danger)
         }
     }
 

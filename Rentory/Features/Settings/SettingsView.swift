@@ -5,6 +5,7 @@
 //  Created by Adam Ibrahim on 30/04/2026.
 //
 
+import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
@@ -13,13 +14,13 @@ struct SettingsView: View {
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Query private var propertyPacks: [PropertyPack]
     @EnvironmentObject private var appSecurityState: AppSecurityState
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
     @State private var selectedCategory: SettingsCategory = .privacySecurity
     @State private var selectedDestination: SettingsDestination?
-    @State private var appLockToggleIsOn = false
     @State private var upgradePromptContent: UpgradePromptContent?
 
     var body: some View {
@@ -32,7 +33,8 @@ struct SettingsView: View {
                         preferredWidth: PlatformLayout.preferredSettingsDialogWidth,
                         preferredHeight: 760,
                         minWidth: 980,
-                        minHeight: 640
+                        minHeight: 640,
+                        outerPadding: 0
                     ) {
                         RRSheetHeader(
                             title: "Settings",
@@ -50,12 +52,6 @@ struct SettingsView: View {
             .navigationDestination(for: SettingsDestination.self) { destination in
                 destinationView(for: destination)
             }
-            .onAppear {
-                appLockToggleIsOn = appSecurityState.isAppLockEnabled
-            }
-            .onChange(of: appSecurityState.isAppLockEnabled) { _, newValue in
-                appLockToggleIsOn = newValue
-            }
             .alert(item: $appSecurityState.alertContent) { content in
                 Alert(
                     title: Text(content.title),
@@ -66,6 +62,10 @@ struct SettingsView: View {
             .sheet(item: $upgradePromptContent) { content in
                 LimitReachedView(title: content.title, message: content.message)
             }
+#if os(macOS)
+            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+            .toolbar(removing: .title)
+#endif
         }
     }
 
@@ -170,6 +170,23 @@ struct SettingsView: View {
         RRResponsiveFormGrid(items: items, spacing: RRTheme.cardSpacing)
     }
 
+    private var appLockBinding: Binding<Bool> {
+        Binding(
+            get: { appSecurityState.isAppLockEnabled },
+            set: { newValue in
+                handleAppLockChange(to: newValue)
+            }
+        )
+    }
+
+    private var appLockDescription: String {
+        #if os(macOS)
+        "Use Touch ID to help keep your rental records private on this Mac. Rentory will ask you to confirm it is you before turning App Lock on."
+        #else
+        "Use Face ID or Touch ID to help keep your rental records private. Rentory will ask you to confirm it is you before turning App Lock on."
+        #endif
+    }
+
     private var privacySecurityItems: [RRResponsiveFormGridItem] {
         [
             RRResponsiveFormGridItem {
@@ -181,7 +198,7 @@ struct SettingsView: View {
             RRResponsiveFormGridItem {
                 settingsCard(
                     title: "App Lock",
-                    body: "Use Face ID, Touch ID or your passcode to help keep your rental records private."
+                    body: appLockDescription
                 ) {
                     Button("Open App Lock settings") {
                         selectedCategory = .appLock
@@ -207,15 +224,12 @@ struct SettingsView: View {
             RRResponsiveFormGridItem {
                 settingsCard(
                     title: "App Lock",
-                    body: "Use Face ID, Touch ID or your passcode to help keep your rental records private."
+                    body: appLockDescription
                 ) {
                     VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Toggle("Lock Rentory", isOn: $appLockToggleIsOn)
+                        Toggle("Lock Rentory", isOn: appLockBinding)
                             .disabled(appSecurityState.isAuthenticating)
                             .tint(Color.accentColor)
-                            .onChange(of: appLockToggleIsOn) { oldValue, newValue in
-                                handleAppLockChange(from: oldValue, to: newValue)
-                            }
 
                         Text(appSecurityState.isAppLockEnabled ? "App Lock is on." : "App Lock is off.")
                             .font(RRTypography.footnote)
@@ -341,11 +355,72 @@ struct SettingsView: View {
         [
             RRResponsiveFormGridItem {
                 settingsCard(
-                    title: "Data on this device",
-                    body: "Review storage details and remove records from this device when you need to."
+                    title: "Storage and deletion",
+                    body: "Review storage details, clear temporary reports or remove records from this device."
                 ) {
                     settingsDestinationAction("Open Privacy & Data", destination: .privacyAndData)
                 }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Archived records",
+                    body: archivedRecordsCount == 0
+                        ? "Records you archive will appear here, away from your active list."
+                        : "\(archivedRecordsCount) archived record\(archivedRecordsCount == 1 ? "" : "s") can be restored or permanently deleted."
+                ) {
+                    settingsDestinationAction("Open archived records", destination: .archivedRecords)
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Activity history",
+                    body: "Review recent backups, imports, reports, sync attempts and record changes on this device."
+                ) {
+                    settingsDestinationAction("Open activity history", destination: .activityHistory)
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Sample data",
+                    body: "Load example records to explore Rentory, or remove them when you are done."
+                ) {
+                    settingsDestinationAction("Open sample data", destination: .sampleData)
+                }
+            },
+        ]
+    }
+
+    private var aboutItems: [RRResponsiveFormGridItem] {
+        let items: [RRResponsiveFormGridItem] = [
+            RRResponsiveFormGridItem(span: .fullWidth) {
+                settingsSubsection(
+                    title: "App information",
+                    subtitle: "Version details and what Rentory is designed to do."
+                )
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "About Rentory",
+                    body: "Rentory helps you organise your own rental records."
+                ) {
+                    if let appVersion {
+                        Text(appVersion)
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Privacy note",
+                    body: "Rentory keeps your records on this device by default and does not give legal, financial or tenancy advice."
+                )
+            },
+            RRResponsiveFormGridItem(span: .fullWidth) {
+                settingsSubsection(
+                    title: "Help and setup",
+                    subtitle: "Revisit the welcome guide when you want a quick refresher."
+                )
             },
             RRResponsiveFormGridItem {
                 settingsCard(
@@ -360,39 +435,7 @@ struct SettingsView: View {
                 }
             },
         ]
-    }
 
-    private var aboutItems: [RRResponsiveFormGridItem] {
-        var items: [RRResponsiveFormGridItem] = [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "About Rentory",
-                    body: "Rentory helps you organise your own rental records."
-                ) {
-                    if let appVersion {
-                        Text(appVersion)
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
-                    }
-
-                    Text("Rentory does not give legal, financial or tenancy advice.")
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-            },
-        ]
-#if DEBUG
-        items.append(
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Demo data",
-                    body: "Use fake sample content for testing and screenshots."
-                ) {
-                    settingsDestinationAction("Open demo data tools", destination: .developerDemo)
-                }
-            }
-        )
-#endif
         return items
     }
 
@@ -416,14 +459,14 @@ struct SettingsView: View {
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
 
-                Toggle("Lock Rentory", isOn: $appLockToggleIsOn)
+                Toggle("Lock Rentory", isOn: appLockBinding)
+                    .toggleStyle(.switch)
                     .disabled(appSecurityState.isAuthenticating)
                     .tint(Color.accentColor)
-                    .onChange(of: appLockToggleIsOn) { oldValue, newValue in
-                        handleAppLockChange(from: oldValue, to: newValue)
-                    }
+            }
 
-                Picker("Appearance", selection: $appAppearanceRawValue) {
+            Section("Appearance") {
+                Picker("App appearance", selection: $appAppearanceRawValue) {
                     ForEach(AppAppearance.allCases) { appearance in
                         Text(appearance.title).tag(appearance.rawValue)
                     }
@@ -434,12 +477,23 @@ struct SettingsView: View {
                         Text(theme.title).tag(theme.rawValue)
                     }
                 }
+            }
 
+            Section("Sync & Backups") {
                 NavigationLink("iCloud sync", value: SettingsDestination.iCloudSync)
                 NavigationLink("Backups", value: SettingsDestination.backups)
-                NavigationLink("Rentory unlock", value: SettingsDestination.purchases)
+            }
+
+            Section("Records and data") {
                 NavigationLink("Data on this device", value: SettingsDestination.privacyAndData)
-                NavigationLink("Info", value: SettingsDestination.info)
+                NavigationLink("Archived records", value: SettingsDestination.archivedRecords)
+                NavigationLink("Activity history", value: SettingsDestination.activityHistory)
+                NavigationLink("Sample data", value: SettingsDestination.sampleData)
+            }
+
+            Section("Info") {
+                NavigationLink("Rentory unlock", value: SettingsDestination.purchases)
+                NavigationLink("About, privacy notes and welcome guide", value: SettingsDestination.info)
             }
         }
         .scrollContentBackground(.hidden)
@@ -465,6 +519,20 @@ struct SettingsView: View {
                 content()
             }
         }
+    }
+
+    private func settingsSubsection(title: String, subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+            Text(title)
+                .font(RRTypography.headline)
+                .foregroundStyle(RRColours.primary)
+
+            Text(subtitle)
+                .font(RRTypography.footnote)
+                .foregroundStyle(RRColours.mutedText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.top, RRTheme.smallSpacing)
     }
 
     private func statusRow(label: String, value: String) -> some View {
@@ -493,6 +561,8 @@ struct SettingsView: View {
         switch destination {
         case .privacyAndData:
             PrivacyAndDataSettingsView()
+        case .archivedRecords:
+            ArchivedRecordsSettingsView()
         case .iCloudSync:
             ICloudSyncSettingsView()
         case .backups:
@@ -501,10 +571,10 @@ struct SettingsView: View {
             PurchaseSettingsView()
         case .info:
             InfoSettingsView()
-#if DEBUG
-        case .developerDemo:
-            DeveloperDemoSettingsView()
-#endif
+        case .activityHistory:
+            ActivityHistorySettingsView()
+        case .sampleData:
+            SampleDataSettingsView()
         }
     }
 
@@ -537,23 +607,18 @@ struct SettingsView: View {
         }
     }
 
-    private func handleAppLockChange(from oldValue: Bool, to newValue: Bool) {
-        guard oldValue != newValue else {
+    private func handleAppLockChange(to newValue: Bool) {
+        guard newValue != appSecurityState.isAppLockEnabled else {
             return
         }
 
-        guard !(newValue && !appSecurityState.isAppLockEnabled && !FeatureAccessService.canUseAppLock(isUnlocked: entitlementManager.isUnlocked)) else {
+        guard !(newValue && !FeatureAccessService.canUseAppLock(isUnlocked: entitlementManager.isUnlocked)) else {
             upgradePromptContent = FeatureAccessService.appLockLimitPrompt
-            appLockToggleIsOn = appSecurityState.isAppLockEnabled
             return
         }
 
         Task {
-            let didChange = await appSecurityState.setAppLockEnabled(newValue)
-
-            if !didChange {
-                appLockToggleIsOn = appSecurityState.isAppLockEnabled
-            }
+            _ = await appSecurityState.setAppLockEnabled(newValue)
         }
     }
 
@@ -576,6 +641,10 @@ struct SettingsView: View {
 
     private var selectedColourTheme: AppColourTheme {
         AppColourTheme(rawValue: appColourThemeRawValue) ?? .defaultLook
+    }
+
+    private var archivedRecordsCount: Int {
+        propertyPacks.filter(\.isArchived).count
     }
 
     private var appVersion: String? {
@@ -636,18 +705,13 @@ private struct InfoSettingsView: View {
                 }
             }
 
-#if DEBUG
-            Section("Developer tools") {
-                NavigationLink("Demo data", value: SettingsDestination.developerDemo)
-            }
-#endif
         }
         .scrollContentBackground(.hidden)
         .background(RRBackgroundView())
     }
 
     private var infoItems: [RRResponsiveFormGridItem] {
-        var items: [RRResponsiveFormGridItem] = [
+        let items: [RRResponsiveFormGridItem] = [
             RRResponsiveFormGridItem {
                 RRGlassPanel {
                     VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
@@ -703,28 +767,6 @@ private struct InfoSettingsView: View {
                 }
             },
         ]
-
-#if DEBUG
-        items.append(
-            RRResponsiveFormGridItem {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Text("Developer tools")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Text("Use fake sample content for testing and screenshots.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-
-                        NavigationLink("Demo data", value: SettingsDestination.developerDemo)
-                            .font(RRTypography.body.weight(.semibold))
-                            .foregroundStyle(Color.accentColor)
-                    }
-                }
-            }
-        )
-#endif
 
         return items
     }
@@ -796,18 +838,20 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
 
 private enum SettingsDestination: Hashable, Identifiable {
     case privacyAndData
+    case archivedRecords
     case iCloudSync
     case backups
     case purchases
     case info
-#if DEBUG
-    case developerDemo
-#endif
+    case activityHistory
+    case sampleData
 
     var id: String {
         switch self {
         case .privacyAndData:
             return "privacyAndData"
+        case .archivedRecords:
+            return "archivedRecords"
         case .iCloudSync:
             return "iCloudSync"
         case .backups:
@@ -816,10 +860,10 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "purchases"
         case .info:
             return "info"
-#if DEBUG
-        case .developerDemo:
-            return "developerDemo"
-#endif
+        case .activityHistory:
+            return "activityHistory"
+        case .sampleData:
+            return "sampleData"
         }
     }
 
@@ -827,6 +871,8 @@ private enum SettingsDestination: Hashable, Identifiable {
         switch self {
         case .privacyAndData:
             return "Privacy & Data"
+        case .archivedRecords:
+            return "Archived records"
         case .iCloudSync:
             return "iCloud Sync"
         case .backups:
@@ -835,10 +881,10 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Rentory Unlock"
         case .info:
             return "Info"
-#if DEBUG
-        case .developerDemo:
-            return "Demo data"
-#endif
+        case .activityHistory:
+            return "Activity history"
+        case .sampleData:
+            return "Sample data"
         }
     }
 
@@ -846,6 +892,8 @@ private enum SettingsDestination: Hashable, Identifiable {
         switch self {
         case .privacyAndData:
             return "Manage storage, backups and what stays on this device."
+        case .archivedRecords:
+            return "Restore archived records or delete them permanently."
         case .iCloudSync:
             return "Check whether iCloud is available for Rentory on this device."
         case .backups:
@@ -854,10 +902,10 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Manage your lifetime unlock and restore earlier purchases."
         case .info:
             return "About Rentory, privacy notes and the welcome guide."
-#if DEBUG
-        case .developerDemo:
-            return "Use fake sample data for testing and screenshots."
-#endif
+        case .activityHistory:
+            return "Recent backups, imports, reports, sync attempts and record changes on this device."
+        case .sampleData:
+            return "Load example records to explore Rentory, or remove them when you are done."
         }
     }
 }

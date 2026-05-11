@@ -35,6 +35,7 @@ struct EditPropertyView: View {
     @State private var depositReference: String
     @State private var notes: String
     @State private var validationMessage: String?
+    @State private var isShowingAddDocumentView = false
     @State private var isShowingArchiveConfirmation = false
     @State private var isShowingDeleteConfirmation = false
     @State private var deletionAlertContent: RRAlertContent?
@@ -118,6 +119,11 @@ struct EditPropertyView: View {
                 withAnimation(RRTheme.quickAnimation) {
                     propertyPack.isArchived = true
                     propertyPack.updatedAt = .now
+                    RentoryActivityLog.record(
+                        kind: .archive,
+                        title: "Record archived",
+                        message: "“\(propertyPack.nickname)” was moved out of active records."
+                    )
                     dismiss()
                 }
             }
@@ -130,6 +136,10 @@ struct EditPropertyView: View {
                     message: Text(content.message),
                     dismissButton: .cancel(Text(content.buttonTitle))
                 )
+            }
+            .sheet(isPresented: $isShowingAddDocumentView) {
+                AddDocumentView(propertyPack: propertyPack)
+                    .rrAdaptiveSheetPresentation()
             }
         }
     }
@@ -174,9 +184,13 @@ struct EditPropertyView: View {
                             .font(RRTypography.headline)
                             .foregroundStyle(RRColours.primary)
 
-                        Text("Documents and photos already added to this record stay available here.")
+                        Text("Documents and photos already added to this record stay available here. You can add more documents without leaving this edit screen.")
                             .font(RRTypography.body)
                             .foregroundStyle(RRColours.mutedText)
+
+                        RRSecondaryButton(title: "Add document") {
+                            isShowingAddDocumentView = true
+                        }
                     }
                 }
             },
@@ -192,6 +206,10 @@ struct EditPropertyView: View {
                         Text("\(propertyPack.rooms.flatMap(\.checklistItems).flatMap(\.photos).count) photo\(propertyPack.rooms.flatMap(\.checklistItems).flatMap(\.photos).count == 1 ? "" : "s")")
                             .font(RRTypography.body)
                             .foregroundStyle(RRColours.mutedText)
+
+                        RRSecondaryButton(title: "Add another document") {
+                            isShowingAddDocumentView = true
+                        }
                     }
                 }
             },
@@ -237,6 +255,11 @@ struct EditPropertyView: View {
         propertyPack.depositReference = optionalText(depositReference)
         propertyPack.notes = optionalText(notes)
         propertyPack.updatedAt = .now
+        RentoryActivityLog.record(
+            kind: .record,
+            title: "Record details updated",
+            message: "“\(propertyPack.nickname)” was edited."
+        )
 
         dismiss()
     }
@@ -251,7 +274,13 @@ struct EditPropertyView: View {
 
     private func deleteRecord() {
         do {
+            let recordName = propertyPack.nickname
             try deletionService.deletePropertyPack(propertyPack, context: modelContext)
+            RentoryActivityLog.record(
+                kind: .deletion,
+                title: "Record deleted",
+                message: "“\(recordName)” was permanently removed from this device."
+            )
             dismiss()
             onDelete?()
         } catch let error as RentoryDataDeletionError {

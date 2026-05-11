@@ -114,7 +114,7 @@ extension UserFacingError {
 
     static let appLockNotAvailable = UserFacingError(
         title: "App Lock is not available",
-        message: "You can still use Rentory, but this device does not currently support Face ID, Touch ID or passcode unlock for the app.",
+        message: "Face ID or Touch ID is not available for Rentory on this device. Check that it is set up and working, then try again.",
         recoveryActionTitle: "OK"
     )
 

@@ -31,7 +31,7 @@ struct PDFReportBuilder {
     }
 
     func buildReportData(for snapshot: PDFReportSnapshot, options: ExportOptions) throws -> Data {
-        let content = makeReportSections(for: snapshot, options: options)
+        let content = makeReportSections(for: snapshot, options: options).flatMap(paginatedSections)
         let pageBounds = CGRect(x: 0, y: 0, width: 595, height: 842)
         let data = NSMutableData()
         var mediaBox = pageBounds
@@ -95,6 +95,41 @@ struct PDFReportBuilder {
         var options = options
         options.includeDisclaimer = true
         return options
+    }
+
+    private func paginatedSections(_ section: PDFReportSection) -> [PDFReportSection] {
+        let textPages = section.lines.chunked(into: 26)
+        let photoPages = section.photos.chunked(into: 6)
+        var pages: [PDFReportSection] = []
+
+        if textPages.isEmpty && photoPages.isEmpty {
+            return [section]
+        }
+
+        for (index, lines) in textPages.enumerated() {
+            pages.append(
+                PDFReportSection(
+                    title: continuedTitle(section.title, pageIndex: index),
+                    lines: lines
+                )
+            )
+        }
+
+        for (index, photos) in photoPages.enumerated() {
+            pages.append(
+                PDFReportSection(
+                    title: continuedTitle(section.title, pageIndex: pages.isEmpty ? index : index + 1),
+                    lines: pages.isEmpty && section.lines.isEmpty ? section.lines : [],
+                    photos: photos
+                )
+            )
+        }
+
+        return pages
+    }
+
+    private func continuedTitle(_ title: String, pageIndex: Int) -> String {
+        pageIndex == 0 ? title : "\(title) (continued)"
     }
 
     private func makeCoverSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
@@ -455,4 +490,13 @@ struct PDFReportSection {
 struct PDFReportPhotoEntry {
     let image: CGImage?
     let details: [String]
+}
+
+private extension Array {
+    func chunked(into size: Int) -> [[Element]] {
+        guard size > 0 else { return [self] }
+        return stride(from: 0, to: count, by: size).map { startIndex in
+            Array(self[startIndex..<Swift.min(startIndex + size, count)])
+        }
+    }
 }
