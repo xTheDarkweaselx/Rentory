@@ -149,17 +149,20 @@ struct ActionDetailView: View {
 
         do {
             try modelContext.save()
+            Task { await ActionNotificationScheduler.scheduleOrCancel(for: action) }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
     }
 
     private func deleteAction() {
+        let actionID = action.id
         modelContext.delete(action)
         propertyPack.updatedAt = .now
 
         do {
             try modelContext.save()
+            ActionNotificationScheduler.cancel(for: actionID)
             dismiss()
         } catch {
             alertContent = RRAlertContent(

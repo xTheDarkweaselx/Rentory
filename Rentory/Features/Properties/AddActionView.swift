@@ -188,6 +188,7 @@ struct AddActionView: View {
 
         do {
             try modelContext.save()
+            Task { await ActionNotificationScheduler.scheduleOrCancel(for: action) }
             dismiss()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
