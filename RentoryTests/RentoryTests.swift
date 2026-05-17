@@ -623,6 +623,7 @@ struct RentoryTests {
             DocumentRecord.self,
             TimelineEvent.self,
             ActionItem.self,
+            ItemComment.self,
         ])
         let container = try ModelContainer(
             for: schema,

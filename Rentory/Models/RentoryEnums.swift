@@ -129,6 +129,32 @@ enum EvidenceCondition: String, CaseIterable, Codable {
     case damaged = "Damaged"
     case missing = "Missing"
     case notApplicable = "Not applicable"
+
+    var aggregateSeverity: Int {
+        switch self {
+        case .notChecked, .notApplicable:
+            return 0
+        case .good:
+            return 1
+        case .fair:
+            return 2
+        case .poor:
+            return 3
+        case .damaged:
+            return 4
+        case .missing:
+            return 5
+        }
+    }
+
+    var contributesToAggregate: Bool {
+        switch self {
+        case .notChecked, .notApplicable:
+            return false
+        default:
+            return true
+        }
+    }
 }
 
 enum EvidencePhase: String, CaseIterable, Codable {

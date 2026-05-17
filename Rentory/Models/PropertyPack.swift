@@ -156,6 +156,7 @@ extension PropertyPack {
         components.append(contentsOf: rooms.map(\.name))
         components.append(contentsOf: rooms.map(\.typeRawValue))
         components.append(contentsOf: rooms.flatMap(\.checklistItems).map(\.title))
+        components.append(contentsOf: rooms.flatMap(\.checklistItems).flatMap(\.comments).map(\.body))
         components.append(contentsOf: documents.map(\.displayName))
         components.append(contentsOf: documents.map(\.documentTypeRawValue))
         components.append(contentsOf: timelineEvents.map(\.title))
