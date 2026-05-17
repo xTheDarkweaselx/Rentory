@@ -213,11 +213,11 @@ struct PDFReportBuilder {
                 lines.append("  Move-out: \(item.moveOutCondition.rawValue)")
 
                 if options.includeChecklistNotes, let moveInNotes = trimmed(item.moveInNotes) {
-                    lines.append("  Move-in notes: \(moveInNotes)")
+                    lines.append("  Move-in summary: \(moveInNotes)")
                 }
 
                 if options.includeChecklistNotes, let moveOutNotes = trimmed(item.moveOutNotes) {
-                    lines.append("  Move-out notes: \(moveOutNotes)")
+                    lines.append("  Move-out summary: \(moveOutNotes)")
                 }
             }
         }
