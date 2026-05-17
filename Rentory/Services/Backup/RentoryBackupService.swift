@@ -24,7 +24,8 @@ enum BackupImportMode: String, CaseIterable, Identifiable {
 }
 
 struct RentoryBackupService {
-    static let backupVersion = 1
+    static let backupVersion = 2
+    static let supportedBackupVersions: ClosedRange<Int> = 1...2
     static let backupContentType = UTType(exportedAs: "com.fusionstudios.rentory.backup", conformingTo: .package)
 
     private let fileManager: FileManager
@@ -109,7 +110,7 @@ struct RentoryBackupService {
 
         do {
             let manifest = try decoder.decode(RentoryBackupManifest.self, from: Data(contentsOf: manifestURL, options: [.mappedIfSafe]))
-            guard manifest.backupVersion == Self.backupVersion else {
+            guard Self.supportedBackupVersions.contains(manifest.backupVersion) else {
                 throw RentoryBackupError.backupNotSupported
             }
 
@@ -153,6 +154,7 @@ struct RentoryBackupService {
         var photos: [BackupEvidencePhoto] = []
         var documents: [BackupDocumentRecord] = []
         var timelineEvents: [BackupTimelineEvent] = []
+        var actions: [BackupActionItem] = []
 
         for propertyPack in sortedPropertyPacks {
             properties.append(
@@ -263,6 +265,26 @@ struct RentoryBackupService {
                     )
                 )
             }
+
+            for action in propertyPack.actions.sorted(by: { $0.createdAt < $1.createdAt }) {
+                actions.append(
+                    BackupActionItem(
+                        id: action.id,
+                        propertyID: propertyPack.id,
+                        title: action.title,
+                        notes: action.notes,
+                        dueDate: action.dueDate,
+                        completedAt: action.completedAt,
+                        kindRawValue: action.kindRawValue,
+                        priorityRawValue: action.priorityRawValue,
+                        createdAt: action.createdAt,
+                        linkedRoomID: action.linkedRoomID,
+                        linkedChecklistItemID: action.linkedChecklistItemID,
+                        linkedDocumentID: action.linkedDocumentID,
+                        linkedTimelineEventID: action.linkedTimelineEventID
+                    )
+                )
+            }
         }
 
         return RentoryBackupPayload(
@@ -271,7 +293,8 @@ struct RentoryBackupService {
             checklistItems: checklistItems,
             photos: photos,
             documents: documents,
-            timelineEvents: timelineEvents
+            timelineEvents: timelineEvents,
+            actions: actions
         )
     }
 
@@ -285,7 +308,8 @@ struct RentoryBackupService {
             roomCount: payload.rooms.count,
             photoCount: payload.photos.count,
             documentCount: payload.documents.count,
-            timelineEventCount: payload.timelineEvents.count
+            timelineEventCount: payload.timelineEvents.count,
+            actionCount: payload.actionList.count
         )
     }
 
@@ -324,6 +348,7 @@ struct RentoryBackupService {
         guard payload.rooms.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.documents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.timelineEvents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
+              payload.actionList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.checklistItems.allSatisfy({ roomIDs.contains($0.roomID) }),
               payload.photos.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }) else {
             throw RentoryBackupError.backupIncomplete
@@ -537,6 +562,23 @@ struct RentoryBackupService {
             propertyPacksByID[event.propertyID]?.timelineEvents.append(importedEvent)
         }
 
+        for action in payload.actionList {
+            let importedAction = ActionItem(
+                title: action.title,
+                notes: action.notes,
+                dueDate: action.dueDate,
+                completedAt: action.completedAt,
+                kind: ActionKind(rawValue: action.kindRawValue) ?? .custom,
+                priority: ActionPriority(rawValue: action.priorityRawValue) ?? .normal,
+                createdAt: action.createdAt,
+                linkedRoomID: action.linkedRoomID,
+                linkedChecklistItemID: action.linkedChecklistItemID,
+                linkedDocumentID: action.linkedDocumentID,
+                linkedTimelineEventID: action.linkedTimelineEventID
+            )
+            propertyPacksByID[action.propertyID]?.actions.append(importedAction)
+        }
+
         return payload.properties.compactMap { propertyPacksByID[$0.id] }
     }
 }
@@ -555,6 +597,9 @@ private struct RentoryBackupPayload: Codable {
     let photos: [BackupEvidencePhoto]
     let documents: [BackupDocumentRecord]
     let timelineEvents: [BackupTimelineEvent]
+    let actions: [BackupActionItem]?
+
+    var actionList: [BackupActionItem] { actions ?? [] }
 }
 
 private struct BackupPropertyPack: Codable {
@@ -642,4 +687,20 @@ private struct BackupTimelineEvent: Codable {
     let notes: String?
     let createdAt: Date
     let includeInExport: Bool
+}
+
+private struct BackupActionItem: Codable {
+    let id: UUID
+    let propertyID: UUID
+    let title: String
+    let notes: String?
+    let dueDate: Date?
+    let completedAt: Date?
+    let kindRawValue: String
+    let priorityRawValue: String
+    let createdAt: Date
+    let linkedRoomID: UUID?
+    let linkedChecklistItemID: UUID?
+    let linkedDocumentID: UUID?
+    let linkedTimelineEventID: UUID?
 }

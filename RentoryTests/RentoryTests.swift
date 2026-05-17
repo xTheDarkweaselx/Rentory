@@ -506,6 +506,107 @@ struct RentoryTests {
         #expect(importedPropertyPacks[0].documents[0].localFileName != documentFileName)
     }
 
+    @Test func backupV2RoundTripIncludesActions() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let sourceBackupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let action = ActionItem(
+            title: "Submit deposit",
+            notes: "Email landlord",
+            dueDate: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 7),
+            kind: .deposit,
+            priority: .high
+        )
+        let propertyPack = PropertyPack(nickname: "Home", actions: [action])
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try sourceBackupService.createBackup(context: sourceContext)
+        let loaded = try sourceBackupService.loadBackup(from: backupURL)
+        #expect(loaded.manifest.backupVersion == 2)
+        #expect(loaded.manifest.actionCount == 1)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+
+        try destinationBackupService.importBackup(loaded, mode: .addToExisting, context: destinationContext)
+
+        let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+        #expect(imported.count == 1)
+        #expect(imported[0].actions.count == 1)
+        #expect(imported[0].actions[0].title == "Submit deposit")
+        #expect(imported[0].actions[0].kind == .deposit)
+        #expect(imported[0].actions[0].priority == .high)
+        #expect(imported[0].actions[0].notes == "Email landlord")
+    }
+
+    @Test func legacyV1BackupLoadsWithEmptyActions() throws {
+        let fileStorageService = makeService()
+        let backupService = RentoryBackupService(
+            fileStorageService: fileStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: fileStorageService)
+        )
+
+        let baseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RentoryV1Compat-\(UUID().uuidString).rentorybackup", isDirectory: true)
+        try FileManager.default.createDirectory(at: baseURL.appendingPathComponent("EvidencePhotos"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: baseURL.appendingPathComponent("ImportedDocuments"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: baseURL) }
+
+        let v1Manifest = """
+        {
+          "appName": "Rentory",
+          "appVersion": "0.95",
+          "backupVersion": 1,
+          "createdAt": "2026-05-01T00:00:00Z",
+          "documentCount": 0,
+          "photoCount": 0,
+          "propertyCount": 1,
+          "roomCount": 0,
+          "timelineEventCount": 0
+        }
+        """
+        try Data(v1Manifest.utf8).write(to: baseURL.appendingPathComponent("manifest.json"))
+
+        let propertyID = UUID().uuidString.uppercased()
+        let v1Payload = """
+        {
+          "checklistItems": [],
+          "documents": [],
+          "photos": [],
+          "properties": [{
+            "createdAt": "2026-05-01T00:00:00Z",
+            "id": "\(propertyID)",
+            "isArchived": false,
+            "nickname": "Legacy",
+            "updatedAt": "2026-05-01T00:00:00Z"
+          }],
+          "rooms": [],
+          "timelineEvents": []
+        }
+        """
+        try Data(v1Payload.utf8).write(to: baseURL.appendingPathComponent("data.json"))
+
+        let loaded = try backupService.loadBackup(from: baseURL)
+        #expect(loaded.manifest.backupVersion == 1)
+        #expect(loaded.manifest.actionCount == nil)
+
+        let context = try makeModelContext()
+        try backupService.importBackup(loaded, mode: .addToExisting, context: context)
+        let imported = try context.fetch(FetchDescriptor<PropertyPack>())
+        #expect(imported.count == 1)
+        #expect(imported[0].actions.isEmpty)
+        #expect(imported[0].nickname == "Legacy")
+    }
+
     private func makeService() -> FileStorageService {
         let baseURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("RentoryTests-\(UUID().uuidString)", isDirectory: true)
@@ -521,10 +622,11 @@ struct RentoryTests {
             EvidencePhoto.self,
             DocumentRecord.self,
             TimelineEvent.self,
+            ActionItem.self,
         ])
         let container = try ModelContainer(
             for: schema,
-            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)]
         )
 
         return ModelContext(container)

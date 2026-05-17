@@ -29,6 +29,28 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES"
       shouldAutocreateTestPlan = "YES">
+      <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6691EBDC2FA3DC06006FC53C"
+               BuildableName = "RentoryTests.xctest"
+               BlueprintName = "RentoryTests"
+               ReferencedContainer = "container:Rentory.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6691EBE62FA3DC06006FC53C"
+               BuildableName = "RentoryUITests.xctest"
+               BlueprintName = "RentoryUITests"
+               ReferencedContainer = "container:Rentory.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
