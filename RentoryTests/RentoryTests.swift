@@ -548,6 +548,57 @@ struct RentoryTests {
         #expect(imported[0].actions[0].notes == "Email landlord")
     }
 
+    @Test func backupRoundTripIncludesItemCommentsAndRoomOverride() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let sourceBackupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let item = ChecklistItemRecord(
+            title: "Hob",
+            sortOrder: 0,
+            moveInConditionRawValue: EvidenceCondition.good.rawValue,
+            moveOutConditionRawValue: EvidenceCondition.damaged.rawValue,
+            comments: [
+                ItemComment(body: "Front-right ring slow to heat", phase: .moveIn),
+                ItemComment(body: "Burner cap missing at check-out", phase: .moveOut, sortOrder: 1),
+            ]
+        )
+        let room = RoomRecord(
+            name: "Kitchen",
+            type: .kitchen,
+            sortOrder: 0,
+            manualConditionOverride: .fair,
+            checklistItems: [item]
+        )
+        let propertyPack = PropertyPack(nickname: "Home", rooms: [room])
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try sourceBackupService.createBackup(context: sourceContext)
+        let loaded = try sourceBackupService.loadBackup(from: backupURL)
+        #expect(loaded.manifest.commentCount == 2)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+        try destinationBackupService.importBackup(loaded, mode: .addToExisting, context: destinationContext)
+
+        let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+        #expect(imported.count == 1)
+        let importedRoom = imported[0].rooms.first
+        #expect(importedRoom?.manualConditionOverride == .fair)
+        let importedItem = importedRoom?.checklistItems.first
+        #expect(importedItem?.comments.count == 2)
+        #expect(importedItem?.comments.contains { $0.body == "Front-right ring slow to heat" } == true)
+        #expect(importedItem?.comments.contains { $0.evidencePhase == .moveOut } == true)
+    }
+
     @Test func legacyV1BackupLoadsWithEmptyActions() throws {
         let fileStorageService = makeService()
         let backupService = RentoryBackupService(
