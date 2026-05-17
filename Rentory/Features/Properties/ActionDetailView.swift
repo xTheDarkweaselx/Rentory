@@ -11,9 +11,14 @@ import SwiftUI
 struct ActionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     let action: ActionItem
     let propertyPack: PropertyPack
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
 
     @State private var title: String
     @State private var notes: String
@@ -54,7 +59,7 @@ struct ActionDetailView: View {
                     .rrTextInputAutocapitalizationWords()
 
                 Picker("Kind", selection: $kind) {
-                    ForEach(ActionKind.allCases, id: \.self) { kind in
+                    ForEach(ActionKind.availableCases(for: profile), id: \.self) { kind in
                         Text(kind.rawValue).tag(kind)
                     }
                 }

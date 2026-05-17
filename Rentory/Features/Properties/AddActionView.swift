@@ -11,8 +11,13 @@ import SwiftUI
 struct AddActionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     let propertyPack: PropertyPack
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
 
     @State private var title = ""
     @State private var notes = ""
@@ -67,7 +72,7 @@ struct AddActionView: View {
                                         .foregroundStyle(RRColours.mutedText)
 
                                     Picker("Kind", selection: $kind) {
-                                        ForEach(ActionKind.allCases, id: \.self) { kind in
+                                        ForEach(ActionKind.availableCases(for: profile), id: \.self) { kind in
                                             Text(kind.rawValue).tag(kind)
                                         }
                                     }

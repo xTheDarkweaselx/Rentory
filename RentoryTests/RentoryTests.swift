@@ -42,6 +42,57 @@ struct RentoryTests {
         #expect(!FeatureAccessService.canAddPhoto(currentPhotoCount: 20, isUnlocked: false))
     }
 
+    @Test func freeUserCannotSwitchToLandlordProfile() {
+        #expect(!FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: false))
+    }
+
+    @Test func unlockedUserCanSwitchToLandlordProfile() {
+        #expect(FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: true))
+    }
+
+    @Test func defaultProfileIsRenter() {
+        #expect(RentoryUserProfile.defaultProfile == .renter)
+    }
+
+    @Test func renterProfileExcludesLandlordOnlyActionKinds() {
+        let cases = ActionKind.availableCases(for: .renter)
+        #expect(!cases.contains(.gasSafety))
+        #expect(!cases.contains(.electricalSafety))
+        #expect(!cases.contains(.energyPerformance))
+        #expect(!cases.contains(.periodicInspection))
+        #expect(!cases.contains(.tenancyRenewal))
+        #expect(cases.contains(.inspection))
+        #expect(cases.contains(.custom))
+    }
+
+    @Test func landlordProfileIncludesAllActionKinds() {
+        let cases = ActionKind.availableCases(for: .landlord)
+        #expect(cases.count == ActionKind.allCases.count)
+        #expect(cases.contains(.gasSafety))
+        #expect(cases.contains(.tenancyRenewal))
+    }
+
+    @Test func renterProfileExcludesLandlordOnlyDocumentTypes() {
+        let cases = DocumentType.availableCases(for: .renter)
+        #expect(!cases.contains(.gasSafetyCertificate))
+        #expect(!cases.contains(.electricalSafetyReport))
+        #expect(!cases.contains(.energyPerformanceCertificate))
+        #expect(!cases.contains(.rightToRentCheck))
+        #expect(cases.contains(.tenancyAgreement))
+    }
+
+    @Test func renterProfileExcludesLandlordOnlyTimelineEvents() {
+        let cases = TimelineEventType.availableCases(for: .renter)
+        #expect(!cases.contains(.gasSafetyRenewed))
+        #expect(!cases.contains(.electricalSafetyRenewed))
+        #expect(!cases.contains(.energyPerformanceRenewed))
+        #expect(!cases.contains(.tenancyStarted))
+        #expect(!cases.contains(.tenancyEnded))
+        #expect(!cases.contains(.rentReceived))
+        #expect(cases.contains(.moveIn))
+        #expect(cases.contains(.inspection))
+    }
+
     @Test func existingDataRemainsViewableWhenOverLimit() {
         let propertyPack = PropertyPack(
             nickname: "Home",

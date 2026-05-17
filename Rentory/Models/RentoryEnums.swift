@@ -173,7 +173,29 @@ enum DocumentType: String, CaseIterable, Codable {
     case meterReading = "Meter reading"
     case messageScreenshot = "Message screenshot"
     case rentPaymentRecord = "Rent payment record"
+    case gasSafetyCertificate = "Gas safety certificate"
+    case electricalSafetyReport = "Electrical safety report (EICR)"
+    case energyPerformanceCertificate = "Energy performance certificate (EPC)"
+    case rightToRentCheck = "Right to rent check"
     case other = "Other"
+
+    var isLandlordOnly: Bool {
+        switch self {
+        case .gasSafetyCertificate, .electricalSafetyReport, .energyPerformanceCertificate, .rightToRentCheck:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func availableCases(for profile: RentoryUserProfile) -> [DocumentType] {
+        switch profile {
+        case .landlord:
+            return allCases
+        case .renter:
+            return allCases.filter { !$0.isLandlordOnly }
+        }
+    }
 }
 
 enum TimelineEventType: String, CaseIterable, Codable {
@@ -187,7 +209,70 @@ enum TimelineEventType: String, CaseIterable, Codable {
     case inspection = "Inspection"
     case moveOut = "Move-out"
     case depositDiscussion = "Deposit discussion"
+    case gasSafetyRenewed = "Gas safety renewed"
+    case electricalSafetyRenewed = "Electrical safety renewed"
+    case energyPerformanceRenewed = "Energy performance renewed"
+    case tenancyStarted = "Tenancy started"
+    case tenancyEnded = "Tenancy ended"
+    case rentReceived = "Rent received"
     case other = "Other"
+
+    var isLandlordOnly: Bool {
+        switch self {
+        case .gasSafetyRenewed, .electricalSafetyRenewed, .energyPerformanceRenewed, .tenancyStarted, .tenancyEnded, .rentReceived:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func availableCases(for profile: RentoryUserProfile) -> [TimelineEventType] {
+        switch profile {
+        case .landlord:
+            return allCases
+        case .renter:
+            return allCases.filter { !$0.isLandlordOnly }
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .moveIn:
+            return "key.fill"
+        case .inventoryReviewed:
+            return "checkmark.square.fill"
+        case .issueNoticed:
+            return "exclamationmark.circle.fill"
+        case .issueReported:
+            return "paperplane.fill"
+        case .repairRequested:
+            return "wrench.fill"
+        case .repairCompleted:
+            return "checkmark.seal.fill"
+        case .cleaningCompleted:
+            return "sparkles"
+        case .inspection:
+            return "magnifyingglass"
+        case .moveOut:
+            return "rectangle.portrait.and.arrow.right"
+        case .depositDiscussion:
+            return "sterlingsign.circle.fill"
+        case .gasSafetyRenewed:
+            return "flame.fill"
+        case .electricalSafetyRenewed:
+            return "bolt.fill"
+        case .energyPerformanceRenewed:
+            return "leaf.fill"
+        case .tenancyStarted:
+            return "key.fill"
+        case .tenancyEnded:
+            return "rectangle.portrait.and.arrow.right"
+        case .rentReceived:
+            return "banknote.fill"
+        case .other:
+            return "circle.fill"
+        }
+    }
 }
 
 enum RoomType: String, CaseIterable, Codable {
@@ -211,6 +296,11 @@ enum ActionKind: String, CaseIterable, Codable {
     case moveIn = "Move-in"
     case moveOut = "Move-out"
     case custom = "Custom"
+    case gasSafety = "Gas safety"
+    case electricalSafety = "Electrical safety (EICR)"
+    case energyPerformance = "Energy performance (EPC)"
+    case periodicInspection = "Periodic inspection"
+    case tenancyRenewal = "Tenancy renewal"
 
     var iconName: String {
         switch self {
@@ -228,6 +318,34 @@ enum ActionKind: String, CaseIterable, Codable {
             return "rectangle.portrait.and.arrow.right"
         case .custom:
             return "checklist"
+        case .gasSafety:
+            return "flame.fill"
+        case .electricalSafety:
+            return "bolt.fill"
+        case .energyPerformance:
+            return "leaf.fill"
+        case .periodicInspection:
+            return "magnifyingglass.circle.fill"
+        case .tenancyRenewal:
+            return "doc.text.fill"
+        }
+    }
+
+    var isLandlordOnly: Bool {
+        switch self {
+        case .gasSafety, .electricalSafety, .energyPerformance, .periodicInspection, .tenancyRenewal:
+            return true
+        default:
+            return false
+        }
+    }
+
+    static func availableCases(for profile: RentoryUserProfile) -> [ActionKind] {
+        switch profile {
+        case .landlord:
+            return allCases
+        case .renter:
+            return allCases.filter { !$0.isLandlordOnly }
         }
     }
 }

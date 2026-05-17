@@ -180,30 +180,7 @@ private struct TimelineGraphEventRow: View {
     }
 
     private var symbolName: String {
-        switch event.eventType {
-        case .moveIn:
-            return "key.fill"
-        case .inventoryReviewed:
-            return "checkmark.square.fill"
-        case .issueNoticed:
-            return "exclamationmark.circle.fill"
-        case .issueReported:
-            return "paperplane.fill"
-        case .repairRequested:
-            return "wrench.fill"
-        case .repairCompleted:
-            return "checkmark.seal.fill"
-        case .cleaningCompleted:
-            return "sparkles"
-        case .inspection:
-            return "magnifyingglass"
-        case .moveOut:
-            return "rectangle.portrait.and.arrow.right"
-        case .depositDiscussion:
-            return "sterlingsign.circle.fill"
-        case .other:
-            return "circle.fill"
-        }
+        event.eventType.symbolName
     }
 
     private var accessibilitySummary: String {

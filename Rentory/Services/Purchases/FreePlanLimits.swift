@@ -14,4 +14,5 @@ enum FreePlanLimits {
     static let fullReportExportRequiresUnlock = true
     static let appLockRequiresUnlock = true
     static let unlimitedDocumentsRequiresUnlock = false
+    static let landlordProfileRequiresUnlock = true
 }
