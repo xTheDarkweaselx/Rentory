@@ -12,6 +12,7 @@ struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query private var propertyPacks: [PropertyPack]
@@ -147,6 +148,8 @@ struct SettingsView: View {
                 switch selectedCategory {
                 case .privacySecurity:
                     settingsDetailGrid(items: privacySecurityItems)
+                case .profile:
+                    settingsDetailGrid(items: profileItems)
                 case .appLock:
                     settingsDetailGrid(items: appLockItems)
                 case .appearance:
@@ -215,6 +218,67 @@ struct SettingsView: View {
                 ) {
                     settingsDestinationAction("Open Privacy & Data", destination: .privacyAndData)
                 }
+            },
+        ]
+    }
+
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
+    private var profileBinding: Binding<RentoryUserProfile> {
+        Binding(
+            get: { currentProfile },
+            set: { newValue in
+                handleProfileChange(to: newValue)
+            }
+        )
+    }
+
+    private func handleProfileChange(to newProfile: RentoryUserProfile) {
+        guard newProfile != currentProfile else { return }
+
+        if newProfile == .landlord, !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked) {
+            upgradePromptContent = FeatureAccessService.landlordProfilePrompt
+            return
+        }
+
+        profileRawValue = newProfile.rawValue
+    }
+
+    private var profileItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Your profile",
+                    body: "Pick the profile that fits how you use Rentory. You can switch any time — your records aren’t tied to a profile."
+                ) {
+                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                        Picker("Profile", selection: profileBinding) {
+                            ForEach(RentoryUserProfile.allCases) { profile in
+                                Text(profile.rawValue).tag(profile)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+
+                        Text(currentProfile.detailedSummary)
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.mutedText)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
+                            Text("Landlord mode is part of the lifetime unlock.")
+                                .font(RRTypography.caption.weight(.semibold))
+                                .foregroundStyle(RRColours.warning)
+                        }
+                    }
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "What changes",
+                    body: "Switching profile only changes the suggested action kinds, document types and timeline event types you see when adding new entries. Existing records keep all their data."
+                )
             },
         ]
     }
@@ -463,6 +527,24 @@ struct SettingsView: View {
                     .toggleStyle(.switch)
                     .disabled(appSecurityState.isAuthenticating)
                     .tint(Color.accentColor)
+            }
+
+            Section("Profile") {
+                Picker("Profile", selection: profileBinding) {
+                    ForEach(RentoryUserProfile.allCases) { profile in
+                        Text(profile.rawValue).tag(profile)
+                    }
+                }
+
+                Text(currentProfile.detailedSummary)
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+
+                if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
+                    Text("Landlord mode is part of the lifetime unlock.")
+                        .font(RRTypography.caption.weight(.semibold))
+                        .foregroundStyle(RRColours.warning)
+                }
             }
 
             Section("Appearance") {
@@ -786,6 +868,7 @@ private struct InfoSettingsView: View {
 
 private enum SettingsCategory: String, CaseIterable, Identifiable {
     case privacySecurity
+    case profile
     case appLock
     case appearance
     case iCloudSync
@@ -799,6 +882,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .privacySecurity: "Privacy & Security"
+        case .profile: "Profile"
         case .appLock: "App Lock"
         case .appearance: "Appearance"
         case .iCloudSync: "iCloud Sync"
@@ -812,6 +896,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .privacySecurity: "See how Rentory keeps your records private and where to manage data controls."
+        case .profile: "Choose whether Rentory tailors prompts for a renter or a landlord."
         case .appLock: "Choose whether Rentory should ask you to unlock before showing your records."
         case .appearance: "Choose light, dark or this device’s default appearance."
         case .iCloudSync: "Check whether iCloud sync is available on this device."
@@ -825,6 +910,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .privacySecurity: "hand.raised.fill"
+        case .profile: "person.crop.circle"
         case .appLock: "lock.shield.fill"
         case .appearance: "circle.lefthalf.filled"
         case .iCloudSync: "icloud"
