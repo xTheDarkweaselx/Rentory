@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager caches
+.swiftpm/
+
+# CocoaPods / Carthage (defensive — not currently in use)
+Pods/
+Carthage/Build/
+
+# Claude Code workspace (worktrees, plans, memory)
+.claude/
