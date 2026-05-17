@@ -521,10 +521,11 @@ struct RentoryTests {
             EvidencePhoto.self,
             DocumentRecord.self,
             TimelineEvent.self,
+            ActionItem.self,
         ])
         let container = try ModelContainer(
             for: schema,
-            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)]
         )
 
         return ModelContext(container)

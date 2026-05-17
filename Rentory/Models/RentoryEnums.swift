@@ -176,3 +176,38 @@ enum RoomType: String, CaseIterable, Codable {
     case garage = "Garage / parking"
     case other = "Other"
 }
+
+enum ActionKind: String, CaseIterable, Codable {
+    case inspection = "Inspection"
+    case repair = "Repair"
+    case compliance = "Compliance"
+    case deposit = "Deposit"
+    case moveIn = "Move-in"
+    case moveOut = "Move-out"
+    case custom = "Custom"
+
+    var iconName: String {
+        switch self {
+        case .inspection:
+            return "magnifyingglass"
+        case .repair:
+            return "wrench.and.screwdriver"
+        case .compliance:
+            return "checkmark.shield"
+        case .deposit:
+            return "sterlingsign.circle"
+        case .moveIn:
+            return "key"
+        case .moveOut:
+            return "rectangle.portrait.and.arrow.right"
+        case .custom:
+            return "checklist"
+        }
+    }
+}
+
+enum ActionPriority: String, CaseIterable, Codable {
+    case low = "Low"
+    case normal = "Normal"
+    case high = "High"
+}

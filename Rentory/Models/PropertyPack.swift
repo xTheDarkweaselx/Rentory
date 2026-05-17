@@ -37,6 +37,7 @@ final class PropertyPack {
     @Relationship(deleteRule: .cascade) var rooms: [RoomRecord] = []
     @Relationship(deleteRule: .cascade) var documents: [DocumentRecord] = []
     @Relationship(deleteRule: .cascade) var timelineEvents: [TimelineEvent] = []
+    @Relationship(deleteRule: .cascade) var actions: [ActionItem] = []
 
     init(
         id: UUID = UUID(),
@@ -64,7 +65,8 @@ final class PropertyPack {
         isArchived: Bool = false,
         rooms: [RoomRecord] = [],
         documents: [DocumentRecord] = [],
-        timelineEvents: [TimelineEvent] = []
+        timelineEvents: [TimelineEvent] = [],
+        actions: [ActionItem] = []
     ) {
         self.id = id
         self.nickname = nickname
@@ -92,6 +94,7 @@ final class PropertyPack {
         self.rooms = rooms
         self.documents = documents
         self.timelineEvents = timelineEvents
+        self.actions = actions
     }
 }
 
@@ -128,7 +131,9 @@ extension PropertyPack {
     }
 
     var searchableText: String {
-        let textParts = [
+        var components: [String] = []
+
+        let optionalFields: [String?] = [
             nickname,
             recordType.rawValue,
             addressLine1,
@@ -145,10 +150,21 @@ extension PropertyPack {
             depositSchemeName,
             depositReference,
             notes,
-        ] + rooms.map(\.name) + rooms.map(\.typeRawValue) + rooms.flatMap(\.checklistItems).map(\.title) + documents.map(\.displayName) + documents.map(\.documentTypeRawValue) + timelineEvents.map(\.title) + timelineEvents.map(\.eventTypeRawValue)
+        ]
+        components.append(contentsOf: optionalFields.compactMap { $0 })
 
-        return textParts
-            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+        components.append(contentsOf: rooms.map(\.name))
+        components.append(contentsOf: rooms.map(\.typeRawValue))
+        components.append(contentsOf: rooms.flatMap(\.checklistItems).map(\.title))
+        components.append(contentsOf: documents.map(\.displayName))
+        components.append(contentsOf: documents.map(\.documentTypeRawValue))
+        components.append(contentsOf: timelineEvents.map(\.title))
+        components.append(contentsOf: timelineEvents.map(\.eventTypeRawValue))
+        components.append(contentsOf: actions.map(\.title))
+        components.append(contentsOf: actions.compactMap { $0.notes })
+
+        return components
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
             .joined(separator: " ")
             .lowercased()
