@@ -22,6 +22,7 @@ final class ChecklistItemRecord {
     var updatedAt: Date
 
     @Relationship(deleteRule: .cascade) var photos: [EvidencePhoto]
+    @Relationship(deleteRule: .cascade) var comments: [ItemComment] = []
 
     var moveInCondition: EvidenceCondition {
         get { EvidenceCondition(rawValue: moveInConditionRawValue) ?? .notChecked }
@@ -44,7 +45,8 @@ final class ChecklistItemRecord {
         moveOutNotes: String? = nil,
         isFlagged: Bool = false,
         updatedAt: Date = .now,
-        photos: [EvidencePhoto] = []
+        photos: [EvidencePhoto] = [],
+        comments: [ItemComment] = []
     ) {
         self.id = id
         self.title = title
@@ -57,5 +59,6 @@ final class ChecklistItemRecord {
         self.sortOrder = sortOrder
         self.updatedAt = updatedAt
         self.photos = photos
+        self.comments = comments
     }
 }

@@ -155,6 +155,7 @@ struct RentoryBackupService {
         var documents: [BackupDocumentRecord] = []
         var timelineEvents: [BackupTimelineEvent] = []
         var actions: [BackupActionItem] = []
+        var comments: [BackupItemComment] = []
 
         for propertyPack in sortedPropertyPacks {
             properties.append(
@@ -195,7 +196,8 @@ struct RentoryBackupService {
                         notes: room.notes,
                         sortOrder: room.sortOrder,
                         createdAt: room.createdAt,
-                        updatedAt: room.updatedAt
+                        updatedAt: room.updatedAt,
+                        manualConditionOverrideRawValue: room.manualConditionOverrideRawValue
                     )
                 )
 
@@ -215,6 +217,19 @@ struct RentoryBackupService {
                             updatedAt: item.updatedAt
                         )
                     )
+
+                    for comment in item.comments.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                        comments.append(
+                            BackupItemComment(
+                                id: comment.id,
+                                checklistItemID: item.id,
+                                body: comment.body,
+                                createdAt: comment.createdAt,
+                                evidencePhaseRawValue: comment.evidencePhaseRawValue,
+                                sortOrder: comment.sortOrder
+                            )
+                        )
+                    }
 
                     for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder }) {
                         photos.append(
@@ -294,7 +309,8 @@ struct RentoryBackupService {
             photos: photos,
             documents: documents,
             timelineEvents: timelineEvents,
-            actions: actions
+            actions: actions,
+            comments: comments
         )
     }
 
@@ -309,7 +325,8 @@ struct RentoryBackupService {
             photoCount: payload.photos.count,
             documentCount: payload.documents.count,
             timelineEventCount: payload.timelineEvents.count,
-            actionCount: payload.actionList.count
+            actionCount: payload.actionList.count,
+            commentCount: payload.commentList.count
         )
     }
 
@@ -350,7 +367,8 @@ struct RentoryBackupService {
               payload.timelineEvents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.actionList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.checklistItems.allSatisfy({ roomIDs.contains($0.roomID) }),
-              payload.photos.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }) else {
+              payload.photos.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }),
+              payload.commentList.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }) else {
             throw RentoryBackupError.backupIncomplete
         }
 
@@ -494,6 +512,8 @@ struct RentoryBackupService {
                 type: RoomType(rawValue: room.typeRawValue) ?? .other,
                 sortOrder: room.sortOrder,
                 notes: room.notes,
+                manualConditionOverride: room.manualConditionOverrideRawValue
+                    .flatMap(EvidenceCondition.init(rawValue:)),
                 createdAt: room.createdAt,
                 updatedAt: room.updatedAt
             )
@@ -515,6 +535,16 @@ struct RentoryBackupService {
             )
             checklistItemsByID[checklistItem.id] = importedItem
             roomsByID[checklistItem.roomID]?.checklistItems.append(importedItem)
+        }
+
+        for comment in payload.commentList.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            let importedComment = ItemComment(
+                body: comment.body,
+                phase: comment.evidencePhaseRawValue.flatMap(EvidencePhase.init(rawValue:)),
+                createdAt: comment.createdAt,
+                sortOrder: comment.sortOrder
+            )
+            checklistItemsByID[comment.checklistItemID]?.comments.append(importedComment)
         }
 
         for photo in payload.photos.sorted(by: { $0.sortOrder < $1.sortOrder }) {
@@ -598,8 +628,10 @@ private struct RentoryBackupPayload: Codable {
     let documents: [BackupDocumentRecord]
     let timelineEvents: [BackupTimelineEvent]
     let actions: [BackupActionItem]?
+    let comments: [BackupItemComment]?
 
     var actionList: [BackupActionItem] { actions ?? [] }
+    var commentList: [BackupItemComment] { comments ?? [] }
 }
 
 private struct BackupPropertyPack: Codable {
@@ -637,6 +669,7 @@ private struct BackupRoomRecord: Codable {
     let sortOrder: Int
     let createdAt: Date
     let updatedAt: Date
+    let manualConditionOverrideRawValue: String?
 }
 
 private struct BackupChecklistItemRecord: Codable {
@@ -687,6 +720,15 @@ private struct BackupTimelineEvent: Codable {
     let notes: String?
     let createdAt: Date
     let includeInExport: Bool
+}
+
+private struct BackupItemComment: Codable {
+    let id: UUID
+    let checklistItemID: UUID
+    let body: String
+    let createdAt: Date
+    let evidencePhaseRawValue: String?
+    let sortOrder: Int
 }
 
 private struct BackupActionItem: Codable {

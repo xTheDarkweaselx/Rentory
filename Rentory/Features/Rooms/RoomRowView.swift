@@ -67,6 +67,7 @@ struct RoomRowView: View {
 
     private var summaryPills: some View {
         Group {
+            RRConditionBadge(condition: room.displayCondition)
             RRProgressPill(title: progressLabel, tint: RRColours.secondary)
             RRProgressPill(title: "\(checkedItemCount) of \(room.checklistItems.count) checked", tint: RRColours.success)
             if photoCount > 0 {
@@ -86,7 +87,7 @@ struct RoomRowView: View {
     }
 
     private var accessibilitySummary: String {
-        var parts = [room.name, room.type.rawValue, progressLabel, "\(checkedItemCount) of \(room.checklistItems.count) checked"]
+        var parts = [room.name, room.type.rawValue, "Condition \(room.displayCondition.rawValue)", progressLabel, "\(checkedItemCount) of \(room.checklistItems.count) checked"]
         if photoCount > 0 {
             parts.append(photoCount == 1 ? "1 photo" : "\(photoCount) photos")
         }

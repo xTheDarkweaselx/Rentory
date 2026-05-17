@@ -27,6 +27,7 @@ struct RentoryApp: App {
             DocumentRecord.self,
             TimelineEvent.self,
             ActionItem.self,
+            ItemComment.self,
         ])
 
         do {

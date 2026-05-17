@@ -5,12 +5,17 @@
 //  Created by Adam Ibrahim on 30/04/2026.
 //
 
+import SwiftData
 import SwiftUI
 
 struct RoomDetailView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.modelContext) private var modelContext
 
     let room: RoomRecord
+
+    @State private var isShowingAddItemSheet = false
+    @State private var alertContent: RRAlertContent?
 
     private var checkedItemCount: Int {
         room.checklistItems.filter { item in
@@ -64,6 +69,27 @@ struct RoomDetailView: View {
         .background(RRBackgroundView())
         .navigationTitle(room.name)
         .rrInlineNavigationTitle()
+        .toolbar {
+            ToolbarItem(placement: .rrPrimaryAction) {
+                Button {
+                    isShowingAddItemSheet = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add item")
+            }
+        }
+        .sheet(isPresented: $isShowingAddItemSheet) {
+            AddChecklistItemView(room: room)
+                .rrAdaptiveSheetPresentation()
+        }
+        .alert(item: $alertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle))
+            )
+        }
     }
 
     private var roomSummaryCard: some View {
@@ -79,6 +105,8 @@ struct RoomDetailView: View {
                     .font(RRTypography.body)
                     .foregroundStyle(RRColours.mutedText)
 
+                conditionOverrideMenu
+
                 RRProgressPill(title: progressLabel)
 
                 Text("\(checkedItemCount) of \(room.checklistItems.count) checked")
@@ -87,6 +115,61 @@ struct RoomDetailView: View {
             }
         }
         .frame(maxWidth: DeviceLayout.isRegularWidth(horizontalSizeClass) ? 280 : .infinity, alignment: .leading)
+    }
+
+    private var conditionOverrideMenu: some View {
+        Menu {
+            Button {
+                setOverride(nil)
+            } label: {
+                if room.manualConditionOverride == nil {
+                    Label("Auto (from items)", systemImage: "checkmark")
+                } else {
+                    Text("Auto (from items)")
+                }
+            }
+
+            Divider()
+
+            ForEach(EvidenceCondition.allCases, id: \.self) { condition in
+                Button {
+                    setOverride(condition)
+                } label: {
+                    if room.manualConditionOverride == condition {
+                        Label(condition.rawValue, systemImage: "checkmark")
+                    } else {
+                        Text(condition.rawValue)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                RRConditionBadge(condition: room.displayCondition)
+
+                if room.manualConditionOverride != nil {
+                    Text("Manual")
+                        .font(RRTypography.caption.weight(.semibold))
+                        .foregroundStyle(RRColours.mutedText)
+                }
+
+                Image(systemName: "chevron.down.circle.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(RRColours.secondary)
+            }
+        }
+        .accessibilityLabel("Room condition: \(room.displayCondition.rawValue)\(room.manualConditionOverride != nil ? ", manual override" : "")")
+        .accessibilityHint("Choose Auto to roll up from items, or set a manual condition.")
+    }
+
+    private func setOverride(_ condition: EvidenceCondition?) {
+        room.manualConditionOverride = condition
+        room.updatedAt = .now
+
+        do {
+            try modelContext.save()
+        } catch {
+            alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
+        }
     }
 
     private var checklistHeader: some View {
