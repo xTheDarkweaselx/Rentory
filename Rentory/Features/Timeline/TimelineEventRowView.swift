@@ -39,6 +39,7 @@ struct TimelineEventRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this timeline event.")
+        .observesAppColourTheme()
     }
 
     private var accessibilitySummary: String {

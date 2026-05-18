@@ -46,6 +46,7 @@ struct ChecklistItemRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.title), move-in \(item.moveInCondition.rawValue), move-out \(item.moveOutCondition.rawValue), \(photoSummary)")
         .accessibilityHint("Opens this checklist item.")
+        .observesAppColourTheme()
     }
 
     private var conditionSummary: some View {

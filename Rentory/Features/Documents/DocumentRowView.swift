@@ -47,6 +47,7 @@ struct DocumentRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this document.")
+        .observesAppColourTheme()
     }
 
     private var accessibilitySummary: String {

@@ -63,6 +63,7 @@ struct RoomRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this room.")
+        .observesAppColourTheme()
     }
 
     private var summaryPills: some View {
