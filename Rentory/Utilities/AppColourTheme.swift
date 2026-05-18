@@ -18,18 +18,18 @@ enum AppColourTheme: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .defaultLook:
-            return "Default"
+            return "Violet Glow"
         case .appIcon:
-            return "Sunset Warmth"
+            return "Sunset Orange"
         }
     }
 
     var description: String {
         switch self {
         case .defaultLook:
-            return "Use Rentory’s current calm blue look."
+            return "Use a purple and indigo look inspired by Rentory’s app icon."
         case .appIcon:
-            return "Use a warmer orange, coral and pink look for a brighter feel."
+            return "Use a warmer orange and amber look for a brighter feel."
         }
     }
 

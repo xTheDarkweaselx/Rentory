@@ -43,24 +43,48 @@ struct ExportOptionsView: View {
                         }
                     }
 
-                    Section("Property details") {
-                        Toggle("Property name", isOn: $options.includePropertyName)
-                        Toggle("Town or postcode", isOn: $options.includeTownOrPostcode)
-                        Toggle("Full address", isOn: $options.includeFullAddress)
-                        Toggle("Tenancy dates", isOn: $options.includeTenancyDates)
-                        Toggle("Landlord or letting agent details", isOn: $options.includeLandlordOrAgentDetails)
-                        Toggle("Deposit details", isOn: $options.includeDepositDetails)
+                    Section {
+                        RRCard {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                Text("Property details")
+                                    .font(RRTypography.headline)
+                                    .foregroundStyle(RRColours.primary)
+
+                                VStack(alignment: .leading, spacing: 10) {
+                                    reportOptionRow("Property name", isOn: $options.includePropertyName)
+                                    reportOptionRow("Town or postcode", isOn: $options.includeTownOrPostcode)
+                                    reportOptionRow("Full address", isOn: $options.includeFullAddress)
+                                    reportOptionRow("Tenancy dates", isOn: $options.includeTenancyDates)
+                                    reportOptionRow("Landlord or letting agent details", isOn: $options.includeLandlordOrAgentDetails)
+                                    reportOptionRow("Deposit details", isOn: $options.includeDepositDetails)
+                                }
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
 
-                    Section("Record details") {
-                        Toggle("Rooms and checklists", isOn: $options.includeRooms)
-                        Toggle("Notes", isOn: $options.includeChecklistNotes)
-                        Toggle("Photos", isOn: $options.includePhotos)
-                        Toggle("Documents list", isOn: $options.includeDocumentsList)
-                        Toggle("Timeline", isOn: $options.includeTimeline)
+                    Section {
+                        RRCard {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                Text("Record details")
+                                    .font(RRTypography.headline)
+                                    .foregroundStyle(RRColours.primary)
+
+                                VStack(alignment: .leading, spacing: 10) {
+                                    reportOptionRow("Rooms and checklists", isOn: $options.includeRooms)
+                                    reportOptionRow("Notes", isOn: $options.includeChecklistNotes)
+                                    reportOptionRow("Photos", isOn: $options.includePhotos)
+                                    reportOptionRow("Documents list", isOn: $options.includeDocumentsList)
+                                    reportOptionRow("Timeline", isOn: $options.includeTimeline)
+                                }
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
 
-                    Section("Included with every report") {
+                    Section {
                         ReportDisclaimerView()
                             .listRowInsets(EdgeInsets())
                             .listRowBackground(Color.clear)
@@ -123,6 +147,28 @@ struct ExportOptionsView: View {
         }
     }
 
+    private func reportOptionRow(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            Text(title)
+                .font(RRTypography.body)
+                .foregroundStyle(RRColours.primary)
+        }
+        .reportOptionToggleStyle()
+        .tint(RRColours.secondary)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(RRColours.primary.opacity(0.035))
+        }
+        .overlay {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .stroke(RRColours.primary.opacity(0.08), lineWidth: 1)
+        }
+        .accessibilityValue(isOn.wrappedValue ? "Included" : "Not included")
+    }
+
     private func createReport() {
         options.includeDisclaimer = true
 
@@ -167,6 +213,17 @@ struct ExportOptionsView: View {
             isCreatingReport = false
             reportTask = nil
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func reportOptionToggleStyle() -> some View {
+        #if os(macOS)
+        self.toggleStyle(.checkbox)
+        #else
+        self
+        #endif
     }
 }
 

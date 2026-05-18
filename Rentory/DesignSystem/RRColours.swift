@@ -16,6 +16,7 @@ import AppKit
 enum RRColours {
     static let primary = Color.primary
     static var secondary: Color { palette.secondary }
+    static func secondary(for theme: AppColourTheme) -> Color { palette(for: theme).secondary }
     static var background: Color { palette.background }
     static var groupedBackground: Color { palette.groupedBackground }
     static var cardBackground: Color { palette.cardBackground }
@@ -27,7 +28,11 @@ enum RRColours {
     static let border = Color.primary.opacity(0.08)
 
     private static var palette: RRColourPalette {
-        switch AppColourTheme.current {
+        palette(for: AppColourTheme.current)
+    }
+
+    private static func palette(for theme: AppColourTheme) -> RRColourPalette {
+        switch theme {
         case .defaultLook:
             return .defaultLook
         case .appIcon:
@@ -46,23 +51,23 @@ private struct RRColourPalette {
     let warning: Color
 
     static let defaultLook = RRColourPalette(
-        secondary: Color.accentColor,
+        secondary: Color(red: 0.48, green: 0.30, blue: 0.92),
         background: platformBackground,
-        groupedBackground: platformGroupedBackground,
-        cardBackground: platformCardBackground,
-        cardHighlight: Color.white.opacity(0.22),
+        groupedBackground: Color(red: 0.57, green: 0.42, blue: 1.00).opacity(0.12),
+        cardBackground: Color(red: 0.48, green: 0.30, blue: 0.92).opacity(0.10),
+        cardHighlight: Color(red: 0.78, green: 0.68, blue: 1.00).opacity(0.24),
         success: Color.green.opacity(0.8),
         warning: Color.orange.opacity(0.8)
     )
 
     static let appIcon = RRColourPalette(
-        secondary: Color(red: 0.96, green: 0.30, blue: 0.22),
+        secondary: Color(red: 0.96, green: 0.48, blue: 0.10),
         background: platformBackground,
-        groupedBackground: Color(red: 1.00, green: 0.72, blue: 0.33).opacity(0.18),
-        cardBackground: Color(red: 1.00, green: 0.52, blue: 0.34).opacity(0.14),
-        cardHighlight: Color(red: 1.00, green: 0.82, blue: 0.42).opacity(0.28),
-        success: Color(red: 0.95, green: 0.55, blue: 0.12).opacity(0.82),
-        warning: Color(red: 0.98, green: 0.42, blue: 0.18).opacity(0.86)
+        groupedBackground: Color(red: 1.00, green: 0.72, blue: 0.24).opacity(0.16),
+        cardBackground: Color(red: 1.00, green: 0.58, blue: 0.18).opacity(0.13),
+        cardHighlight: Color(red: 1.00, green: 0.78, blue: 0.30).opacity(0.26),
+        success: Color(red: 0.94, green: 0.58, blue: 0.10).opacity(0.82),
+        warning: Color(red: 0.98, green: 0.52, blue: 0.08).opacity(0.86)
     )
 
 #if canImport(UIKit)

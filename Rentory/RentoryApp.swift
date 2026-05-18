@@ -70,8 +70,7 @@ struct RentoryApp: App {
                     .environmentObject(iCloudSyncService)
                     .modelContainer(sharedModelContainer)
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
-                    .tint(RRColours.secondary)
-                    .id(appColourThemeRawValue)
+                    .tint(RRColours.secondary(for: selectedColourTheme))
             } else {
                 RRErrorStateView(
                     symbolName: "exclamationmark.triangle",
@@ -88,5 +87,9 @@ struct RentoryApp: App {
 
     private var selectedAppearance: AppAppearance {
         AppAppearance(rawValue: appAppearanceRawValue) ?? .deviceDefault
+    }
+
+    private var selectedColourTheme: AppColourTheme {
+        AppColourTheme(rawValue: appColourThemeRawValue) ?? .defaultLook
     }
 }
