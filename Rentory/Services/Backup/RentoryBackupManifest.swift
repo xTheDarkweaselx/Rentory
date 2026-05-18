@@ -17,6 +17,6 @@ struct RentoryBackupManifest: Codable, Equatable {
     let photoCount: Int
     let documentCount: Int
     let timelineEventCount: Int
-    let actionCount: Int?
+    let reminderCount: Int?
     let commentCount: Int?
 }

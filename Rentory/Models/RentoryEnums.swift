@@ -288,7 +288,7 @@ enum RoomType: String, CaseIterable, Codable {
     case other = "Other"
 }
 
-enum ActionKind: String, CaseIterable, Codable {
+enum ReminderKind: String, CaseIterable, Codable {
     case inspection = "Inspection"
     case repair = "Repair"
     case compliance = "Compliance"
@@ -340,7 +340,7 @@ enum ActionKind: String, CaseIterable, Codable {
         }
     }
 
-    static func availableCases(for profile: RentoryUserProfile) -> [ActionKind] {
+    static func availableCases(for profile: RentoryUserProfile) -> [ReminderKind] {
         switch profile {
         case .landlord:
             return allCases
@@ -350,7 +350,7 @@ enum ActionKind: String, CaseIterable, Codable {
     }
 }
 
-enum ActionPriority: String, CaseIterable, Codable {
+enum ReminderPriority: String, CaseIterable, Codable {
     case low = "Low"
     case normal = "Normal"
     case high = "High"

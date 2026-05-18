@@ -26,7 +26,7 @@ struct RentoryApp: App {
             EvidencePhoto.self,
             DocumentRecord.self,
             TimelineEvent.self,
-            ActionItem.self,
+            Reminder.self,
             ItemComment.self,
         ])
 

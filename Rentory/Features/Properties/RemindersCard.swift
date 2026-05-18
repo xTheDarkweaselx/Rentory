@@ -1,5 +1,5 @@
 //
-//  ActionPulseCard.swift
+//  RemindersCard.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -7,14 +7,14 @@
 
 import SwiftUI
 
-struct ActionPulseCard: View {
+struct RemindersCard: View {
     let propertyPack: PropertyPack
-    let onSelectAction: (ActionItem) -> Void
-    let onViewAllAction: () -> Void
-    let onAddAction: () -> Void
+    let onSelectReminder: (Reminder) -> Void
+    let onViewAllReminders: () -> Void
+    let onAddReminder: () -> Void
 
-    private var pulse: ActionPulseResult {
-        ActionPulseService.pulse(for: propertyPack)
+    private var pulse: ReminderOverview {
+        ReminderService.overview(for: propertyPack)
     }
 
     var body: some View {
@@ -39,9 +39,9 @@ struct ActionPulseCard: View {
     }
 
     @ViewBuilder
-    private func header(for pulse: ActionPulseResult) -> some View {
+    private func header(for pulse: ReminderOverview) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Action pulse")
+            Text("Reminders")
                 .font(RRTypography.footnote.weight(.semibold))
                 .foregroundStyle(RRColours.mutedText)
                 .textCase(.uppercase)
@@ -57,7 +57,7 @@ struct ActionPulseCard: View {
     }
 
     @ViewBuilder
-    private func countPills(for pulse: ActionPulseResult) -> some View {
+    private func countPills(for pulse: ReminderOverview) -> some View {
         HStack(spacing: 8) {
             if pulse.overdueCount > 0 {
                 countPill(value: pulse.overdueCount, label: "overdue", colour: RRColours.danger)
@@ -83,7 +83,7 @@ struct ActionPulseCard: View {
     }
 
     @ViewBuilder
-    private func upcomingList(items: [ActionItemSnapshot]) -> some View {
+    private func upcomingList(items: [ReminderSnapshot]) -> some View {
         VStack(spacing: 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, snapshot in
                 if index > 0 {
@@ -95,10 +95,10 @@ struct ActionPulseCard: View {
         }
     }
 
-    private func pulseRow(snapshot: ActionItemSnapshot) -> some View {
+    private func pulseRow(snapshot: ReminderSnapshot) -> some View {
         Button {
-            if let actionItem = propertyPack.actions.first(where: { $0.id == snapshot.id }) {
-                onSelectAction(actionItem)
+            if let actionItem = propertyPack.reminders.first(where: { $0.id == snapshot.id }) {
+                onSelectReminder(actionItem)
             }
         } label: {
             HStack(spacing: 12) {
@@ -133,7 +133,7 @@ struct ActionPulseCard: View {
         .accessibilityHint("Opens the action.")
     }
 
-    private func datePill(snapshot: ActionItemSnapshot) -> some View {
+    private func datePill(snapshot: ReminderSnapshot) -> some View {
         let tint = urgencyTint(for: snapshot.urgency)
         return HStack(spacing: 4) {
             Image(systemName: "calendar")
@@ -148,23 +148,23 @@ struct ActionPulseCard: View {
     }
 
     @ViewBuilder
-    private func footerButton(for pulse: ActionPulseResult) -> some View {
+    private func footerButton(for pulse: ReminderOverview) -> some View {
         if pulse.totalOpenCount > 0 {
-            RRSecondaryButton(title: "View all actions", action: onViewAllAction)
+            RRSecondaryButton(title: "View all reminders", action: onViewAllReminders)
         } else {
-            RRSecondaryButton(title: "Add an action", action: onAddAction)
+            RRSecondaryButton(title: "Add a reminder", action: onAddReminder)
         }
     }
 
     // MARK: - Helpers
 
-    private func statusColor(for pulse: ActionPulseResult) -> Color {
+    private func statusColor(for pulse: ReminderOverview) -> Color {
         if pulse.overdueCount > 0 { return RRColours.danger }
         if pulse.dueSoonCount > 0 { return RRColours.warning }
         return RRColours.primary
     }
 
-    private func urgencyTint(for urgency: ActionUrgency) -> Color {
+    private func urgencyTint(for urgency: ReminderUrgency) -> Color {
         switch urgency {
         case .overdue:
             return RRColours.danger
@@ -177,14 +177,14 @@ struct ActionPulseCard: View {
         }
     }
 
-    private func relativeDateDescription(for snapshot: ActionItemSnapshot) -> String {
+    private func relativeDateDescription(for snapshot: ReminderSnapshot) -> String {
         guard let dueDate = snapshot.dueDate else {
             return "No date"
         }
         return Self.relativeFormatter.localizedString(for: dueDate, relativeTo: .now)
     }
 
-    private func accessibilityDateDescription(for snapshot: ActionItemSnapshot) -> String {
+    private func accessibilityDateDescription(for snapshot: ReminderSnapshot) -> String {
         guard let dueDate = snapshot.dueDate else {
             return "no due date"
         }

@@ -55,7 +55,7 @@ struct RentoryTests {
     }
 
     @Test func renterProfileExcludesLandlordOnlyActionKinds() {
-        let cases = ActionKind.availableCases(for: .renter)
+        let cases = ReminderKind.availableCases(for: .renter)
         #expect(!cases.contains(.gasSafety))
         #expect(!cases.contains(.electricalSafety))
         #expect(!cases.contains(.energyPerformance))
@@ -66,8 +66,8 @@ struct RentoryTests {
     }
 
     @Test func landlordProfileIncludesAllActionKinds() {
-        let cases = ActionKind.availableCases(for: .landlord)
-        #expect(cases.count == ActionKind.allCases.count)
+        let cases = ReminderKind.availableCases(for: .landlord)
+        #expect(cases.count == ReminderKind.allCases.count)
         #expect(cases.contains(.gasSafety))
         #expect(cases.contains(.tenancyRenewal))
     }
@@ -565,21 +565,21 @@ struct RentoryTests {
             deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
         )
 
-        let action = ActionItem(
+        let reminder = Reminder(
             title: "Submit deposit",
             notes: "Email landlord",
             dueDate: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 7),
             kind: .deposit,
             priority: .high
         )
-        let propertyPack = PropertyPack(nickname: "Home", actions: [action])
+        let propertyPack = PropertyPack(nickname: "Home", reminders: [reminder])
         sourceContext.insert(propertyPack)
         try sourceContext.save()
 
         let backupURL = try sourceBackupService.createBackup(context: sourceContext)
         let loaded = try sourceBackupService.loadBackup(from: backupURL)
         #expect(loaded.manifest.backupVersion == 2)
-        #expect(loaded.manifest.actionCount == 1)
+        #expect(loaded.manifest.reminderCount == 1)
 
         let destinationStorageService = makeService()
         let destinationContext = try makeModelContext()
@@ -592,11 +592,11 @@ struct RentoryTests {
 
         let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
         #expect(imported.count == 1)
-        #expect(imported[0].actions.count == 1)
-        #expect(imported[0].actions[0].title == "Submit deposit")
-        #expect(imported[0].actions[0].kind == .deposit)
-        #expect(imported[0].actions[0].priority == .high)
-        #expect(imported[0].actions[0].notes == "Email landlord")
+        #expect(imported[0].reminders.count == 1)
+        #expect(imported[0].reminders[0].title == "Submit deposit")
+        #expect(imported[0].reminders[0].kind == .deposit)
+        #expect(imported[0].reminders[0].priority == .high)
+        #expect(imported[0].reminders[0].notes == "Email landlord")
     }
 
     @Test func backupRoundTripIncludesItemCommentsAndRoomOverride() throws {
@@ -699,13 +699,13 @@ struct RentoryTests {
 
         let loaded = try backupService.loadBackup(from: baseURL)
         #expect(loaded.manifest.backupVersion == 1)
-        #expect(loaded.manifest.actionCount == nil)
+        #expect(loaded.manifest.reminderCount == nil)
 
         let context = try makeModelContext()
         try backupService.importBackup(loaded, mode: .addToExisting, context: context)
         let imported = try context.fetch(FetchDescriptor<PropertyPack>())
         #expect(imported.count == 1)
-        #expect(imported[0].actions.isEmpty)
+        #expect(imported[0].reminders.isEmpty)
         #expect(imported[0].nickname == "Legacy")
     }
 
@@ -724,7 +724,7 @@ struct RentoryTests {
             EvidencePhoto.self,
             DocumentRecord.self,
             TimelineEvent.self,
-            ActionItem.self,
+            Reminder.self,
             ItemComment.self,
         ])
         let container = try ModelContainer(

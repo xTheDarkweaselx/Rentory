@@ -37,7 +37,7 @@ final class PropertyPack {
     @Relationship(deleteRule: .cascade) var rooms: [RoomRecord] = []
     @Relationship(deleteRule: .cascade) var documents: [DocumentRecord] = []
     @Relationship(deleteRule: .cascade) var timelineEvents: [TimelineEvent] = []
-    @Relationship(deleteRule: .cascade) var actions: [ActionItem] = []
+    @Relationship(deleteRule: .cascade) var reminders: [Reminder] = []
 
     init(
         id: UUID = UUID(),
@@ -66,7 +66,7 @@ final class PropertyPack {
         rooms: [RoomRecord] = [],
         documents: [DocumentRecord] = [],
         timelineEvents: [TimelineEvent] = [],
-        actions: [ActionItem] = []
+        reminders: [Reminder] = []
     ) {
         self.id = id
         self.nickname = nickname
@@ -94,7 +94,7 @@ final class PropertyPack {
         self.rooms = rooms
         self.documents = documents
         self.timelineEvents = timelineEvents
-        self.actions = actions
+        self.reminders = reminders
     }
 }
 
@@ -161,8 +161,8 @@ extension PropertyPack {
         components.append(contentsOf: documents.map(\.documentTypeRawValue))
         components.append(contentsOf: timelineEvents.map(\.title))
         components.append(contentsOf: timelineEvents.map(\.eventTypeRawValue))
-        components.append(contentsOf: actions.map(\.title))
-        components.append(contentsOf: actions.compactMap { $0.notes })
+        components.append(contentsOf: reminders.map(\.title))
+        components.append(contentsOf: reminders.compactMap { $0.notes })
 
         return components
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

@@ -154,7 +154,7 @@ struct RentoryBackupService {
         var photos: [BackupEvidencePhoto] = []
         var documents: [BackupDocumentRecord] = []
         var timelineEvents: [BackupTimelineEvent] = []
-        var actions: [BackupActionItem] = []
+        var reminders: [BackupReminder] = []
         var comments: [BackupItemComment] = []
 
         for propertyPack in sortedPropertyPacks {
@@ -281,22 +281,22 @@ struct RentoryBackupService {
                 )
             }
 
-            for action in propertyPack.actions.sorted(by: { $0.createdAt < $1.createdAt }) {
-                actions.append(
-                    BackupActionItem(
-                        id: action.id,
+            for reminder in propertyPack.reminders.sorted(by: { $0.createdAt < $1.createdAt }) {
+                reminders.append(
+                    BackupReminder(
+                        id: reminder.id,
                         propertyID: propertyPack.id,
-                        title: action.title,
-                        notes: action.notes,
-                        dueDate: action.dueDate,
-                        completedAt: action.completedAt,
-                        kindRawValue: action.kindRawValue,
-                        priorityRawValue: action.priorityRawValue,
-                        createdAt: action.createdAt,
-                        linkedRoomID: action.linkedRoomID,
-                        linkedChecklistItemID: action.linkedChecklistItemID,
-                        linkedDocumentID: action.linkedDocumentID,
-                        linkedTimelineEventID: action.linkedTimelineEventID
+                        title: reminder.title,
+                        notes: reminder.notes,
+                        dueDate: reminder.dueDate,
+                        completedAt: reminder.completedAt,
+                        kindRawValue: reminder.kindRawValue,
+                        priorityRawValue: reminder.priorityRawValue,
+                        createdAt: reminder.createdAt,
+                        linkedRoomID: reminder.linkedRoomID,
+                        linkedChecklistItemID: reminder.linkedChecklistItemID,
+                        linkedDocumentID: reminder.linkedDocumentID,
+                        linkedTimelineEventID: reminder.linkedTimelineEventID
                     )
                 )
             }
@@ -309,7 +309,7 @@ struct RentoryBackupService {
             photos: photos,
             documents: documents,
             timelineEvents: timelineEvents,
-            actions: actions,
+            reminders: reminders,
             comments: comments
         )
     }
@@ -325,7 +325,7 @@ struct RentoryBackupService {
             photoCount: payload.photos.count,
             documentCount: payload.documents.count,
             timelineEventCount: payload.timelineEvents.count,
-            actionCount: payload.actionList.count,
+            reminderCount: payload.reminderList.count,
             commentCount: payload.commentList.count
         )
     }
@@ -365,7 +365,7 @@ struct RentoryBackupService {
         guard payload.rooms.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.documents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.timelineEvents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
-              payload.actionList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
+              payload.reminderList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.checklistItems.allSatisfy({ roomIDs.contains($0.roomID) }),
               payload.photos.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }),
               payload.commentList.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }) else {
@@ -592,21 +592,21 @@ struct RentoryBackupService {
             propertyPacksByID[event.propertyID]?.timelineEvents.append(importedEvent)
         }
 
-        for action in payload.actionList {
-            let importedAction = ActionItem(
-                title: action.title,
-                notes: action.notes,
-                dueDate: action.dueDate,
-                completedAt: action.completedAt,
-                kind: ActionKind(rawValue: action.kindRawValue) ?? .custom,
-                priority: ActionPriority(rawValue: action.priorityRawValue) ?? .normal,
-                createdAt: action.createdAt,
-                linkedRoomID: action.linkedRoomID,
-                linkedChecklistItemID: action.linkedChecklistItemID,
-                linkedDocumentID: action.linkedDocumentID,
-                linkedTimelineEventID: action.linkedTimelineEventID
+        for reminder in payload.reminderList {
+            let importedReminder = Reminder(
+                title: reminder.title,
+                notes: reminder.notes,
+                dueDate: reminder.dueDate,
+                completedAt: reminder.completedAt,
+                kind: ReminderKind(rawValue: reminder.kindRawValue) ?? .custom,
+                priority: ReminderPriority(rawValue: reminder.priorityRawValue) ?? .normal,
+                createdAt: reminder.createdAt,
+                linkedRoomID: reminder.linkedRoomID,
+                linkedChecklistItemID: reminder.linkedChecklistItemID,
+                linkedDocumentID: reminder.linkedDocumentID,
+                linkedTimelineEventID: reminder.linkedTimelineEventID
             )
-            propertyPacksByID[action.propertyID]?.actions.append(importedAction)
+            propertyPacksByID[reminder.propertyID]?.reminders.append(importedReminder)
         }
 
         return payload.properties.compactMap { propertyPacksByID[$0.id] }
@@ -627,10 +627,10 @@ private struct RentoryBackupPayload: Codable {
     let photos: [BackupEvidencePhoto]
     let documents: [BackupDocumentRecord]
     let timelineEvents: [BackupTimelineEvent]
-    let actions: [BackupActionItem]?
+    let reminders: [BackupReminder]?
     let comments: [BackupItemComment]?
 
-    var actionList: [BackupActionItem] { actions ?? [] }
+    var reminderList: [BackupReminder] { reminders ?? [] }
     var commentList: [BackupItemComment] { comments ?? [] }
 }
 
@@ -731,7 +731,7 @@ private struct BackupItemComment: Codable {
     let sortOrder: Int
 }
 
-private struct BackupActionItem: Codable {
+private struct BackupReminder: Codable {
     let id: UUID
     let propertyID: UUID
     let title: String

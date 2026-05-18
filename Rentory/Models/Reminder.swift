@@ -1,5 +1,5 @@
 //
-//  ActionItem.swift
+//  Reminder.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -9,14 +9,14 @@ import Foundation
 import SwiftData
 
 @Model
-final class ActionItem {
+final class Reminder {
     var id: UUID = UUID()
     var title: String = ""
     var notes: String?
     var dueDate: Date?
     var completedAt: Date?
-    var kindRawValue: String = ActionKind.custom.rawValue
-    var priorityRawValue: String = ActionPriority.normal.rawValue
+    var kindRawValue: String = ReminderKind.custom.rawValue
+    var priorityRawValue: String = ReminderPriority.normal.rawValue
     var createdAt: Date = Date.now
     var linkedRoomID: UUID?
     var linkedChecklistItemID: UUID?
@@ -29,8 +29,8 @@ final class ActionItem {
         notes: String? = nil,
         dueDate: Date? = nil,
         completedAt: Date? = nil,
-        kind: ActionKind = .custom,
-        priority: ActionPriority = .normal,
+        kind: ReminderKind = .custom,
+        priority: ReminderPriority = .normal,
         createdAt: Date = .now,
         linkedRoomID: UUID? = nil,
         linkedChecklistItemID: UUID? = nil,
@@ -52,14 +52,14 @@ final class ActionItem {
     }
 }
 
-extension ActionItem {
-    var kind: ActionKind {
-        get { ActionKind(rawValue: kindRawValue) ?? .custom }
+extension Reminder {
+    var kind: ReminderKind {
+        get { ReminderKind(rawValue: kindRawValue) ?? .custom }
         set { kindRawValue = newValue.rawValue }
     }
 
-    var priority: ActionPriority {
-        get { ActionPriority(rawValue: priorityRawValue) ?? .normal }
+    var priority: ReminderPriority {
+        get { ReminderPriority(rawValue: priorityRawValue) ?? .normal }
         set { priorityRawValue = newValue.rawValue }
     }
 

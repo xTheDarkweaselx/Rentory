@@ -1,5 +1,5 @@
 //
-//  ActionListView.swift
+//  RemindersListView.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -8,7 +8,7 @@
 import SwiftData
 import SwiftUI
 
-struct ActionListView: View {
+struct RemindersListView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
@@ -17,8 +17,8 @@ struct ActionListView: View {
     @State private var isShowingAddSheet = false
     @State private var alertContent: RRAlertContent?
 
-    private var openActions: [ActionItem] {
-        propertyPack.actions
+    private var openReminders: [Reminder] {
+        propertyPack.reminders
             .filter { !$0.isCompleted }
             .sorted { lhs, rhs in
                 let lhsDate = lhs.dueDate ?? .distantFuture
@@ -30,17 +30,17 @@ struct ActionListView: View {
             }
     }
 
-    private var completedActions: [ActionItem] {
-        propertyPack.actions
+    private var completedReminders: [Reminder] {
+        propertyPack.reminders
             .filter { $0.isCompleted }
             .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
     }
 
-    private var openGroups: [(ActionUrgency, [ActionItem])] {
+    private var openGroups: [(ReminderUrgency, [Reminder])] {
         let now = Date.now
-        let order: [ActionUrgency] = [.overdue, .dueSoon, .upcoming, .undated]
+        let order: [ReminderUrgency] = [.overdue, .dueSoon, .upcoming, .undated]
         return order.compactMap { urgency in
-            let items = openActions.filter { ActionPulseService.urgency(for: $0, on: now) == urgency }
+            let items = openReminders.filter { ReminderService.urgency(for: $0, on: now) == urgency }
             return items.isEmpty ? nil : (urgency, items)
         }
     }
@@ -48,21 +48,21 @@ struct ActionListView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
-                if propertyPack.actions.isEmpty {
+                if propertyPack.reminders.isEmpty {
                     RREmptyStateView(
                         symbolName: "checklist",
-                        title: "No actions yet",
+                        title: "No reminders yet",
                         message: "Track what needs doing so nothing slips. Things like submitting the deposit form, chasing a repair, or attending an inspection all fit here.",
-                        buttonTitle: "Add an action",
+                        buttonTitle: "Add a reminder",
                         buttonAction: { isShowingAddSheet = true }
                     )
                 } else {
                     ForEach(openGroups, id: \.0) { urgency, items in
-                        sectionView(title: title(for: urgency), tint: tint(for: urgency), actions: items)
+                        sectionView(title: title(for: urgency), tint: tint(for: urgency), reminders: items)
                     }
 
-                    if !completedActions.isEmpty {
-                        sectionView(title: "Completed", tint: RRColours.success, actions: completedActions)
+                    if !completedReminders.isEmpty {
+                        sectionView(title: "Completed", tint: RRColours.success, reminders: completedReminders)
                     }
                 }
             }
@@ -71,7 +71,7 @@ struct ActionListView: View {
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(RRBackgroundView())
-        .navigationTitle("All actions")
+        .navigationTitle("All reminders")
         .rrInlineNavigationTitle()
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
@@ -80,11 +80,11 @@ struct ActionListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel("Add action")
+                .accessibilityLabel("Add reminder")
             }
         }
         .sheet(isPresented: $isShowingAddSheet) {
-            AddActionView(propertyPack: propertyPack)
+            AddReminderView(propertyPack: propertyPack)
                 .rrAdaptiveSheetPresentation()
         }
         .alert(item: $alertContent) { content in
@@ -97,7 +97,7 @@ struct ActionListView: View {
     }
 
     @ViewBuilder
-    private func sectionView(title: String, tint: Color, actions: [ActionItem]) -> some View {
+    private func sectionView(title: String, tint: Color, reminders: [Reminder]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(title)
@@ -106,21 +106,21 @@ struct ActionListView: View {
 
                 Spacer()
 
-                Text("\(actions.count)")
+                Text("\(reminders.count)")
                     .font(RRTypography.footnote.weight(.semibold))
                     .foregroundStyle(RRColours.mutedText)
             }
 
             VStack(spacing: 0) {
-                ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                ForEach(Array(reminders.enumerated()), id: \.element.id) { index, reminder in
                     if index > 0 {
                         Divider()
                             .background(RRColours.border)
                     }
                     NavigationLink {
-                        ActionDetailView(action: action, propertyPack: propertyPack)
+                        ReminderDetailView(reminder: reminder, propertyPack: propertyPack)
                     } label: {
-                        actionRow(action: action)
+                        reminderRow(reminder: reminder)
                     }
                     .buttonStyle(.plain)
                 }
@@ -130,23 +130,23 @@ struct ActionListView: View {
     }
 
     @ViewBuilder
-    private func actionRow(action: ActionItem) -> some View {
-        let urgency = ActionPulseService.urgency(for: action)
+    private func reminderRow(reminder: Reminder) -> some View {
+        let urgency = ReminderService.urgency(for: reminder)
         HStack(spacing: 12) {
-            Image(systemName: action.kind.iconName)
+            Image(systemName: reminder.kind.iconName)
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(RRColours.secondary)
                 .frame(width: 28, height: 28)
                 .background(RRColours.cardHighlight, in: Circle())
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(action.title)
+                Text(reminder.title)
                     .font(RRTypography.headline)
-                    .foregroundStyle(action.isCompleted ? RRColours.mutedText : RRColours.primary)
-                    .strikethrough(action.isCompleted)
+                    .foregroundStyle(reminder.isCompleted ? RRColours.mutedText : RRColours.primary)
+                    .strikethrough(reminder.isCompleted)
                     .lineLimit(2)
 
-                rowSubtitle(action: action, urgency: urgency)
+                rowSubtitle(reminder: reminder, urgency: urgency)
             }
 
             Spacer(minLength: 8)
@@ -161,23 +161,23 @@ struct ActionListView: View {
     }
 
     @ViewBuilder
-    private func rowSubtitle(action: ActionItem, urgency: ActionUrgency) -> some View {
-        if action.isCompleted, let completedAt = action.completedAt {
+    private func rowSubtitle(reminder: Reminder, urgency: ReminderUrgency) -> some View {
+        if reminder.isCompleted, let completedAt = reminder.completedAt {
             Text("Completed \(formattedDate(completedAt))")
                 .font(RRTypography.footnote)
                 .foregroundStyle(RRColours.success)
-        } else if let dueDate = action.dueDate {
+        } else if let dueDate = reminder.dueDate {
             Text("Due \(formattedDate(dueDate))")
                 .font(RRTypography.footnote)
                 .foregroundStyle(tint(for: urgency))
         } else {
-            Text(action.kind.rawValue)
+            Text(reminder.kind.rawValue)
                 .font(RRTypography.footnote)
                 .foregroundStyle(RRColours.mutedText)
         }
     }
 
-    private func title(for urgency: ActionUrgency) -> String {
+    private func title(for urgency: ReminderUrgency) -> String {
         switch urgency {
         case .overdue: return "Overdue"
         case .dueSoon: return "Due this week"
@@ -187,7 +187,7 @@ struct ActionListView: View {
         }
     }
 
-    private func tint(for urgency: ActionUrgency) -> Color {
+    private func tint(for urgency: ReminderUrgency) -> Color {
         switch urgency {
         case .overdue: return RRColours.danger
         case .dueSoon: return RRColours.warning
