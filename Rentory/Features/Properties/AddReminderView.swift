@@ -1,5 +1,5 @@
 //
-//  AddActionView.swift
+//  AddReminderView.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -8,16 +8,21 @@
 import SwiftData
 import SwiftUI
 
-struct AddActionView: View {
+struct AddReminderView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     let propertyPack: PropertyPack
 
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
     @State private var title = ""
     @State private var notes = ""
-    @State private var kind: ActionKind = .custom
-    @State private var priority: ActionPriority = .normal
+    @State private var kind: ReminderKind = .custom
+    @State private var priority: ReminderPriority = .normal
     @State private var hasDueDate = true
     @State private var dueDate = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
     @State private var validationMessage: String?
@@ -31,7 +36,7 @@ struct AddActionView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                         RRSheetHeader(
-                            title: "Add action",
+                            title: "Add reminder",
                             subtitle: "Track something that needs doing — a repair to chase, an inspection to attend, a date to remember.",
                             systemImage: "checklist"
                         )
@@ -67,7 +72,7 @@ struct AddActionView: View {
                                         .foregroundStyle(RRColours.mutedText)
 
                                     Picker("Kind", selection: $kind) {
-                                        ForEach(ActionKind.allCases, id: \.self) { kind in
+                                        ForEach(ReminderKind.availableCases(for: profile), id: \.self) { kind in
                                             Text(kind.rawValue).tag(kind)
                                         }
                                     }
@@ -80,7 +85,7 @@ struct AddActionView: View {
                                         .foregroundStyle(RRColours.mutedText)
 
                                     Picker("Priority", selection: $priority) {
-                                        ForEach(ActionPriority.allCases, id: \.self) { priority in
+                                        ForEach(ReminderPriority.allCases, id: \.self) { priority in
                                             Text(priority.rawValue).tag(priority)
                                         }
                                     }
@@ -128,7 +133,7 @@ struct AddActionView: View {
                 }
                 .scrollIndicators(.hidden)
             }
-            .navigationTitle("Add action")
+            .navigationTitle("Add reminder")
             .rrInlineNavigationTitle()
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -175,7 +180,7 @@ struct AddActionView: View {
             return
         }
 
-        let action = ActionItem(
+        let reminder = Reminder(
             title: trimmedTitle,
             notes: optionalText(notes),
             dueDate: hasDueDate ? dueDate : nil,
@@ -183,12 +188,12 @@ struct AddActionView: View {
             priority: priority
         )
 
-        propertyPack.actions.append(action)
+        propertyPack.reminders.append(reminder)
         propertyPack.updatedAt = .now
 
         do {
             try modelContext.save()
-            Task { await ActionNotificationScheduler.scheduleOrCancel(for: action) }
+            Task { await ReminderNotificationScheduler.scheduleOrCancel(for: reminder) }
             dismiss()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)

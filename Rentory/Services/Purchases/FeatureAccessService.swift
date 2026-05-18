@@ -28,6 +28,10 @@ struct FeatureAccessService {
         isUnlocked || !FreePlanLimits.appLockRequiresUnlock
     }
 
+    static func canSwitchToLandlordProfile(isUnlocked: Bool) -> Bool {
+        isUnlocked || !FreePlanLimits.landlordProfileRequiresUnlock
+    }
+
     static func propertyLimitPrompt(isSampleDataUsingFreeRecord: Bool) -> UpgradePromptContent {
         if isSampleDataUsingFreeRecord {
             return UpgradePromptContent(
@@ -60,5 +64,10 @@ struct FeatureAccessService {
     static let appLockLimitPrompt = UpgradePromptContent(
         title: "App Lock is included with the lifetime unlock",
         message: "Keep using your existing records and unlock Rentory when you want App Lock."
+    )
+
+    static let landlordProfilePrompt = UpgradePromptContent(
+        title: "Landlord mode is part of the lifetime unlock",
+        message: "Renter mode is always free. Unlock Rentory to switch into landlord mode with compliance tracking, multiple tenancies and detailed records."
     )
 }

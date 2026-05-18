@@ -1,5 +1,5 @@
 //
-//  ActionNotificationScheduler.swift
+//  ReminderNotificationScheduler.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -9,7 +9,7 @@ import Foundation
 import UserNotifications
 
 @MainActor
-enum ActionNotificationScheduler {
+enum ReminderNotificationScheduler {
     private static let center = UNUserNotificationCenter.current()
     private static let calendar: Calendar = {
         var calendar = Calendar(identifier: .gregorian)
@@ -18,33 +18,33 @@ enum ActionNotificationScheduler {
     }()
     private static let notificationHourOfDay = 9
 
-    static func notificationIdentifier(for actionID: UUID) -> String {
-        "rentory.action.\(actionID.uuidString)"
+    static func notificationIdentifier(for reminderID: UUID) -> String {
+        "rentory.reminder.\(reminderID.uuidString)"
     }
 
-    static func scheduleOrCancel(for action: ActionItem) async {
-        cancel(for: action.id)
+    static func scheduleOrCancel(for reminder: Reminder) async {
+        cancel(for: reminder.id)
 
-        guard let dueDate = action.dueDate, !action.isCompleted else { return }
+        guard let dueDate = reminder.dueDate, !reminder.isCompleted else { return }
         guard let fireDate = scheduledFireDate(for: dueDate), fireDate > .now else { return }
 
         let isAuthorized = await requestAuthorizationIfNeeded()
         guard isAuthorized else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = action.title
-        if let notes = action.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
+        content.title = reminder.title
+        if let notes = reminder.notes?.trimmingCharacters(in: .whitespacesAndNewlines), !notes.isEmpty {
             content.body = notes
         } else {
-            content.body = "Rentory action due today."
+            content.body = "Rentory reminder due today."
         }
         content.sound = .default
-        content.userInfo = ["actionID": action.id.uuidString]
+        content.userInfo = ["reminderID": reminder.id.uuidString]
 
         let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
         let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
         let request = UNNotificationRequest(
-            identifier: notificationIdentifier(for: action.id),
+            identifier: notificationIdentifier(for: reminder.id),
             content: content,
             trigger: trigger
         )
@@ -52,8 +52,8 @@ enum ActionNotificationScheduler {
         try? await center.add(request)
     }
 
-    static func cancel(for actionID: UUID) {
-        center.removePendingNotificationRequests(withIdentifiers: [notificationIdentifier(for: actionID)])
+    static func cancel(for reminderID: UUID) {
+        center.removePendingNotificationRequests(withIdentifiers: [notificationIdentifier(for: reminderID)])
     }
 
     private static func requestAuthorizationIfNeeded() async -> Bool {

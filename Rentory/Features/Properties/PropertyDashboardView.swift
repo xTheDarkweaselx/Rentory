@@ -16,8 +16,8 @@ struct PropertyDashboardView: View {
     @State private var activeSheet: DashboardSheet?
     @State private var isShowingExportOptions = false
     @State private var isShowingProgressView = false
-    @State private var isShowingActionList = false
-    @State private var selectedAction: ActionItem?
+    @State private var isShowingRemindersList = false
+    @State private var selectedReminder: Reminder?
     @State private var infoAlertContent: RRAlertContent?
 
     private var recentDocuments: [DocumentRecord] {
@@ -49,11 +49,11 @@ struct PropertyDashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 PropertySummaryCard(propertyPack: propertyPack, showsLastUpdated: true)
-                ActionPulseCard(
+                RemindersCard(
                     propertyPack: propertyPack,
-                    onSelectAction: { action in selectedAction = action },
-                    onViewAllAction: { isShowingActionList = true },
-                    onAddAction: { activeSheet = .addAction }
+                    onSelectReminder: { reminder in selectedReminder = reminder },
+                    onViewAllReminders: { isShowingRemindersList = true },
+                    onAddReminder: { activeSheet = .addReminder }
                 )
                 CompletionScoreCard(result: completionScore) {
                     isShowingProgressView = true
@@ -143,17 +143,17 @@ struct PropertyDashboardView: View {
                     .accessibilityLabel("Add event")
                     .accessibilityHint("Adds a timeline event to this rental record.")
                     Button {
-                        activeSheet = .addAction
+                        activeSheet = .addReminder
                     } label: {
                         RRGlassCard {
                             VStack(alignment: .leading, spacing: 12) {
                                 RRIconBadge(systemName: "checklist", tint: RRColours.secondary)
 
-                                Text("Add action")
+                                Text("Add reminder")
                                     .font(RRTypography.headline)
                                     .foregroundStyle(RRColours.primary)
 
-                                Text("Track repairs to chase, inspections to attend and tasks to finish.")
+                                Text("Track repairs to chase, inspections to attend and dates to remember.")
                                     .font(RRTypography.caption)
                                     .foregroundStyle(RRColours.mutedText)
                             }
@@ -161,8 +161,8 @@ struct PropertyDashboardView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Add action")
-                    .accessibilityHint("Adds an action to track for this rental record.")
+                    .accessibilityLabel("Add reminder")
+                    .accessibilityHint("Adds a reminder to track for this rental record.")
                     Button {
                         isShowingProgressView = true
                     } label: {
@@ -235,12 +235,12 @@ struct PropertyDashboardView: View {
             ExportOptionsView(propertyPack: propertyPack, showsHelpfulNote: shouldShowExportNote)
                 .dismissOnPropertySelectionChange()
         }
-        .navigationDestination(isPresented: $isShowingActionList) {
-            ActionListView(propertyPack: propertyPack)
+        .navigationDestination(isPresented: $isShowingRemindersList) {
+            RemindersListView(propertyPack: propertyPack)
                 .dismissOnPropertySelectionChange()
         }
-        .navigationDestination(item: $selectedAction) { action in
-            ActionDetailView(action: action, propertyPack: propertyPack)
+        .navigationDestination(item: $selectedReminder) { reminder in
+            ReminderDetailView(reminder: reminder, propertyPack: propertyPack)
                 .dismissOnPropertySelectionChange()
         }
         .toolbar {
@@ -286,8 +286,8 @@ struct PropertyDashboardView: View {
             AddRoomView(propertyPack: propertyPack)
         case .addEvent:
             AddTimelineEventView(propertyPack: propertyPack)
-        case .addAction:
-            AddActionView(propertyPack: propertyPack)
+        case .addReminder:
+            AddReminderView(propertyPack: propertyPack)
         }
     }
 
@@ -295,8 +295,8 @@ struct PropertyDashboardView: View {
         activeSheet = nil
         isShowingExportOptions = false
         isShowingProgressView = false
-        isShowingActionList = false
-        selectedAction = nil
+        isShowingRemindersList = false
+        selectedReminder = nil
         infoAlertContent = nil
     }
 
@@ -404,30 +404,7 @@ struct PropertyDashboardView: View {
     }
 
     private func timelineSymbol(for eventType: TimelineEventType) -> String {
-        switch eventType {
-        case .moveIn:
-            return "key.fill"
-        case .inventoryReviewed:
-            return "checkmark.square.fill"
-        case .issueNoticed:
-            return "exclamationmark.circle.fill"
-        case .issueReported:
-            return "paperplane.fill"
-        case .repairRequested:
-            return "wrench.fill"
-        case .repairCompleted:
-            return "checkmark.seal.fill"
-        case .cleaningCompleted:
-            return "sparkles"
-        case .inspection:
-            return "magnifyingglass"
-        case .moveOut:
-            return "rectangle.portrait.and.arrow.right"
-        case .depositDiscussion:
-            return "sterlingsign.circle.fill"
-        case .other:
-            return "circle.fill"
-        }
+        eventType.symbolName
     }
 
     private func detailSection(title: String, message: String) -> some View {
@@ -469,7 +446,7 @@ private enum DashboardSheet: Identifiable {
     case addPhoto(ChecklistItemRecord)
     case addRoom
     case addEvent
-    case addAction
+    case addReminder
 
     var id: String {
         switch self {
@@ -485,8 +462,8 @@ private enum DashboardSheet: Identifiable {
             return "addRoom"
         case .addEvent:
             return "addEvent"
-        case .addAction:
-            return "addAction"
+        case .addReminder:
+            return "addReminder"
         }
     }
 }
@@ -567,29 +544,6 @@ private struct DashboardTimelinePreviewRow: View {
     }
 
     private var symbolName: String {
-        switch event.eventType {
-        case .moveIn:
-            return "key.fill"
-        case .inventoryReviewed:
-            return "checkmark.square.fill"
-        case .issueNoticed:
-            return "exclamationmark.circle.fill"
-        case .issueReported:
-            return "paperplane.fill"
-        case .repairRequested:
-            return "wrench.fill"
-        case .repairCompleted:
-            return "checkmark.seal.fill"
-        case .cleaningCompleted:
-            return "sparkles"
-        case .inspection:
-            return "magnifyingglass"
-        case .moveOut:
-            return "rectangle.portrait.and.arrow.right"
-        case .depositDiscussion:
-            return "sterlingsign.circle.fill"
-        case .other:
-            return "circle.fill"
-        }
+        event.eventType.symbolName
     }
 }

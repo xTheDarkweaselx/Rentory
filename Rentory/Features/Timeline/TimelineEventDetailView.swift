@@ -11,9 +11,14 @@ import SwiftUI
 struct TimelineEventDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     let event: TimelineEvent
     let propertyPack: PropertyPack
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
 
     @State private var title: String
     @State private var eventType: TimelineEventType
@@ -50,7 +55,7 @@ struct TimelineEventDetailView: View {
                     .rrTextInputAutocapitalizationWords()
 
                 Picker("Type", selection: $eventType) {
-                    ForEach(TimelineEventType.allCases, id: \.self) { type in
+                    ForEach(TimelineEventType.availableCases(for: profile), id: \.self) { type in
                         Text(type.rawValue).tag(type)
                     }
                 }

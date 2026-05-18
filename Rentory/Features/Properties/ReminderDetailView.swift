@@ -1,5 +1,5 @@
 //
-//  ActionDetailView.swift
+//  ReminderDetailView.swift
 //  Rentory
 //
 //  Created by Adam Ibrahim on 17/05/2026.
@@ -8,59 +8,64 @@
 import SwiftData
 import SwiftUI
 
-struct ActionDetailView: View {
+struct ReminderDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
-    let action: ActionItem
+    let reminder: Reminder
     let propertyPack: PropertyPack
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
 
     @State private var title: String
     @State private var notes: String
-    @State private var kind: ActionKind
-    @State private var priority: ActionPriority
+    @State private var kind: ReminderKind
+    @State private var priority: ReminderPriority
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
     @State private var isCompleted: Bool
     @State private var alertContent: RRAlertContent?
     @State private var isShowingDeleteConfirmation = false
 
-    init(action: ActionItem, propertyPack: PropertyPack) {
-        self.action = action
+    init(reminder: Reminder, propertyPack: PropertyPack) {
+        self.reminder = reminder
         self.propertyPack = propertyPack
-        _title = State(initialValue: action.title)
-        _notes = State(initialValue: action.notes ?? "")
-        _kind = State(initialValue: action.kind)
-        _priority = State(initialValue: action.priority)
-        _hasDueDate = State(initialValue: action.dueDate != nil)
-        _dueDate = State(initialValue: action.dueDate ?? .now)
-        _isCompleted = State(initialValue: action.isCompleted)
+        _title = State(initialValue: reminder.title)
+        _notes = State(initialValue: reminder.notes ?? "")
+        _kind = State(initialValue: reminder.kind)
+        _priority = State(initialValue: reminder.priority)
+        _hasDueDate = State(initialValue: reminder.dueDate != nil)
+        _dueDate = State(initialValue: reminder.dueDate ?? .now)
+        _isCompleted = State(initialValue: reminder.isCompleted)
     }
 
     var body: some View {
         Form {
             Section {
                 RRSheetHeader(
-                    title: "Edit action",
-                    subtitle: "Update the details, mark complete, or remove the action.",
-                    systemImage: action.kind.iconName
+                    title: "Edit reminder",
+                    subtitle: "Update the details, mark complete, or remove the reminder.",
+                    systemImage: reminder.kind.iconName
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
             }
 
-            Section("Action") {
+            Section("Reminder") {
                 TextField("Title", text: $title)
                     .rrTextInputAutocapitalizationWords()
 
                 Picker("Kind", selection: $kind) {
-                    ForEach(ActionKind.allCases, id: \.self) { kind in
+                    ForEach(ReminderKind.availableCases(for: profile), id: \.self) { kind in
                         Text(kind.rawValue).tag(kind)
                     }
                 }
 
                 Picker("Priority", selection: $priority) {
-                    ForEach(ActionPriority.allCases, id: \.self) { priority in
+                    ForEach(ReminderPriority.allCases, id: \.self) { priority in
                         Text(priority.rawValue).tag(priority)
                     }
                 }
@@ -84,12 +89,12 @@ struct ActionDetailView: View {
             }
 
             Section {
-                RRDestructiveButton(title: "Delete action") {
+                RRDestructiveButton(title: "Delete reminder") {
                     isShowingDeleteConfirmation = true
                 }
             }
         }
-        .navigationTitle(action.title)
+        .navigationTitle(reminder.title)
         .rrInlineNavigationTitle()
         .scrollContentBackground(.hidden)
         .background(RRBackgroundView())
@@ -101,16 +106,16 @@ struct ActionDetailView: View {
             }
         }
         .confirmationDialog(
-            "Delete action?",
+            "Delete reminder?",
             isPresented: $isShowingDeleteConfirmation,
             titleVisibility: .visible
         ) {
             Button("Delete", role: .destructive) {
-                deleteAction()
+                deleteReminder()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This action will be removed from this record.")
+            Text("This reminder will be removed from this record.")
         }
         .alert(item: $alertContent) { content in
             Alert(
@@ -126,48 +131,48 @@ struct ActionDetailView: View {
 
         guard !trimmedTitle.isEmpty else {
             alertContent = RRAlertContent(
-                title: "Action not saved",
-                message: "Add an action title to continue."
+                title: "Reminder not saved",
+                message: "Add a reminder title to continue."
             )
             return
         }
 
-        action.title = trimmedTitle
-        action.notes = optionalText(notes)
-        action.kind = kind
-        action.priority = priority
-        action.dueDate = hasDueDate ? dueDate : nil
+        reminder.title = trimmedTitle
+        reminder.notes = optionalText(notes)
+        reminder.kind = kind
+        reminder.priority = priority
+        reminder.dueDate = hasDueDate ? dueDate : nil
 
         let now = Date.now
-        if isCompleted && action.completedAt == nil {
-            action.completedAt = now
+        if isCompleted && reminder.completedAt == nil {
+            reminder.completedAt = now
         } else if !isCompleted {
-            action.completedAt = nil
+            reminder.completedAt = nil
         }
 
         propertyPack.updatedAt = now
 
         do {
             try modelContext.save()
-            Task { await ActionNotificationScheduler.scheduleOrCancel(for: action) }
+            Task { await ReminderNotificationScheduler.scheduleOrCancel(for: reminder) }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
     }
 
-    private func deleteAction() {
-        let actionID = action.id
-        modelContext.delete(action)
+    private func deleteReminder() {
+        let reminderID = reminder.id
+        modelContext.delete(reminder)
         propertyPack.updatedAt = .now
 
         do {
             try modelContext.save()
-            ActionNotificationScheduler.cancel(for: actionID)
+            ReminderNotificationScheduler.cancel(for: reminderID)
             dismiss()
         } catch {
             alertContent = RRAlertContent(
-                title: "Action not deleted",
-                message: "This action could not be deleted. Please try again."
+                title: "Reminder not deleted",
+                message: "This reminder could not be deleted. Please try again."
             )
         }
     }
