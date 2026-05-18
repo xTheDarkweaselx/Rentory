@@ -511,6 +511,7 @@ private struct DashboardTimelinePreviewRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(event.title), \(event.eventType.rawValue), \(event.eventDate.formatted(date: .abbreviated, time: .omitted))")
+        .observesAppColourTheme()
     }
 
     private var previewConnector: some View {

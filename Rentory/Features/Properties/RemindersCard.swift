@@ -130,7 +130,8 @@ struct RemindersCard: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(snapshot.title), \(accessibilityDateDescription(for: snapshot))")
-        .accessibilityHint("Opens the action.")
+        .accessibilityHint("Opens the reminder.")
+        .observesAppColourTheme()
     }
 
     private func datePill(snapshot: ReminderSnapshot) -> some View {

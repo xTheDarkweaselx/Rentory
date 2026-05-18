@@ -102,6 +102,7 @@ struct PropertySummaryCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this rental record.")
+        .observesAppColourTheme()
     }
 
     private var summaryPills: some View {

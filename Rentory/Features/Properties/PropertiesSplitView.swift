@@ -390,6 +390,7 @@ private struct PropertySidebarRow: View {
             }
         }
         .padding(.vertical, 4)
+        .observesAppColourTheme()
     }
 
     private var locationSummary: String? {

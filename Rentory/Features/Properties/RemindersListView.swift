@@ -158,6 +158,7 @@ struct RemindersListView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .contentShape(Rectangle())
+        .observesAppColourTheme()
     }
 
     @ViewBuilder
