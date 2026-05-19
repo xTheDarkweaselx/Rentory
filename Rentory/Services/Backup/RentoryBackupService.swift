@@ -156,6 +156,8 @@ struct RentoryBackupService {
         var timelineEvents: [BackupTimelineEvent] = []
         var reminders: [BackupReminder] = []
         var comments: [BackupItemComment] = []
+        var tenancies: [BackupTenancy] = []
+        var tenants: [BackupTenant] = []
 
         for propertyPack in sortedPropertyPacks {
             properties.append(
@@ -301,6 +303,46 @@ struct RentoryBackupService {
                     )
                 )
             }
+
+            for tenancy in propertyPack.tenancies.sorted(by: { $0.createdAt < $1.createdAt }) {
+                tenancies.append(
+                    BackupTenancy(
+                        id: tenancy.id,
+                        propertyID: propertyPack.id,
+                        startDate: tenancy.startDate,
+                        endDate: tenancy.endDate,
+                        statusRawValue: tenancy.statusRawValue,
+                        tenancyTypeRawValue: tenancy.tenancyTypeRawValue,
+                        depositAmount: tenancy.depositAmount,
+                        depositSchemeName: tenancy.depositSchemeName,
+                        depositReference: tenancy.depositReference,
+                        rentAmount: tenancy.rentAmount,
+                        rentFrequencyRawValue: tenancy.rentFrequencyRawValue,
+                        notes: tenancy.notes,
+                        signedOnDate: tenancy.signedOnDate,
+                        breakClauseDate: tenancy.breakClauseDate,
+                        inventoryDocumentID: tenancy.inventoryDocumentID,
+                        modeRawValue: tenancy.modeRawValue,
+                        createdAt: tenancy.createdAt,
+                        updatedAt: tenancy.updatedAt
+                    )
+                )
+
+                for tenant in tenancy.tenants.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                    tenants.append(
+                        BackupTenant(
+                            id: tenant.id,
+                            tenancyID: tenancy.id,
+                            name: tenant.name,
+                            email: tenant.email,
+                            phone: tenant.phone,
+                            sortOrder: tenant.sortOrder,
+                            notes: tenant.notes,
+                            createdAt: tenant.createdAt
+                        )
+                    )
+                }
+            }
         }
 
         return RentoryBackupPayload(
@@ -311,7 +353,9 @@ struct RentoryBackupService {
             documents: documents,
             timelineEvents: timelineEvents,
             reminders: reminders,
-            comments: comments
+            comments: comments,
+            tenancies: tenancies,
+            tenants: tenants
         )
     }
 
@@ -327,7 +371,9 @@ struct RentoryBackupService {
             documentCount: payload.documents.count,
             timelineEventCount: payload.timelineEvents.count,
             reminderCount: payload.reminderList.count,
-            commentCount: payload.commentList.count
+            commentCount: payload.commentList.count,
+            tenancyCount: payload.tenancyList.count,
+            tenantCount: payload.tenantList.count
         )
     }
 
@@ -362,11 +408,14 @@ struct RentoryBackupService {
         let propertyIDs = Set(payload.properties.map(\.id))
         let roomIDs = Set(payload.rooms.map(\.id))
         let checklistItemIDs = Set(payload.checklistItems.map(\.id))
+        let tenancyIDs = Set(payload.tenancyList.map(\.id))
 
         guard payload.rooms.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.documents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.timelineEvents.allSatisfy({ propertyIDs.contains($0.propertyID) }),
               payload.reminderList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
+              payload.tenancyList.allSatisfy({ propertyIDs.contains($0.propertyID) }),
+              payload.tenantList.allSatisfy({ tenancyIDs.contains($0.tenancyID) }),
               payload.checklistItems.allSatisfy({ roomIDs.contains($0.roomID) }),
               payload.photos.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }),
               payload.commentList.allSatisfy({ checklistItemIDs.contains($0.checklistItemID) }) else {
@@ -611,6 +660,42 @@ struct RentoryBackupService {
             propertyPacksByID[reminder.propertyID]?.reminders.append(importedReminder)
         }
 
+        var tenanciesByID: [UUID: Tenancy] = [:]
+        for tenancy in payload.tenancyList.sorted(by: { $0.createdAt < $1.createdAt }) {
+            let importedTenancy = Tenancy(
+                startDate: tenancy.startDate,
+                endDate: tenancy.endDate,
+                status: TenancyStatus(rawValue: tenancy.statusRawValue) ?? .upcoming,
+                tenancyType: TenancyType(rawValue: tenancy.tenancyTypeRawValue) ?? .assuredShorthold,
+                depositAmount: tenancy.depositAmount,
+                depositSchemeName: tenancy.depositSchemeName,
+                depositReference: tenancy.depositReference,
+                rentAmount: tenancy.rentAmount,
+                rentFrequency: tenancy.rentFrequencyRawValue.flatMap(RentFrequency.init(rawValue:)),
+                notes: tenancy.notes,
+                signedOnDate: tenancy.signedOnDate,
+                breakClauseDate: tenancy.breakClauseDate,
+                inventoryDocumentID: tenancy.inventoryDocumentID,
+                mode: TenancyMode(rawValue: tenancy.modeRawValue) ?? .standard,
+                createdAt: tenancy.createdAt,
+                updatedAt: tenancy.updatedAt
+            )
+            tenanciesByID[tenancy.id] = importedTenancy
+            propertyPacksByID[tenancy.propertyID]?.tenancies.append(importedTenancy)
+        }
+
+        for tenant in payload.tenantList.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            let importedTenant = Tenant(
+                name: tenant.name,
+                email: tenant.email,
+                phone: tenant.phone,
+                sortOrder: tenant.sortOrder,
+                notes: tenant.notes,
+                createdAt: tenant.createdAt
+            )
+            tenanciesByID[tenant.tenancyID]?.tenants.append(importedTenant)
+        }
+
         return payload.properties.compactMap { propertyPacksByID[$0.id] }
     }
 }
@@ -631,9 +716,13 @@ private struct RentoryBackupPayload: Codable {
     let timelineEvents: [BackupTimelineEvent]
     let reminders: [BackupReminder]?
     let comments: [BackupItemComment]?
+    let tenancies: [BackupTenancy]?
+    let tenants: [BackupTenant]?
 
     var reminderList: [BackupReminder] { reminders ?? [] }
     var commentList: [BackupItemComment] { comments ?? [] }
+    var tenancyList: [BackupTenancy] { tenancies ?? [] }
+    var tenantList: [BackupTenant] { tenants ?? [] }
 }
 
 private struct BackupPropertyPack: Codable {
@@ -732,6 +821,38 @@ private struct BackupItemComment: Codable {
     let createdAt: Date
     let evidencePhaseRawValue: String?
     let sortOrder: Int
+}
+
+private struct BackupTenancy: Codable {
+    let id: UUID
+    let propertyID: UUID
+    let startDate: Date
+    let endDate: Date?
+    let statusRawValue: String
+    let tenancyTypeRawValue: String
+    let depositAmount: Double?
+    let depositSchemeName: String?
+    let depositReference: String?
+    let rentAmount: Double?
+    let rentFrequencyRawValue: String?
+    let notes: String?
+    let signedOnDate: Date?
+    let breakClauseDate: Date?
+    let inventoryDocumentID: UUID?
+    let modeRawValue: String
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+private struct BackupTenant: Codable {
+    let id: UUID
+    let tenancyID: UUID
+    let name: String
+    let email: String?
+    let phone: String?
+    let sortOrder: Int
+    let notes: String?
+    let createdAt: Date
 }
 
 private struct BackupReminder: Codable {

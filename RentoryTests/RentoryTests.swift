@@ -777,6 +777,8 @@ struct RentoryTests {
             TimelineEvent.self,
             Reminder.self,
             ItemComment.self,
+            Tenancy.self,
+            Tenant.self,
         ])
         let container = try ModelContainer(
             for: schema,

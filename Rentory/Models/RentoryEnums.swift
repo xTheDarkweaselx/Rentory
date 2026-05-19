@@ -275,6 +275,64 @@ enum TimelineEventType: String, CaseIterable, Codable {
     }
 }
 
+enum TenancyStatus: String, CaseIterable, Codable, Identifiable {
+    case upcoming = "Upcoming"
+    case active = "Active"
+    case ended = "Ended"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .upcoming: return "calendar.badge.clock"
+        case .active: return "checkmark.seal.fill"
+        case .ended: return "checkmark.circle"
+        }
+    }
+}
+
+enum TenancyType: String, CaseIterable, Codable, Identifiable {
+    case assuredShorthold = "Assured shorthold (AST)"
+    case periodic = "Periodic / rolling"
+    case fixedTerm = "Fixed-term (non-AST)"
+    case lodger = "Lodger / room let"
+    case licence = "Licence to occupy"
+    case other = "Other"
+
+    var id: String { rawValue }
+}
+
+enum RentFrequency: String, CaseIterable, Codable, Identifiable {
+    case weekly = "Weekly"
+    case fortnightly = "Fortnightly"
+    case monthly = "Monthly"
+    case quarterly = "Quarterly"
+    case annually = "Annually"
+    case other = "Other"
+
+    var id: String { rawValue }
+}
+
+enum TenancyMode: String, CaseIterable, Codable, Identifiable {
+    /// Single tenant, basic dates + deposit + rent + status. Quick to enter.
+    case standard = "Standard"
+    /// Multiple tenants, signed-on / break clause / inventory tracking. Full record.
+    case comprehensive = "Comprehensive"
+
+    var id: String { rawValue }
+
+    var shortTitle: String { rawValue }
+
+    var summary: String {
+        switch self {
+        case .standard:
+            return "A simple record: one tenant, dates, deposit, rent, status."
+        case .comprehensive:
+            return "Full record: multiple tenants, signed-on date, break clause, inventory document."
+        }
+    }
+}
+
 enum TenancyStage: String, CaseIterable, Codable, Identifiable {
     case moveIn = "Move-in"
     case living = "Living"

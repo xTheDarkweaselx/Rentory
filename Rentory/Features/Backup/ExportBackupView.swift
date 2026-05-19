@@ -23,7 +23,9 @@ struct ExportBackupView: View {
         documentCount: 0,
         timelineEventCount: 0,
         reminderCount: 0,
-        commentCount: 0
+        commentCount: 0,
+        tenancyCount: 0,
+        tenantCount: 0
     )
     @State private var backupURL: URL?
     @State private var userFacingError: UserFacingError?

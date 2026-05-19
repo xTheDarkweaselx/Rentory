@@ -39,6 +39,7 @@ final class PropertyPack {
     @Relationship(deleteRule: .cascade) var documents: [DocumentRecord] = []
     @Relationship(deleteRule: .cascade) var timelineEvents: [TimelineEvent] = []
     @Relationship(deleteRule: .cascade) var reminders: [Reminder] = []
+    @Relationship(deleteRule: .cascade) var tenancies: [Tenancy] = []
 
     init(
         id: UUID = UUID(),
@@ -68,7 +69,8 @@ final class PropertyPack {
         rooms: [RoomRecord] = [],
         documents: [DocumentRecord] = [],
         timelineEvents: [TimelineEvent] = [],
-        reminders: [Reminder] = []
+        reminders: [Reminder] = [],
+        tenancies: [Tenancy] = []
     ) {
         self.id = id
         self.nickname = nickname
@@ -98,6 +100,7 @@ final class PropertyPack {
         self.documents = documents
         self.timelineEvents = timelineEvents
         self.reminders = reminders
+        self.tenancies = tenancies
     }
 }
 
