@@ -47,8 +47,8 @@ struct DemoDataFactory {
     }
 
     @discardableResult
-    func loadDemoRecord(context: ModelContext) throws -> PropertyPack {
-        let records = try loadSampleData(context: context, style: .singleRecord)
+    func loadDemoRecord(context: ModelContext, profile: RentoryUserProfile = .renter) throws -> PropertyPack {
+        let records = try loadSampleData(context: context, profile: profile, style: .singleRecord)
         if let firstRecord = records.first {
             return firstRecord
         }
@@ -56,20 +56,24 @@ struct DemoDataFactory {
     }
 
     @discardableResult
-    func loadSampleData(context: ModelContext, style: SampleDataStyle) throws -> [PropertyPack] {
-        var existingDemoRecords = try fetchDemoRecords(context: context)
+    func loadSampleData(
+        context: ModelContext,
+        profile: RentoryUserProfile = .renter,
+        style: SampleDataStyle
+    ) throws -> [PropertyPack] {
+        var existingDemoRecords = try fetchDemoRecords(context: context, profile: profile)
         if !existingDemoRecords.isEmpty {
-            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet).count
+            let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet, profile: profile).count
             if !needsFullSampleRefresh {
                 DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
                 return existingDemoRecords
             }
 
-            try clearDemoData(context: context)
+            try clearDemoData(context: context, profile: profile)
             existingDemoRecords = []
         }
 
-        let records = try sampleRecordMakers(for: style).map { try $0() }
+        let records = try sampleRecordMakers(for: style, profile: profile).map { try $0() }
 
         for record in records {
             context.insert(record)
@@ -83,19 +87,20 @@ struct DemoDataFactory {
     @discardableResult
     func loadSampleData(
         context: ModelContext,
+        profile: RentoryUserProfile = .renter,
         style: SampleDataStyle,
         progress: @escaping @MainActor (LoadProgress) -> Void
     ) async throws -> [PropertyPack] {
-        let makers = sampleRecordMakers(for: style)
+        let makers = sampleRecordMakers(for: style, profile: profile)
         var loadedRecords: [PropertyPack] = []
 
         progress(LoadProgress(completedRecords: 0, totalRecords: makers.count, stageDescription: "Checking for existing example records."))
         await Task.yield()
 
         do {
-            var existingDemoRecords = try fetchDemoRecords(context: context)
+            var existingDemoRecords = try fetchDemoRecords(context: context, profile: profile)
             if !existingDemoRecords.isEmpty {
-                let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet).count
+                let needsFullSampleRefresh = style == .fullSampleSet && existingDemoRecords.count < sampleRecordMakers(for: .fullSampleSet, profile: profile).count
                 if !needsFullSampleRefresh {
                     DemoModeSettings.demoPropertyIdentifier = existingDemoRecords.first?.id
                     progress(LoadProgress(completedRecords: existingDemoRecords.count, totalRecords: existingDemoRecords.count, stageDescription: "Example records are already ready."))
@@ -103,7 +108,7 @@ struct DemoDataFactory {
                 }
 
                 progress(LoadProgress(completedRecords: 0, totalRecords: makers.count, stageDescription: "Refreshing the existing example records."))
-                try clearDemoData(context: context)
+                try clearDemoData(context: context, profile: profile)
                 existingDemoRecords = []
                 _ = existingDemoRecords
                 await Task.yield()
@@ -111,7 +116,7 @@ struct DemoDataFactory {
 
             for (index, maker) in makers.enumerated() {
                 try Task.checkCancellation()
-                let stage = "Creating \(sampleRecordNames(for: style)[index])."
+                let stage = "Creating \(sampleRecordNames(for: style, profile: profile)[index])."
                 progress(LoadProgress(completedRecords: index, totalRecords: makers.count, stageDescription: stage))
                 await Task.yield()
 
@@ -130,34 +135,45 @@ struct DemoDataFactory {
 
             return loadedRecords
         } catch is CancellationError {
-            try? clearDemoData(context: context)
+            try? clearDemoData(context: context, profile: profile)
             throw CancellationError()
         } catch {
-            try? clearDemoData(context: context)
+            try? clearDemoData(context: context, profile: profile)
             throw error
         }
     }
 
-    func clearDemoData(context: ModelContext) throws {
-        let demoRecords = try fetchDemoRecords(context: context)
+    func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws {
+        let demoRecords = try fetchDemoRecords(context: context, profile: profile)
 
         for propertyPack in demoRecords {
             try deletionService.deletePropertyPack(propertyPack, context: context)
         }
 
-        DemoModeSettings.demoPropertyIdentifier = nil
+        if profile == nil {
+            DemoModeSettings.demoPropertyIdentifier = nil
+        } else if let stored = DemoModeSettings.demoPropertyIdentifier,
+                  demoRecords.contains(where: { $0.id == stored }) {
+            DemoModeSettings.demoPropertyIdentifier = nil
+        }
     }
 
-    private func fetchDemoRecords(context: ModelContext) throws -> [PropertyPack] {
-        try context.fetch(FetchDescriptor<PropertyPack>())
+    func sampleRecordCount(for style: SampleDataStyle, profile: RentoryUserProfile) -> Int {
+        sampleRecordMakers(for: style, profile: profile).count
+    }
+
+    private func fetchDemoRecords(context: ModelContext, profile: RentoryUserProfile? = nil) throws -> [PropertyPack] {
+        let allDemoRecords = try context.fetch(FetchDescriptor<PropertyPack>())
             .filter(DemoModeSettings.matchesDemoRecord)
+        guard let profile else { return allDemoRecords }
+        return allDemoRecords.filter { $0.profileRawValue == profile.rawValue }
     }
 
-    private func sampleRecordMakers(for style: SampleDataStyle) -> [() throws -> PropertyPack] {
-        switch style {
-        case .singleRecord:
+    private func sampleRecordMakers(for style: SampleDataStyle, profile: RentoryUserProfile) -> [() throws -> PropertyPack] {
+        switch (profile, style) {
+        case (.renter, .singleRecord):
             return [makePrimaryRecord]
-        case .fullSampleSet:
+        case (.renter, .fullSampleSet):
             return [
                 makePrimaryRecord,
                 makeSharedHomeRecord,
@@ -168,14 +184,25 @@ struct DemoDataFactory {
                 makeStudioRecord,
                 makeArchivedRecord,
             ]
+        case (.landlord, .singleRecord):
+            return [makeLandlordMainHouseRecord]
+        case (.landlord, .fullSampleSet):
+            return [
+                makeLandlordMainHouseRecord,
+                makeLandlordCityFlatRecord,
+                makeLandlordFamilyHouseRecord,
+                makeLandlordStudioBetweenTenantsRecord,
+                makeLandlordGardenAnnexRecord,
+                makeLandlordArchivedRecord,
+            ]
         }
     }
 
-    private func sampleRecordNames(for style: SampleDataStyle) -> [String] {
-        switch style {
-        case .singleRecord:
+    private func sampleRecordNames(for style: SampleDataStyle, profile: RentoryUserProfile) -> [String] {
+        switch (profile, style) {
+        case (.renter, .singleRecord):
             return ["the main example record"]
-        case .fullSampleSet:
+        case (.renter, .fullSampleSet):
             return [
                 "the main example record",
                 "the shared flat example",
@@ -185,6 +212,17 @@ struct DemoDataFactory {
                 "the garden annex example",
                 "the compact rented space example",
                 "the previous tenancy example",
+            ]
+        case (.landlord, .singleRecord):
+            return ["the main rental house example"]
+        case (.landlord, .fullSampleSet):
+            return [
+                "the main rental house example",
+                "the city flat rental example",
+                "the family rental house example",
+                "the studio between tenants example",
+                "the garden annex rental example",
+                "the previous rental example",
             ]
         }
     }
@@ -554,6 +592,547 @@ struct DemoDataFactory {
         )
     }
 
+    private func makeLandlordMainHouseRecord() throws -> PropertyPack {
+        let tenancyStart = demoDate(year: 2026, month: 1, day: 15)
+        let tenancyEnd = demoDate(year: 2027, month: 1, day: 14)
+
+        return try makePropertyRecord(
+            nickname: "Main rental house sample",
+            recordType: .house,
+            profile: .landlord,
+            isFavourite: true,
+            addressLine1: "42 Linden Avenue",
+            townCity: "Sampletown",
+            postcode: "AB1 2CD",
+            tenancyStartDate: tenancyStart,
+            tenancyEndDate: tenancyEnd,
+            landlordOrAgentName: "Me (sample landlord)",
+            landlordOrAgentEmail: "me@samplelandlord.test",
+            depositSchemeName: "MyDeposits sample scheme",
+            depositReference: "MYD-7341",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "Flagship landlord sample. Shows an active tenancy with two tenants, full compliance reminders and the documents you would normally keep on file.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living room", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom 1", .bedroom),
+                ("Bedroom 2", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Garden", .garden),
+            ],
+            documentDefinitions: [
+                ("Tenancy agreement", .tenancyAgreement),
+                ("Gas safety certificate", .other),
+                ("Electrical safety report (EICR)", .other),
+                ("Energy performance certificate (EPC)", .other),
+                ("Deposit protection certificate", .depositCertificate),
+                ("Inventory and condition report", .checkInInventory),
+            ],
+            timelineDefinitions: [
+                ("Tenancy signed", .moveIn, "Tenancy paperwork signed for the main rental sample."),
+                ("Inventory reviewed", .inventoryReviewed, "Inventory walkthrough completed with the tenants."),
+                ("Gas safety check", .inspection, "Annual gas safety inspection passed."),
+                ("Mid-tenancy inspection booked", .inspection, "Inspection visit booked for the rolling 6-month check."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: tenancyStart,
+                    endDate: tenancyEnd,
+                    status: .active,
+                    tenancyType: .assuredShorthold,
+                    depositAmount: 1500,
+                    depositSchemeName: "MyDeposits sample scheme",
+                    depositReference: "MYD-7341",
+                    rentAmount: 1200,
+                    rentFrequency: .monthly,
+                    notes: "Sample active tenancy with two named tenants.",
+                    mode: .comprehensive,
+                    tenants: [
+                        ("Sample Tenant A", "tenant-a@example.test", "07000 000001"),
+                        ("Sample Tenant B", "tenant-b@example.test", "07000 000002"),
+                    ]
+                ),
+            ],
+            reminderDefinitions: [
+                ReminderDefinition(
+                    title: "Gas safety renewal",
+                    kind: .gasSafety,
+                    dueDate: demoDate(year: 2026, month: 11, day: 10),
+                    priority: .normal,
+                    notes: "Annual gas safety check renewal."
+                ),
+                ReminderDefinition(
+                    title: "EICR renewal",
+                    kind: .electricalSafety,
+                    dueDate: demoDate(year: 2029, month: 6, day: 1),
+                    priority: .low,
+                    notes: "Electrical Installation Condition Report due every 5 years."
+                ),
+                ReminderDefinition(
+                    title: "EPC renewal",
+                    kind: .energyPerformance,
+                    dueDate: demoDate(year: 2028, month: 4, day: 1),
+                    priority: .low,
+                    notes: "Energy Performance Certificate valid for 10 years."
+                ),
+                ReminderDefinition(
+                    title: "Mid-tenancy inspection",
+                    kind: .periodicInspection,
+                    dueDate: demoDate(year: 2026, month: 7, day: 15),
+                    priority: .normal,
+                    notes: "Periodic inspection visit booked in two months."
+                ),
+                ReminderDefinition(
+                    title: "Tenancy renewal review",
+                    kind: .tenancyRenewal,
+                    dueDate: demoDate(year: 2026, month: 11, day: 15),
+                    priority: .high,
+                    notes: "Renewal conversation due 2 months before end date."
+                ),
+            ]
+        )
+    }
+
+    private func makeLandlordCityFlatRecord() throws -> PropertyPack {
+        let tenancyStart = demoDate(year: 2025, month: 6, day: 20)
+        let tenancyEnd = demoDate(year: 2026, month: 6, day: 19)
+
+        return try makePropertyRecord(
+            nickname: "City flat rental sample",
+            recordType: .flat,
+            profile: .landlord,
+            buildingName: "Central Court",
+            spaceIdentifier: "Flat 5C",
+            floorLevel: "5",
+            addressLine1: "10 Central Court",
+            townCity: "Riverford",
+            postcode: "RV3 4DE",
+            tenancyStartDate: tenancyStart,
+            tenancyEndDate: tenancyEnd,
+            landlordOrAgentName: "Sample Lettings Ltd",
+            landlordOrAgentEmail: "team@samplelettings.test",
+            depositSchemeName: "Custodial sample scheme",
+            depositReference: "CST-2208",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "City flat sample with a tenancy ending soon — shows renewal nudges and an EICR that has slipped past its renewal date.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Open-plan living", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom", .bedroom),
+                ("Bathroom", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Tenancy agreement", .tenancyAgreement),
+                ("Gas safety certificate", .other),
+                ("Deposit protection certificate", .depositCertificate),
+            ],
+            timelineDefinitions: [
+                ("Tenancy signed", .moveIn, "Tenancy signed for the city flat sample."),
+                ("Inventory reviewed", .inventoryReviewed, "Inventory completed remotely."),
+                ("Repair requested", .repairRequested, "Tenant reported a slow-draining shower."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: tenancyStart,
+                    endDate: tenancyEnd,
+                    status: .active,
+                    tenancyType: .assuredShorthold,
+                    depositAmount: 1100,
+                    depositSchemeName: "Custodial sample scheme",
+                    depositReference: "CST-2208",
+                    rentAmount: 950,
+                    rentFrequency: .monthly,
+                    notes: "Single-tenant tenancy. Renewal conversation due now.",
+                    mode: .standard,
+                    tenants: [
+                        ("Sample Tenant C", "tenant-c@example.test", "07000 000003"),
+                    ]
+                ),
+            ],
+            reminderDefinitions: [
+                ReminderDefinition(
+                    title: "Tenancy renewal due",
+                    kind: .tenancyRenewal,
+                    dueDate: demoDate(year: 2026, month: 5, day: 25),
+                    priority: .high,
+                    notes: "Tenancy ends in 4 weeks — open renewal conversation."
+                ),
+                ReminderDefinition(
+                    title: "EICR renewal overdue",
+                    kind: .electricalSafety,
+                    dueDate: demoDate(year: 2026, month: 4, day: 30),
+                    priority: .high,
+                    notes: "EICR renewal slipped — schedule the inspection."
+                ),
+                ReminderDefinition(
+                    title: "Gas safety renewal",
+                    kind: .gasSafety,
+                    dueDate: demoDate(year: 2026, month: 12, day: 5),
+                    priority: .normal,
+                    notes: "Annual gas safety check renewal."
+                ),
+                ReminderDefinition(
+                    title: "EPC renewal",
+                    kind: .energyPerformance,
+                    dueDate: demoDate(year: 2030, month: 1, day: 1),
+                    priority: .low,
+                    notes: "Energy Performance Certificate still valid."
+                ),
+            ]
+        )
+    }
+
+    private func makeLandlordFamilyHouseRecord() throws -> PropertyPack {
+        let tenancyStart = demoDate(year: 2024, month: 7, day: 1)
+        let tenancyEnd = demoDate(year: 2027, month: 6, day: 30)
+
+        return try makePropertyRecord(
+            nickname: "Family rental house sample",
+            recordType: .house,
+            profile: .landlord,
+            isFavourite: true,
+            addressLine1: "33 Oakwood Drive",
+            townCity: "Westbridge",
+            postcode: "WB5 9HJ",
+            tenancyStartDate: tenancyStart,
+            tenancyEndDate: tenancyEnd,
+            landlordOrAgentName: "Family Lettings Co",
+            landlordOrAgentEmail: "lets@familylettings.test",
+            depositSchemeName: "Custodial sample scheme",
+            depositReference: "CST-1187",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "Long-running family tenancy. Shows how a multi-year rental looks with all compliance up to date.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living room", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom 1", .bedroom),
+                ("Bedroom 2", .bedroom),
+                ("Bedroom 3", .bedroom),
+                ("Bathroom", .bathroom),
+                ("Utility", .utility),
+                ("Garden", .garden),
+                ("Garage", .garage),
+            ],
+            documentDefinitions: [
+                ("Tenancy agreement", .tenancyAgreement),
+                ("Tenancy renewal addendum", .tenancyAgreement),
+                ("Gas safety certificate", .other),
+                ("Electrical safety report (EICR)", .other),
+                ("Energy performance certificate (EPC)", .other),
+                ("Deposit protection certificate", .depositCertificate),
+                ("Annual inspection notes", .other),
+            ],
+            timelineDefinitions: [
+                ("Tenancy signed", .moveIn, "Original tenancy signed for the family house sample."),
+                ("Inventory reviewed", .inventoryReviewed, "Detailed inventory completed."),
+                ("Renewal signed", .moveIn, "Tenancy renewed for a further fixed term."),
+                ("Inspection completed", .inspection, "Annual inspection completed with no concerns."),
+                ("Repair completed", .repairCompleted, "Boiler service completed by approved engineer."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: tenancyStart,
+                    endDate: tenancyEnd,
+                    status: .active,
+                    tenancyType: .assuredShorthold,
+                    depositAmount: 2200,
+                    depositSchemeName: "Custodial sample scheme",
+                    depositReference: "CST-1187",
+                    rentAmount: 1850,
+                    rentFrequency: .monthly,
+                    notes: "Three-year fixed-term family tenancy.",
+                    mode: .comprehensive,
+                    tenants: [
+                        ("Sample Tenant D", "tenant-d@example.test", "07000 000004"),
+                        ("Sample Tenant E", "tenant-e@example.test", "07000 000005"),
+                        ("Sample Tenant F", "tenant-f@example.test", nil),
+                    ]
+                ),
+            ],
+            reminderDefinitions: [
+                ReminderDefinition(
+                    title: "Gas safety renewal",
+                    kind: .gasSafety,
+                    dueDate: demoDate(year: 2027, month: 2, day: 14),
+                    priority: .normal,
+                    notes: "Annual gas safety check renewal."
+                ),
+                ReminderDefinition(
+                    title: "Annual inspection",
+                    kind: .periodicInspection,
+                    dueDate: demoDate(year: 2026, month: 10, day: 5),
+                    priority: .normal,
+                    notes: "Annual mid-tenancy inspection."
+                ),
+                ReminderDefinition(
+                    title: "Tenancy renewal review",
+                    kind: .tenancyRenewal,
+                    dueDate: demoDate(year: 2027, month: 4, day: 30),
+                    priority: .normal,
+                    notes: "Renewal conversation due 2 months before tenancy end."
+                ),
+            ]
+        )
+    }
+
+    private func makeLandlordStudioBetweenTenantsRecord() throws -> PropertyPack {
+        let lastTenancyStart = demoDate(year: 2025, month: 5, day: 1)
+        let lastTenancyEnd = demoDate(year: 2026, month: 4, day: 30)
+        let nextTenancyStart = demoDate(year: 2026, month: 6, day: 15)
+
+        return try makePropertyRecord(
+            nickname: "Studio between tenants sample",
+            recordType: .apartment,
+            profile: .landlord,
+            buildingName: "Riverside Lofts",
+            spaceIdentifier: "Studio 3",
+            floorLevel: "1",
+            addressLine1: "8 Riverside Lofts",
+            townCity: "Eastbank",
+            postcode: "EB2 6KL",
+            tenancyStartDate: nextTenancyStart,
+            tenancyEndDate: nil,
+            landlordOrAgentName: "Sample Lettings Ltd",
+            landlordOrAgentEmail: "team@samplelettings.test",
+            depositSchemeName: nil,
+            depositReference: nil,
+            notes: [
+                DemoModeSettings.demoMarker,
+                "Property between tenancies. Shows ended + upcoming tenancies side by side, and the prep work that happens between lets.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living / sleeping", .other),
+                ("Kitchen", .kitchen),
+                ("Bathroom", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Previous tenancy agreement", .tenancyAgreement),
+                ("Check-out report", .checkOutReport),
+                ("Cleaning receipt", .cleaningReceipt),
+            ],
+            timelineDefinitions: [
+                ("Previous tenancy ended", .moveOut, "Previous tenant moved out and keys returned."),
+                ("Cleaning completed", .cleaningCompleted, "Full clean done before re-letting."),
+                ("Repair completed", .repairCompleted, "Touch-up paint and replacement bulbs."),
+                ("New tenancy booked", .moveIn, "Upcoming tenancy confirmed for next month."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: lastTenancyStart,
+                    endDate: lastTenancyEnd,
+                    status: .ended,
+                    tenancyType: .assuredShorthold,
+                    depositAmount: 850,
+                    depositSchemeName: "Custodial sample scheme",
+                    depositReference: "CST-9904",
+                    rentAmount: 720,
+                    rentFrequency: .monthly,
+                    notes: "Previous 12-month tenancy. Deposit returned in full.",
+                    mode: .standard,
+                    tenants: [
+                        ("Sample Previous Tenant", "previous-tenant@example.test", nil),
+                    ]
+                ),
+                TenancyDefinition(
+                    startDate: nextTenancyStart,
+                    endDate: demoDate(year: 2027, month: 6, day: 14),
+                    status: .upcoming,
+                    tenancyType: .assuredShorthold,
+                    depositAmount: 900,
+                    depositSchemeName: "Custodial sample scheme",
+                    depositReference: "CST-1042",
+                    rentAmount: 780,
+                    rentFrequency: .monthly,
+                    notes: "Upcoming tenancy starts next month.",
+                    mode: .standard,
+                    tenants: [
+                        ("Sample Incoming Tenant", "incoming-tenant@example.test", "07000 000006"),
+                    ]
+                ),
+            ],
+            reminderDefinitions: [
+                ReminderDefinition(
+                    title: "Gas safety check before re-letting",
+                    kind: .gasSafety,
+                    dueDate: demoDate(year: 2026, month: 6, day: 1),
+                    priority: .high,
+                    notes: "Annual gas safety check before new tenancy starts."
+                ),
+                ReminderDefinition(
+                    title: "Inventory walkthrough",
+                    kind: .periodicInspection,
+                    dueDate: demoDate(year: 2026, month: 6, day: 10),
+                    priority: .normal,
+                    notes: "Inventory and condition walkthrough on move-in day."
+                ),
+                ReminderDefinition(
+                    title: "EICR renewal",
+                    kind: .electricalSafety,
+                    dueDate: demoDate(year: 2028, month: 7, day: 1),
+                    priority: .low,
+                    notes: "EICR still valid for several years."
+                ),
+            ]
+        )
+    }
+
+    private func makeLandlordGardenAnnexRecord() throws -> PropertyPack {
+        let tenancyStart = demoDate(year: 2026, month: 2, day: 1)
+        let tenancyEnd = demoDate(year: 2026, month: 12, day: 31)
+
+        return try makePropertyRecord(
+            nickname: "Garden annex rental sample",
+            recordType: .annex,
+            profile: .landlord,
+            mainPropertyName: "Rose House",
+            accessDetails: "Side gate, separate entrance, shared bins.",
+            addressLine1: "Rose House Annex",
+            townCity: "Meadowford",
+            postcode: "MF7 8NP",
+            tenancyStartDate: tenancyStart,
+            tenancyEndDate: tenancyEnd,
+            landlordOrAgentName: "Sample Private Landlord",
+            landlordOrAgentEmail: "rosehouse@samplelandlord.test",
+            depositSchemeName: "MyDeposits sample scheme",
+            depositReference: "MYD-4520",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "Compact annex with student tenants. Shows how a smaller landlord property looks alongside the full house samples.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living area", .livingRoom),
+                ("Kitchenette", .kitchen),
+                ("Bedroom", .bedroom),
+                ("Shower room", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Annex tenancy agreement", .tenancyAgreement),
+                ("Gas safety certificate", .other),
+                ("Energy performance certificate (EPC)", .other),
+                ("Inventory", .checkInInventory),
+            ],
+            timelineDefinitions: [
+                ("Tenancy signed", .moveIn, "Tenancy signed for the annex sample."),
+                ("Inventory reviewed", .inventoryReviewed, "Compact inventory completed."),
+                ("Inspection completed", .inspection, "Mid-tenancy inspection completed."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: tenancyStart,
+                    endDate: tenancyEnd,
+                    status: .active,
+                    tenancyType: .fixedTerm,
+                    depositAmount: 650,
+                    depositSchemeName: "MyDeposits sample scheme",
+                    depositReference: "MYD-4520",
+                    rentAmount: 580,
+                    rentFrequency: .monthly,
+                    notes: "Joint tenancy with two student tenants.",
+                    mode: .comprehensive,
+                    tenants: [
+                        ("Sample Student Tenant 1", "student-1@example.test", "07000 000007"),
+                        ("Sample Student Tenant 2", "student-2@example.test", "07000 000008"),
+                    ]
+                ),
+            ],
+            reminderDefinitions: [
+                ReminderDefinition(
+                    title: "Mid-tenancy inspection",
+                    kind: .periodicInspection,
+                    dueDate: demoDate(year: 2026, month: 8, day: 1),
+                    priority: .normal,
+                    notes: "Inspection visit booked with the tenants."
+                ),
+                ReminderDefinition(
+                    title: "Gas safety renewal",
+                    kind: .gasSafety,
+                    dueDate: demoDate(year: 2027, month: 1, day: 20),
+                    priority: .normal,
+                    notes: "Annual gas safety check renewal."
+                ),
+                ReminderDefinition(
+                    title: "Tenancy renewal review",
+                    kind: .tenancyRenewal,
+                    dueDate: demoDate(year: 2026, month: 10, day: 31),
+                    priority: .normal,
+                    notes: "Decide on renewal terms two months before end date."
+                ),
+            ]
+        )
+    }
+
+    private func makeLandlordArchivedRecord() throws -> PropertyPack {
+        let tenancyStart = demoDate(year: 2024, month: 9, day: 1)
+        let tenancyEnd = demoDate(year: 2025, month: 8, day: 31)
+
+        let record = try makePropertyRecord(
+            nickname: "Previous student let sample",
+            recordType: .flat,
+            profile: .landlord,
+            buildingName: "College Mews",
+            spaceIdentifier: "Flat 4",
+            floorLevel: "1",
+            addressLine1: "2 College Mews",
+            townCity: "Oakford",
+            postcode: "OK5 6LM",
+            tenancyStartDate: tenancyStart,
+            tenancyEndDate: tenancyEnd,
+            landlordOrAgentName: "Sample Lettings Ltd",
+            landlordOrAgentEmail: "team@samplelettings.test",
+            depositSchemeName: "Custodial sample scheme",
+            depositReference: "CST-7740",
+            notes: [
+                DemoModeSettings.demoMarker,
+                "Archived rental from a previous year. Shows how a finished tenancy can be kept on file for reference without cluttering the active list.",
+            ].joined(separator: "\n\n"),
+            roomDefinitions: [
+                ("Living room", .livingRoom),
+                ("Kitchen", .kitchen),
+                ("Bedroom", .bedroom),
+                ("Bathroom", .bathroom),
+            ],
+            documentDefinitions: [
+                ("Previous tenancy agreement", .tenancyAgreement),
+                ("Check-out report", .checkOutReport),
+                ("Deposit return note", .other),
+            ],
+            timelineDefinitions: [
+                ("Tenancy signed", .moveIn, "Tenancy signed for the archived sample."),
+                ("Inspection completed", .inspection, "Mid-tenancy inspection completed."),
+                ("Tenancy ended", .moveOut, "Property handed back at the end of the term."),
+                ("Deposit returned", .depositDiscussion, "Deposit returned in full after the check-out report."),
+            ],
+            tenancyDefinitions: [
+                TenancyDefinition(
+                    startDate: tenancyStart,
+                    endDate: tenancyEnd,
+                    status: .ended,
+                    tenancyType: .fixedTerm,
+                    depositAmount: 900,
+                    depositSchemeName: "Custodial sample scheme",
+                    depositReference: "CST-7740",
+                    rentAmount: 780,
+                    rentFrequency: .monthly,
+                    notes: "Completed academic-year tenancy with three student tenants.",
+                    mode: .comprehensive,
+                    tenants: [
+                        ("Sample Past Tenant 1", "past-1@example.test", nil),
+                        ("Sample Past Tenant 2", "past-2@example.test", nil),
+                        ("Sample Past Tenant 3", "past-3@example.test", nil),
+                    ]
+                ),
+            ]
+        )
+        record.isArchived = true
+        return record
+    }
+
     private func makePropertyRecord(
         nickname: String,
         recordType: PropertyRecordType = .house,
@@ -576,7 +1155,9 @@ struct DemoDataFactory {
         notes: String,
         roomDefinitions: [(String, RoomType)],
         documentDefinitions: [(String, DocumentType)],
-        timelineDefinitions: [(String, TimelineEventType, String)]
+        timelineDefinitions: [(String, TimelineEventType, String)],
+        tenancyDefinitions: [TenancyDefinition] = [],
+        reminderDefinitions: [ReminderDefinition] = []
     ) throws -> PropertyPack {
         let propertyPack = PropertyPack(
             nickname: nickname,
@@ -603,7 +1184,49 @@ struct DemoDataFactory {
         propertyPack.rooms = try makeRooms(roomDefinitions: roomDefinitions)
         propertyPack.documents = try makeDocuments(definitions: documentDefinitions)
         propertyPack.timelineEvents = makeTimelineEvents(definitions: timelineDefinitions)
+        propertyPack.tenancies = makeTenancies(definitions: tenancyDefinitions)
+        propertyPack.reminders = makeReminders(definitions: reminderDefinitions)
         return propertyPack
+    }
+
+    private func makeTenancies(definitions: [TenancyDefinition]) -> [Tenancy] {
+        definitions.map { definition in
+            let tenancy = Tenancy(
+                startDate: definition.startDate,
+                endDate: definition.endDate,
+                status: definition.status,
+                tenancyType: definition.tenancyType,
+                depositAmount: definition.depositAmount,
+                depositSchemeName: definition.depositSchemeName,
+                depositReference: definition.depositReference,
+                rentAmount: definition.rentAmount,
+                rentFrequency: definition.rentFrequency,
+                notes: definition.notes,
+                mode: definition.mode
+            )
+
+            tenancy.tenants = definition.tenants.enumerated().map { index, tenant in
+                Tenant(
+                    name: tenant.name,
+                    email: tenant.email,
+                    phone: tenant.phone,
+                    sortOrder: index
+                )
+            }
+            return tenancy
+        }
+    }
+
+    private func makeReminders(definitions: [ReminderDefinition]) -> [Reminder] {
+        definitions.map { definition in
+            Reminder(
+                title: definition.title,
+                notes: definition.notes,
+                dueDate: definition.dueDate,
+                kind: definition.kind,
+                priority: definition.priority
+            )
+        }
     }
 
     private func makeRooms(roomDefinitions: [(String, RoomType)]) throws -> [RoomRecord] {
@@ -732,6 +1355,29 @@ struct DemoDataFactory {
         components.day = day
         return components.date ?? .now
     }
+}
+
+private struct TenancyDefinition {
+    let startDate: Date
+    let endDate: Date?
+    let status: TenancyStatus
+    let tenancyType: TenancyType
+    let depositAmount: Double?
+    let depositSchemeName: String?
+    let depositReference: String?
+    let rentAmount: Double?
+    let rentFrequency: RentFrequency?
+    let notes: String?
+    let mode: TenancyMode
+    let tenants: [(name: String, email: String?, phone: String?)]
+}
+
+private struct ReminderDefinition {
+    let title: String
+    let kind: ReminderKind
+    let dueDate: Date?
+    let priority: ReminderPriority
+    let notes: String?
 }
 
 private enum DemoPhotoColour {

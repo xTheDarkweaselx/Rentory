@@ -10,7 +10,9 @@ import SwiftData
 
 struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @AppStorage("hasAnsweredExampleRecordsPrompt") private var hasAnsweredExampleRecordsPrompt = false
+    @AppStorage("hasAnsweredExampleRecordsPrompt_Renter") private var hasAnsweredRenterPrompt = false
+    @AppStorage("hasAnsweredExampleRecordsPrompt_Landlord") private var hasAnsweredLandlordPrompt = false
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.modelContext) private var modelContext
@@ -19,7 +21,7 @@ struct RootView: View {
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
     @State private var isShowingExampleRecordsPrompt = false
-    @State private var hasScheduledExampleRecordsPrompt = false
+    @State private var pendingPromptProfile: RentoryUserProfile?
     @State private var isLoadingExampleRecords = false
     @State private var exampleRecordsProgress = DemoDataFactory.LoadProgress(
         completedRecords: 0,
@@ -31,6 +33,10 @@ struct RootView: View {
     @State private var pendingRootAlertContent: RRAlertContent?
 
     private let demoDataFactory = DemoDataFactory()
+
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
 
     var body: some View {
         ZStack {
@@ -72,8 +78,12 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.2), value: appSecurityState.shouldShowPrivacyCover)
         .onChange(of: hasCompletedOnboarding) { wasComplete, didComplete in
             if !wasComplete && didComplete {
-                scheduleExampleRecordsPromptAfterOnboardingCompletion()
+                scheduleExampleRecordsPromptIfNeeded(for: currentProfile)
             }
+        }
+        .onChange(of: profileRawValue) { _, _ in
+            guard hasCompletedOnboarding else { return }
+            scheduleExampleRecordsPromptIfNeeded(for: currentProfile)
         }
         .onChange(of: scenePhase) { _, newPhase in
             appSecurityState.handleScenePhaseChange(newPhase)
@@ -94,24 +104,26 @@ struct RootView: View {
             }
         }
         .task {
+            migrateLegacyExampleRecordsPromptFlag()
             try? FileStorageService().cleanupOldTemporaryExports()
             await entitlementManager.refreshEntitlements()
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
         }
-        .alert("Would you like a few example records?", isPresented: $isShowingExampleRecordsPrompt) {
+        .alert(exampleRecordsPromptTitle, isPresented: $isShowingExampleRecordsPrompt) {
             Button("Not now", role: .cancel) {
-                hasAnsweredExampleRecordsPrompt = true
+                pendingPromptProfile = nil
             }
 
             Button("Add example records") {
-                hasAnsweredExampleRecordsPrompt = true
+                let profile = pendingPromptProfile ?? currentProfile
+                pendingPromptProfile = nil
                 exampleRecordsTask = Task {
-                    await loadExampleRecords()
+                    await loadExampleRecords(for: profile)
                 }
             }
         } message: {
-            Text("Rentory can add a small set of fictional rental records so you can try rooms, photos, documents, timelines and reports before entering your own details. You can edit or remove them later.")
+            Text(exampleRecordsPromptMessage)
         }
         .alert(item: $rootAlertContent) { content in
             Alert(
@@ -137,23 +149,65 @@ struct RootView: View {
         }
     }
 
-    private func scheduleExampleRecordsPromptAfterOnboardingCompletion() {
-        guard !hasAnsweredExampleRecordsPrompt,
-              !hasScheduledExampleRecordsPrompt,
+    private var exampleRecordsPromptTitle: String {
+        switch pendingPromptProfile ?? currentProfile {
+        case .renter:
+            return "Would you like a few example records?"
+        case .landlord:
+            return "Would you like a few landlord example records?"
+        }
+    }
+
+    private var exampleRecordsPromptMessage: String {
+        switch pendingPromptProfile ?? currentProfile {
+        case .renter:
+            return "Rentory can add a small set of fictional rental records so you can try rooms, photos, documents, timelines and reports before entering your own details. You can edit or remove them later."
+        case .landlord:
+            return "Rentory can add a small set of fictional landlord records — including tenancies, compliance reminders, gas safety, EICR and EPC examples — so you can see how the landlord side works. You can edit or remove them later."
+        }
+    }
+
+    private func hasAnsweredPrompt(for profile: RentoryUserProfile) -> Bool {
+        switch profile {
+        case .renter: return hasAnsweredRenterPrompt
+        case .landlord: return hasAnsweredLandlordPrompt
+        }
+    }
+
+    private func setPromptAnswered(_ answered: Bool, for profile: RentoryUserProfile) {
+        switch profile {
+        case .renter: hasAnsweredRenterPrompt = answered
+        case .landlord: hasAnsweredLandlordPrompt = answered
+        }
+    }
+
+    private func migrateLegacyExampleRecordsPromptFlag() {
+        let legacyKey = "hasAnsweredExampleRecordsPrompt"
+        guard UserDefaults.standard.object(forKey: legacyKey) != nil else { return }
+        let wasAnswered = UserDefaults.standard.bool(forKey: legacyKey)
+        if wasAnswered {
+            hasAnsweredRenterPrompt = true
+        }
+        UserDefaults.standard.removeObject(forKey: legacyKey)
+    }
+
+    private func scheduleExampleRecordsPromptIfNeeded(for profile: RentoryUserProfile) {
+        guard !hasAnsweredPrompt(for: profile),
               !isShowingExampleRecordsPrompt,
               !isLoadingExampleRecords else {
             return
         }
 
-        hasScheduledExampleRecordsPrompt = true
-        hasAnsweredExampleRecordsPrompt = true
+        setPromptAnswered(true, for: profile)
+        pendingPromptProfile = profile
 
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard hasCompletedOnboarding,
                   !isShowingExampleRecordsPrompt,
                   !isLoadingExampleRecords,
-                  !appSecurityState.isLocked else {
+                  !appSecurityState.isLocked,
+                  pendingPromptProfile == profile else {
                 return
             }
 
@@ -161,19 +215,24 @@ struct RootView: View {
         }
     }
 
-    private func loadExampleRecords() async {
+    private func loadExampleRecords(for profile: RentoryUserProfile) async {
         guard !isLoadingExampleRecords else { return }
         isLoadingExampleRecords = true
+        let totalRecords = demoDataFactory.sampleRecordCount(for: .fullSampleSet, profile: profile)
         exampleRecordsProgress = DemoDataFactory.LoadProgress(
             completedRecords: 0,
-            totalRecords: 8,
+            totalRecords: totalRecords,
             stageDescription: "Getting the example records ready."
         )
         await Task.yield()
 
         let alertContent: RRAlertContent
         do {
-            let records = try await demoDataFactory.loadSampleData(context: modelContext, style: .fullSampleSet) { progress in
+            let records = try await demoDataFactory.loadSampleData(
+                context: modelContext,
+                profile: profile,
+                style: .fullSampleSet
+            ) { progress in
                 Task { @MainActor in
                     exampleRecordsProgress = progress
                 }

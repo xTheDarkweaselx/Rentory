@@ -30,6 +30,10 @@ struct SampleDataSettingsView: View {
 
     private let demoDataFactory = DemoDataFactory()
 
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
     private var profileScopedPropertyPacks: [PropertyPack] {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
     }
@@ -40,6 +44,10 @@ struct SampleDataSettingsView: View {
 
     private var demoRecordCount: Int {
         profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    }
+
+    private var profileSampleSetSize: Int {
+        demoDataFactory.sampleRecordCount(for: .fullSampleSet, profile: currentProfile)
     }
 
     var body: some View {
@@ -202,12 +210,13 @@ struct SampleDataSettingsView: View {
     private func loadDemoRecord() async {
         guard !isWorking else { return }
         isWorking = true
-        let totalRecords = loadsFullSampleSet ? 8 : 1
+        let totalRecords = loadsFullSampleSet ? profileSampleSetSize : 1
         loadProgress = DemoDataFactory.LoadProgress(
             completedRecords: 0,
             totalRecords: totalRecords,
             stageDescription: "Getting the sample data ready."
         )
+        let profile = currentProfile
         await Task.yield()
         defer {
             isWorking = false
@@ -216,7 +225,11 @@ struct SampleDataSettingsView: View {
 
         do {
             let style: DemoDataFactory.SampleDataStyle = loadsFullSampleSet ? .fullSampleSet : .singleRecord
-            let loadedRecords = try await demoDataFactory.loadSampleData(context: modelContext, style: style) { progress in
+            let loadedRecords = try await demoDataFactory.loadSampleData(
+                context: modelContext,
+                profile: profile,
+                style: style
+            ) { progress in
                 Task { @MainActor in
                     loadProgress = progress
                 }
@@ -230,7 +243,7 @@ struct SampleDataSettingsView: View {
             RentoryActivityLog.record(
                 kind: .sampleData,
                 title: loadsFullSampleSet ? "Sample set loaded" : "Sample record loaded",
-                message: "Added \(loadedRecords.count) sample record\(loadedRecords.count == 1 ? "" : "s") to this device."
+                message: "Added \(loadedRecords.count) sample \(profile.rawValue.lowercased()) record\(loadedRecords.count == 1 ? "" : "s") to this device."
             )
         } catch is CancellationError {
             alertContent = RRAlertContent(
@@ -248,11 +261,12 @@ struct SampleDataSettingsView: View {
     private func clearDemoData() async {
         guard !isWorking else { return }
         isWorking = true
+        let profile = currentProfile
         await Task.yield()
         defer { isWorking = false }
 
         do {
-            try demoDataFactory.clearDemoData(context: modelContext)
+            try demoDataFactory.clearDemoData(context: modelContext, profile: profile)
             alertContent = RRAlertContent(
                 title: "Sample data cleared",
                 message: "The sample records and their files have been removed."
@@ -260,7 +274,7 @@ struct SampleDataSettingsView: View {
             RentoryActivityLog.record(
                 kind: .sampleData,
                 title: "Sample data cleared",
-                message: "Removed sample records and sample files from this device."
+                message: "Removed sample \(profile.rawValue.lowercased()) records and sample files from this device."
             )
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)

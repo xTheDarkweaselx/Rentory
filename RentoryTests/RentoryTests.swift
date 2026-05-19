@@ -608,7 +608,7 @@ struct RentoryTests {
         #expect(importedPropertyPacks[0].documents[0].localFileName != documentFileName)
     }
 
-    @Test func backupV2RoundTripIncludesActions() throws {
+    @Test func backupRoundTripIncludesActions() throws {
         let sourceStorageService = makeService()
         let sourceContext = try makeModelContext()
         let sourceBackupService = RentoryBackupService(
@@ -629,7 +629,7 @@ struct RentoryTests {
 
         let backupURL = try sourceBackupService.createBackup(context: sourceContext)
         let loaded = try sourceBackupService.loadBackup(from: backupURL)
-        #expect(loaded.manifest.backupVersion == 2)
+        #expect(loaded.manifest.backupVersion == 3)
         #expect(loaded.manifest.reminderCount == 1)
 
         let destinationStorageService = makeService()
@@ -648,6 +648,42 @@ struct RentoryTests {
         #expect(imported[0].reminders[0].kind == .deposit)
         #expect(imported[0].reminders[0].priority == .high)
         #expect(imported[0].reminders[0].notes == "Email landlord")
+    }
+
+    @Test func backupRoundTripPreservesProfileTag() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let sourceBackupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let renterPack = PropertyPack(nickname: "Renter pack", profile: .renter)
+        let landlordPack = PropertyPack(nickname: "Landlord pack", profile: .landlord)
+        sourceContext.insert(renterPack)
+        sourceContext.insert(landlordPack)
+        try sourceContext.save()
+
+        let backupURL = try sourceBackupService.createBackup(context: sourceContext)
+        let loaded = try sourceBackupService.loadBackup(from: backupURL)
+        #expect(loaded.manifest.propertyCount == 2)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+
+        try destinationBackupService.importBackup(loaded, mode: .addToExisting, context: destinationContext)
+
+        let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+            .sorted { $0.nickname < $1.nickname }
+        #expect(imported.count == 2)
+        #expect(imported[0].nickname == "Landlord pack")
+        #expect(imported[0].profile == .landlord)
+        #expect(imported[1].nickname == "Renter pack")
+        #expect(imported[1].profile == .renter)
     }
 
     @Test func backupRoundTripIncludesItemCommentsAndRoomOverride() throws {
