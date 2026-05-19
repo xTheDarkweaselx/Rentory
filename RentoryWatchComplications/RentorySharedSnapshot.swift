@@ -1,21 +1,21 @@
 //
-//  RentorySharedSnapshot.swift  (RentoryWatch target)
+//  RentorySharedSnapshot.swift  (RentoryWatchComplications target)
 //  Rentory
 //
-//  Local copy of the snapshot Codable contract used by the main iOS app
-//  and the Watch app. Duplicated here intentionally so the Watch target
-//  has no source-level dependency on the iPhone target — they're
-//  separate executables shipped together but built independently. The
-//  binary contract is the JSON payload that WatchConnectivity ferries
-//  across.
+//  Local copy of the snapshot Codable contract. The complications
+//  extension can't import the watch app's source, so the types are
+//  duplicated here. Reads come from the App Group container the watch
+//  app writes to (group.com.fusionstudios.rentory) — this is the
+//  only data crossing the target boundary.
 //
 //  IMPORTANT: keep this structurally in sync with the canonical
-//  Rentory/Services/Snapshot/RentorySharedSnapshot.swift in the iOS app.
+//  Rentory/Services/Snapshot/RentorySharedSnapshot.swift in the iOS
+//  app and the matching copy in RentoryWatch.
 //
 
 import Foundation
 
-enum WatchSharedSnapshotConstants {
+enum WatchComplicationSnapshotConstants {
     static let appGroupIdentifier = "group.com.fusionstudios.rentory"
     static let snapshotRelativePath = "Library/Rentory/watch-snapshot.json"
 }
@@ -66,5 +66,26 @@ struct RentorySharedSnapshot: Codable, Equatable {
         let kindRawValue: String
         let priorityRawValue: String
         let dueDate: Date
+    }
+}
+
+enum WatchComplicationSnapshotReader {
+    static func read() -> RentorySharedSnapshot {
+        guard let container = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: WatchComplicationSnapshotConstants.appGroupIdentifier
+        ) else {
+            return .empty
+        }
+        let url = container.appendingPathComponent(WatchComplicationSnapshotConstants.snapshotRelativePath, isDirectory: false)
+        guard let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) else {
+            return .empty
+        }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let decoded = try? decoder.decode(RentorySharedSnapshot.self, from: data),
+              decoded.version <= RentorySharedSnapshot.currentVersion else {
+            return .empty
+        }
+        return decoded
     }
 }

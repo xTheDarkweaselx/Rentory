@@ -15,6 +15,7 @@
 
 import Foundation
 import Combine
+import WidgetKit
 
 @MainActor
 final class WatchSnapshotStore: ObservableObject {
@@ -31,6 +32,10 @@ final class WatchSnapshotStore: ObservableObject {
         let resolvedURL: URL
         if let fileURL {
             resolvedURL = fileURL
+        } else if let groupURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: WatchSharedSnapshotConstants.appGroupIdentifier
+        ) {
+            resolvedURL = groupURL.appendingPathComponent(WatchSharedSnapshotConstants.snapshotRelativePath, isDirectory: false)
         } else {
             let documents = FileManager.default
                 .urls(for: .documentDirectory, in: .userDomainMask)
@@ -66,6 +71,7 @@ final class WatchSnapshotStore: ObservableObject {
         self.snapshot = snapshot
         self.lastUpdated = snapshot.writtenAt
         persist(snapshot)
+        WidgetCenter.shared.reloadAllTimelines()
     }
 
     private func persist(_ snapshot: RentorySharedSnapshot) {
