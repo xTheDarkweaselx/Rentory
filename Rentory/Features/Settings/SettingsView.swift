@@ -254,12 +254,11 @@ struct SettingsView: View {
                     body: "Pick the profile that fits how you use Rentory. You can switch any time — your records aren’t tied to a profile."
                 ) {
                     VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Picker("Profile", selection: profileBinding) {
+                        VStack(spacing: 10) {
                             ForEach(RentoryUserProfile.allCases) { profile in
-                                Text(profile.rawValue).tag(profile)
+                                regularProfileRow(for: profile)
                             }
                         }
-                        .pickerStyle(.segmented)
 
                         Text(currentProfile.detailedSummary)
                             .font(RRTypography.footnote)
@@ -298,6 +297,56 @@ struct SettingsView: View {
                 )
             },
         ]
+    }
+
+    @ViewBuilder
+    private func regularProfileRow(for profile: RentoryUserProfile) -> some View {
+        let isCurrent = profile == currentProfile
+        let isLocked = profile == .landlord && !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked)
+
+        Button {
+            handleProfileChange(to: profile)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: profile.systemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(isCurrent ? .white : RRColours.secondary)
+                    .frame(width: 32, height: 32)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(isCurrent ? RRColours.secondary : RRColours.cardHighlight)
+                    )
+
+                Text(profile.rawValue)
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
+
+                Spacer(minLength: 8)
+
+                if isCurrent {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(RRColours.success)
+                } else if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(RRColours.warning)
+                }
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(isCurrent ? RRColours.cardHighlight : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(isCurrent ? RRColours.secondary : RRColours.border, lineWidth: 1)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(profile.rawValue) profile\(isCurrent ? ", selected" : isLocked ? ", locked" : "")")
+        .accessibilityHint(isCurrent ? "" : isLocked ? "Shows the lifetime unlock prompt." : "Selects \(profile.rawValue) mode.")
     }
 
     private var appLockItems: [RRResponsiveFormGridItem] {

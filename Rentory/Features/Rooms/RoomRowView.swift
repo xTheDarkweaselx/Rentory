@@ -51,14 +51,8 @@ struct RoomRowView: View {
                         .foregroundStyle(RRColours.mutedText)
                 }
 
-                ViewThatFits {
-                    HStack(spacing: 10) {
-                        summaryPills
-                    }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        summaryPills
-                    }
+                WrappingHStack(horizontalSpacing: 10, verticalSpacing: 8) {
+                    summaryPills
                 }
             }
         }
