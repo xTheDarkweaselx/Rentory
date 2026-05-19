@@ -52,6 +52,17 @@ extension View {
         keyboardType(.emailAddress)
 #endif
     }
+
+    /// Hides the navigation bar on platforms that support it. No-op on macOS
+    /// (where `.navigationBar` is not an available toolbar placement).
+    @ViewBuilder
+    func rrHiddenNavigationBar() -> some View {
+#if os(macOS)
+        self
+#else
+        toolbar(.hidden, for: .navigationBar)
+#endif
+    }
 }
 
 extension ToolbarItemPlacement {

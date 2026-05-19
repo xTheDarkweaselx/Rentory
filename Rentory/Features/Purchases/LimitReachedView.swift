@@ -42,7 +42,7 @@ struct LimitReachedView: View {
             }
             .navigationTitle("Unlock Rentory")
             .rrInlineNavigationTitle()
-            .toolbar(.hidden, for: .navigationBar)
+            .rrHiddenNavigationBar()
             .sheet(isPresented: $isShowingPaywall) {
                 PaywallView()
             }
