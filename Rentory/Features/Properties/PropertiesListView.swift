@@ -22,6 +22,14 @@ struct PropertiesListView: View {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
     }
 
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
+    private var needsRestoreUnlockBanner: Bool {
+        currentProfile == .landlord && !entitlementManager.isUnlocked
+    }
+
     private var activePropertyPacks: [PropertyPack] {
         profileScopedPropertyPacks.filter { !$0.isArchived }
     }
@@ -42,6 +50,10 @@ struct PropertiesListView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if needsRestoreUnlockBanner {
+                        RestoreUnlockBanner()
+                    }
+
                     RRSectionHeader(
                         title: "Your rental records",
                         subtitle: "Everything stays on your device by default."

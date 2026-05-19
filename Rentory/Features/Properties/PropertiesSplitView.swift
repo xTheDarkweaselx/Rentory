@@ -26,6 +26,14 @@ struct PropertiesSplitView: View {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
     }
 
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
+    private var needsRestoreUnlockBanner: Bool {
+        currentProfile == .landlord && !entitlementManager.isUnlocked
+    }
+
     private var activePropertyPacks: [PropertyPack] {
         profileScopedPropertyPacks.filter { !$0.isArchived }
     }
@@ -51,6 +59,14 @@ struct PropertiesSplitView: View {
     var body: some View {
         NavigationSplitView {
             List {
+                if needsRestoreUnlockBanner {
+                    Section {
+                        RestoreUnlockBanner()
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                    }
+                }
+
                 if !activePropertyPacks.isEmpty {
                     Section {
                         sidebarFilters
