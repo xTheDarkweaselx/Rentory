@@ -48,6 +48,7 @@ struct PDFExportService {
 
 struct PDFReportSnapshot: Sendable {
     let nickname: String
+    let profileRawValue: String
     let addressLine1: String?
     let addressLine2: String?
     let townCity: String?
@@ -61,10 +62,17 @@ struct PDFReportSnapshot: Sendable {
     let rooms: [PDFReportRoomSnapshot]
     let documents: [PDFReportDocumentSnapshot]
     let timelineEvents: [PDFReportTimelineEventSnapshot]
+    let tenancies: [PDFReportTenancySnapshot]
+    let reminders: [PDFReportReminderSnapshot]
+
+    var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .renter
+    }
 
     @MainActor
     init(propertyPack: PropertyPack) {
         nickname = propertyPack.nickname
+        profileRawValue = propertyPack.profileRawValue
         addressLine1 = propertyPack.addressLine1
         addressLine2 = propertyPack.addressLine2
         townCity = propertyPack.townCity
@@ -78,6 +86,8 @@ struct PDFReportSnapshot: Sendable {
         rooms = propertyPack.rooms.map(PDFReportRoomSnapshot.init(room:))
         documents = propertyPack.documents.map(PDFReportDocumentSnapshot.init(document:))
         timelineEvents = propertyPack.timelineEvents.map(PDFReportTimelineEventSnapshot.init(event:))
+        tenancies = propertyPack.tenancies.map(PDFReportTenancySnapshot.init(tenancy:))
+        reminders = propertyPack.reminders.map(PDFReportReminderSnapshot.init(reminder:))
     }
 }
 
@@ -185,5 +195,76 @@ struct PDFReportTimelineEventSnapshot: Sendable {
         eventDate = event.eventDate
         notes = event.notes
         includeInExport = event.includeInExport
+    }
+}
+
+struct PDFReportTenancySnapshot: Sendable {
+    let startDate: Date
+    let endDate: Date?
+    let statusRawValue: String
+    let tenancyTypeRawValue: String
+    let depositAmount: Double?
+    let depositSchemeName: String?
+    let depositReference: String?
+    let rentAmount: Double?
+    let rentFrequencyRawValue: String?
+    let notes: String?
+    let tenants: [PDFReportTenantSnapshot]
+
+    var status: TenancyStatus { TenancyStatus(rawValue: statusRawValue) ?? .upcoming }
+    var tenancyType: TenancyType { TenancyType(rawValue: tenancyTypeRawValue) ?? .assuredShorthold }
+    var rentFrequency: RentFrequency? { rentFrequencyRawValue.flatMap(RentFrequency.init(rawValue:)) }
+
+    @MainActor
+    init(tenancy: Tenancy) {
+        startDate = tenancy.startDate
+        endDate = tenancy.endDate
+        statusRawValue = tenancy.statusRawValue
+        tenancyTypeRawValue = tenancy.tenancyTypeRawValue
+        depositAmount = tenancy.depositAmount
+        depositSchemeName = tenancy.depositSchemeName
+        depositReference = tenancy.depositReference
+        rentAmount = tenancy.rentAmount
+        rentFrequencyRawValue = tenancy.rentFrequencyRawValue
+        notes = tenancy.notes
+        tenants = tenancy.tenants.map(PDFReportTenantSnapshot.init(tenant:))
+    }
+}
+
+struct PDFReportTenantSnapshot: Sendable {
+    let name: String
+    let email: String?
+    let phone: String?
+    let sortOrder: Int
+
+    @MainActor
+    init(tenant: Tenant) {
+        name = tenant.name
+        email = tenant.email
+        phone = tenant.phone
+        sortOrder = tenant.sortOrder
+    }
+}
+
+struct PDFReportReminderSnapshot: Sendable {
+    let title: String
+    let notes: String?
+    let dueDate: Date?
+    let completedAt: Date?
+    let kindRawValue: String
+    let priorityRawValue: String
+
+    var kind: ReminderKind { ReminderKind(rawValue: kindRawValue) ?? .custom }
+    var priority: ReminderPriority { ReminderPriority(rawValue: priorityRawValue) ?? .normal }
+    var isCompleted: Bool { completedAt != nil }
+
+    @MainActor
+    init(reminder: Reminder) {
+        title = reminder.title
+        notes = reminder.notes
+        dueDate = reminder.dueDate
+        completedAt = reminder.completedAt
+        kindRawValue = reminder.kindRawValue
+        priorityRawValue = reminder.priorityRawValue
     }
 }

@@ -19,6 +19,8 @@ struct ExportOptions: Codable, Equatable, Sendable {
     var includePhotos: Bool
     var includeDocumentsList: Bool
     var includeTimeline: Bool
+    var includeTenancies: Bool
+    var includeReminders: Bool
     var includeDisclaimer: Bool
 
     init(
@@ -33,6 +35,8 @@ struct ExportOptions: Codable, Equatable, Sendable {
         includePhotos: Bool = true,
         includeDocumentsList: Bool = true,
         includeTimeline: Bool = true,
+        includeTenancies: Bool = true,
+        includeReminders: Bool = true,
         includeDisclaimer: Bool = true
     ) {
         self.includePropertyName = includePropertyName
@@ -46,6 +50,8 @@ struct ExportOptions: Codable, Equatable, Sendable {
         self.includePhotos = includePhotos
         self.includeDocumentsList = includeDocumentsList
         self.includeTimeline = includeTimeline
+        self.includeTenancies = includeTenancies
+        self.includeReminders = includeReminders
         self.includeDisclaimer = includeDisclaimer ? true : true
     }
 }

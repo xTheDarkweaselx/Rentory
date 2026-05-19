@@ -33,6 +33,8 @@ struct ExportPreviewSummaryView: View {
             options.includeDepositDetails ? "Deposit details will be included" : "Deposit details will not be included",
             options.includeDocumentsList ? "Documents list will be included" : "Documents list will not be included",
             options.includeTimeline ? "Timeline will be included" : "Timeline will not be included",
+            options.includeTenancies ? "Tenancies will be included" : "Tenancies will not be included",
+            options.includeReminders ? "Reminders will be included" : "Reminders will not be included",
         ]
     }
 }

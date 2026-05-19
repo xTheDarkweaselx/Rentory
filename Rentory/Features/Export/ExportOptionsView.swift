@@ -77,6 +77,8 @@ struct ExportOptionsView: View {
                                     reportOptionRow("Photos", isOn: $options.includePhotos)
                                     reportOptionRow("Documents list", isOn: $options.includeDocumentsList)
                                     reportOptionRow("Timeline", isOn: $options.includeTimeline)
+                                    reportOptionRow("Tenancies", isOn: $options.includeTenancies)
+                                    reportOptionRow("Reminders", isOn: $options.includeReminders)
                                 }
                             }
                         }

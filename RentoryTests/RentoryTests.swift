@@ -221,6 +221,8 @@ struct RentoryTests {
         #expect(options.includePhotos)
         #expect(options.includeDocumentsList)
         #expect(options.includeTimeline)
+        #expect(options.includeTenancies)
+        #expect(options.includeReminders)
         #expect(options.includeDisclaimer)
     }
 
@@ -264,6 +266,78 @@ struct RentoryTests {
         let text = sections.flatMap(\.lines).joined(separator: "\n")
 
         #expect(text.contains(ReportDisclaimerView.reportText))
+    }
+
+    @Test func reportIncludesLandlordTenanciesAndReminders() {
+        let builder = PDFReportBuilder()
+        let tenant = Tenant(name: "Jane Tenant", email: "jane@example.test", phone: "07000 111222")
+        let tenancy = Tenancy(
+            startDate: Date(timeIntervalSince1970: 1_700_000_000),
+            endDate: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 365),
+            status: .active,
+            tenancyType: .assuredShorthold,
+            depositAmount: 1200,
+            depositSchemeName: "Sample Scheme",
+            depositReference: "SAMPLE-99",
+            rentAmount: 950,
+            rentFrequency: .monthly,
+            notes: "Twelve-month fixed term.",
+            mode: .comprehensive,
+            tenants: [tenant]
+        )
+        let reminder = Reminder(
+            title: "Annual gas safety check",
+            notes: "Renew certificate before expiry",
+            dueDate: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 90),
+            kind: .gasSafety,
+            priority: .high
+        )
+        let propertyPack = PropertyPack(
+            nickname: "Linden Avenue",
+            profile: .landlord,
+            reminders: [reminder],
+            tenancies: [tenancy]
+        )
+
+        let sections = builder.makeReportSections(for: propertyPack, options: ExportOptions())
+        let titles = sections.map(\.title)
+        let text = sections.flatMap(\.lines).joined(separator: "\n")
+
+        #expect(titles.contains("Tenancies"))
+        #expect(titles.contains("Reminders"))
+        #expect(text.contains("Active"))
+        #expect(text.contains("Jane Tenant"))
+        #expect(text.contains("Sample Scheme"))
+        #expect(text.contains("Annual gas safety check"))
+        #expect(text.contains("Gas safety"))
+        #expect(text.contains("Outstanding"))
+    }
+
+    @Test func reportOmitsTenanciesAndRemindersWhenNoneExist() {
+        let builder = PDFReportBuilder()
+        let propertyPack = PropertyPack(nickname: "Empty", profile: .renter)
+
+        let sections = builder.makeReportSections(for: propertyPack, options: ExportOptions())
+        let titles = sections.map(\.title)
+
+        #expect(!titles.contains("Tenancies"))
+        #expect(!titles.contains("Reminders"))
+    }
+
+    @Test func reportOmitsTenanciesAndRemindersWhenTogglesOff() {
+        let builder = PDFReportBuilder()
+        let tenancy = Tenancy(startDate: Date(timeIntervalSince1970: 1_700_000_000), status: .active)
+        let reminder = Reminder(title: "Inspection", kind: .periodicInspection)
+        let propertyPack = PropertyPack(nickname: "Toggle", profile: .landlord, reminders: [reminder], tenancies: [tenancy])
+        var options = ExportOptions()
+        options.includeTenancies = false
+        options.includeReminders = false
+
+        let sections = builder.makeReportSections(for: propertyPack, options: options)
+        let titles = sections.map(\.title)
+
+        #expect(!titles.contains("Tenancies"))
+        #expect(!titles.contains("Reminders"))
     }
 
     @Test func generatedReportURLIsLocalAndDoesNotUsePropertyName() throws {

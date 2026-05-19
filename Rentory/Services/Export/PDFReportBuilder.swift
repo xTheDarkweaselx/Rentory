@@ -12,6 +12,7 @@ import CoreText
 struct PDFReportBuilder {
     private let fileStorageService: FileStorageService
     private let dateFormatter: DateFormatter
+    private let currencyFormatter: NumberFormatter
 
     init(fileStorageService: FileStorageService = FileStorageService()) {
         self.fileStorageService = fileStorageService
@@ -20,6 +21,13 @@ struct PDFReportBuilder {
         formatter.locale = Locale(identifier: "en_GB")
         formatter.dateFormat = "d MMM yyyy"
         self.dateFormatter = formatter
+
+        let currency = NumberFormatter()
+        currency.locale = Locale(identifier: "en_GB")
+        currency.numberStyle = .currency
+        currency.maximumFractionDigits = 2
+        currency.minimumFractionDigits = 0
+        self.currencyFormatter = currency
     }
 
     init(photoStorageService: PhotoStorageService) {
@@ -65,6 +73,10 @@ struct PDFReportBuilder {
         sections.append(makeCoverSection(for: snapshot, options: enforcedOptions))
         sections.append(makePropertySummarySection(for: snapshot, options: enforcedOptions))
 
+        if enforcedOptions.includeTenancies, !snapshot.tenancies.isEmpty {
+            sections.append(makeTenanciesSection(for: snapshot))
+        }
+
         if enforcedOptions.includeRooms {
             sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
         }
@@ -79,6 +91,10 @@ struct PDFReportBuilder {
 
         if enforcedOptions.includeTimeline {
             sections.append(makeTimelineSection(for: snapshot))
+        }
+
+        if enforcedOptions.includeReminders, !snapshot.reminders.isEmpty {
+            sections.append(makeRemindersSection(for: snapshot))
         }
 
         sections.append(
@@ -275,6 +291,110 @@ struct PDFReportBuilder {
         }
 
         return PDFReportSection(title: "Documents list", lines: lines)
+    }
+
+    private func makeTenanciesSection(for snapshot: PDFReportSnapshot) -> PDFReportSection {
+        let tenancies = snapshot.tenancies.sorted { $0.startDate > $1.startDate }
+        var lines: [String] = []
+
+        for tenancy in tenancies {
+            let dateRange = tenancyDateRange(startDate: tenancy.startDate, endDate: tenancy.endDate)
+            lines.append("\(tenancy.status.rawValue) • \(tenancy.tenancyType.rawValue) • \(dateRange)")
+
+            if let rent = tenancy.rentAmount {
+                let frequency = tenancy.rentFrequency?.rawValue ?? ""
+                lines.append("  Rent: \(formattedCurrency(rent)) \(frequency)".trimmingCharacters(in: .whitespaces))
+            }
+
+            if let deposit = tenancy.depositAmount {
+                var line = "  Deposit: \(formattedCurrency(deposit))"
+                if let scheme = trimmed(tenancy.depositSchemeName) {
+                    line += " • Scheme: \(scheme)"
+                }
+                if let reference = trimmed(tenancy.depositReference) {
+                    line += " • Ref: \(reference)"
+                }
+                lines.append(line)
+            }
+
+            for tenant in tenancy.tenants.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                var line = "  Tenant: \(tenant.name)"
+                if let email = trimmed(tenant.email) {
+                    line += " • \(email)"
+                }
+                if let phone = trimmed(tenant.phone) {
+                    line += " • \(phone)"
+                }
+                lines.append(line)
+            }
+
+            if let notes = trimmed(tenancy.notes) {
+                lines.append("  Notes: \(notes)")
+            }
+        }
+
+        if lines.isEmpty {
+            lines.append("No tenancies have been added yet.")
+        }
+
+        return PDFReportSection(title: "Tenancies", lines: lines)
+    }
+
+    private func makeRemindersSection(for snapshot: PDFReportSnapshot) -> PDFReportSection {
+        let outstanding = snapshot.reminders
+            .filter { !$0.isCompleted }
+            .sorted { lhs, rhs in
+                switch (lhs.dueDate, rhs.dueDate) {
+                case let (l?, r?): return l < r
+                case (.some, .none): return true
+                case (.none, .some): return false
+                case (.none, .none): return false
+                }
+            }
+        let completed = snapshot.reminders
+            .filter(\.isCompleted)
+            .sorted { ($0.completedAt ?? .distantPast) > ($1.completedAt ?? .distantPast) }
+
+        var lines: [String] = []
+
+        if !outstanding.isEmpty {
+            lines.append("Outstanding")
+            for reminder in outstanding {
+                let dueText = reminder.dueDate.map(dateFormatter.string(from:)) ?? "No due date"
+                var line = "• \(dueText) • \(reminder.title) • \(reminder.kind.rawValue) • \(reminder.priority.rawValue) priority"
+                if let notes = trimmed(reminder.notes) {
+                    line += " • \(notes)"
+                }
+                lines.append(line)
+            }
+        }
+
+        if !completed.isEmpty {
+            if !outstanding.isEmpty { lines.append("") }
+            lines.append("Completed")
+            for reminder in completed {
+                let completedText = reminder.completedAt.map(dateFormatter.string(from:)) ?? ""
+                lines.append("• \(completedText) • \(reminder.title) • \(reminder.kind.rawValue)")
+            }
+        }
+
+        if lines.isEmpty {
+            lines.append("No reminders were included.")
+        }
+
+        return PDFReportSection(title: "Reminders", lines: lines)
+    }
+
+    private func tenancyDateRange(startDate: Date, endDate: Date?) -> String {
+        let startText = dateFormatter.string(from: startDate)
+        if let endDate {
+            return "\(startText) to \(dateFormatter.string(from: endDate))"
+        }
+        return "From \(startText)"
+    }
+
+    private func formattedCurrency(_ value: Double) -> String {
+        currencyFormatter.string(from: NSNumber(value: value)) ?? String(format: "£%.2f", value)
     }
 
     private func makeTimelineSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
