@@ -535,31 +535,30 @@ struct SettingsView: View {
                 .listRowBackground(Color.clear)
             }
 
-            Section("Privacy & Security") {
-                Text("Your records stay on your device by default.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-
+            Section {
                 Toggle("Lock Rentory", isOn: appLockBinding)
                     .toggleStyle(.switch)
                     .disabled(appSecurityState.isAuthenticating)
                     .tint(Color.accentColor)
+            } header: {
+                Text("Privacy & Security")
+            } footer: {
+                Text("Your records stay on your device by default.")
             }
 
-            Section("Profile") {
-                Picker("Profile", selection: profileBinding) {
-                    ForEach(RentoryUserProfile.allCases) { profile in
-                        Text(profile.rawValue).tag(profile)
-                    }
+            Section {
+                ForEach(RentoryUserProfile.allCases) { profile in
+                    compactProfileRow(for: profile)
                 }
 
                 Text(currentProfile.detailedSummary)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
-
+            } header: {
+                Text("Profile")
+            } footer: {
                 if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
                     Text("Landlord mode is part of the lifetime unlock.")
-                        .font(RRTypography.caption.weight(.semibold))
                         .foregroundStyle(RRColours.warning)
                 }
             }
@@ -597,6 +596,43 @@ struct SettingsView: View {
         }
         .scrollContentBackground(.hidden)
         .background(RRBackgroundView())
+    }
+
+    @ViewBuilder
+    private func compactProfileRow(for profile: RentoryUserProfile) -> some View {
+        let isCurrent = profile == currentProfile
+        let isLocked = profile == .landlord && !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked)
+
+        Button {
+            handleProfileChange(to: profile)
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: profile.systemImage)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(RRColours.secondary)
+                    .frame(width: 24)
+
+                Text(profile.rawValue)
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.primary)
+
+                Spacer(minLength: 8)
+
+                if isCurrent {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(RRColours.secondary)
+                } else if isLocked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(RRColours.warning)
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(profile.rawValue) profile\(isCurrent ? ", selected" : isLocked ? ", locked" : "")")
+        .accessibilityHint(isCurrent ? "" : isLocked ? "Shows the lifetime unlock prompt." : "Selects \(profile.rawValue) mode.")
     }
 
     private func settingsCard<Content: View>(
