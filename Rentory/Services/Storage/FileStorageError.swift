@@ -21,7 +21,7 @@ enum FileStorageError: LocalizedError {
         case .invalidFileName, .unableToReadFile:
             return "This file could not be opened."
         case .unableToCreateFolder, .unableToCopyFile, .unableToWriteFile:
-            return "This file could not be saved."
+            return "This file could not be saved. If your device is low on storage, free some space and try again."
         case .unableToDeleteFile:
             return "This file could not be deleted."
         case .unsupportedFileType:

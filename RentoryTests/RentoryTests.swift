@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CloudKit
 import SwiftData
 import Testing
 
@@ -1218,6 +1219,29 @@ struct RentoryTests {
             let remaining = try context.fetch(FetchDescriptor<PropertyPack>())
             #expect(remaining.isEmpty)
         }
+    }
+
+    @Test func syncAlertContentSurfacesSignInGuidanceWhenNotAuthenticated() {
+        let content = ICloudSyncService.alertContent(for: CKError(.notAuthenticated))
+        #expect(content.title.localizedCaseInsensitiveContains("not signed in"))
+    }
+
+    @Test func syncAlertContentSurfacesConnectionGuidanceForNetworkErrors() {
+        let unavailable = ICloudSyncService.alertContent(for: CKError(.networkUnavailable))
+        let failure = ICloudSyncService.alertContent(for: CKError(.networkFailure))
+        #expect(unavailable.title.localizedCaseInsensitiveContains("connection"))
+        #expect(failure.title.localizedCaseInsensitiveContains("connection"))
+    }
+
+    @Test func syncAlertContentSurfacesStorageGuidanceWhenQuotaExceeded() {
+        let content = ICloudSyncService.alertContent(for: CKError(.quotaExceeded))
+        #expect(content.title.localizedCaseInsensitiveContains("storage is full"))
+    }
+
+    @Test func syncAlertContentFallsBackToTryAgainForUnknownError() {
+        struct UnknownError: Error {}
+        let content = ICloudSyncService.alertContent(for: UnknownError())
+        #expect(content.title.localizedCaseInsensitiveContains("could not finish"))
     }
 
     @Test @MainActor func landlordSampleSetLoadsSixRecordsWithLandlordOnlyContent() throws {

@@ -169,9 +169,10 @@ final class ICloudSyncService: ObservableObject {
         } catch {
             userDefaults.set(true, forKey: isEnabledKey)
             isSyncEnabled = true
+            let detail = Self.alertContent(for: error)
             alertContent = RRAlertContent(
                 title: "iCloud sync is on",
-                message: "Rentory will keep trying to sync. The first sync could not finish just now, so please check your connection and try Sync now again in a moment."
+                message: "Rentory will keep trying. \(detail.message)"
             )
         }
     }
@@ -196,12 +197,51 @@ final class ICloudSyncService: ObservableObject {
             }
         } catch {
             if reason == .manual {
-                alertContent = RRAlertContent(
-                    title: "iCloud sync could not finish",
-                    message: "Rentory could not update from iCloud just now. Please try again."
+                alertContent = Self.alertContent(for: error)
+            }
+            await refreshStatus()
+        }
+    }
+
+    /// Maps a CloudKit (or generic) error into a user-facing alert.
+    /// Specific cases give the user something to do; everything else falls
+    /// back to a generic "try again" message.
+    nonisolated static func alertContent(for error: Error) -> RRAlertContent {
+        if let ckError = error as? CKError {
+            switch ckError.code {
+            case .notAuthenticated:
+                return RRAlertContent(
+                    title: "iCloud is not signed in",
+                    message: "Sign in to iCloud in System Settings, then try Sync now again."
                 )
+            case .networkUnavailable, .networkFailure:
+                return RRAlertContent(
+                    title: "No connection to iCloud",
+                    message: "Rentory could not reach iCloud. Check your internet connection and try Sync now again."
+                )
+            case .quotaExceeded:
+                return RRAlertContent(
+                    title: "iCloud storage is full",
+                    message: "Free up space in iCloud or upgrade your storage plan, then try Sync now again."
+                )
+            case .accountTemporarilyUnavailable:
+                return RRAlertContent(
+                    title: "iCloud is temporarily unavailable",
+                    message: "Apple's iCloud service is busy. Try Sync now again in a moment."
+                )
+            case .zoneBusy, .serviceUnavailable, .requestRateLimited:
+                return RRAlertContent(
+                    title: "iCloud is busy",
+                    message: "Rentory will keep trying. Try Sync now again in a moment if it does not catch up."
+                )
+            default:
+                break
             }
         }
+        return RRAlertContent(
+            title: "iCloud sync could not finish",
+            message: "Rentory could not update from iCloud just now. Please try again."
+        )
     }
 
     private func shouldImport(remoteRecord: CKRecord, context: ModelContext) -> Bool {
