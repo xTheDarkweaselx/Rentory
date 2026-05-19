@@ -14,7 +14,7 @@ struct PaywallView: View {
     @State private var successAlertContent: RRAlertContent?
 
     var body: some View {
-        NavigationStack {
+        ScrollView {
             RRMacSheetContainer(maxWidth: 920, minHeight: PlatformLayout.isMac ? 680 : nil) {
                 VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                     RRSheetHeader(
@@ -65,13 +65,6 @@ struct PaywallView: View {
                             )
                         },
                         RRResponsiveFormGridItem(span: .fullWidth) {
-                            RRGlassCard {
-                                Text("Your rental records stay on your device by default.")
-                                    .font(RRTypography.footnote)
-                                    .foregroundStyle(RRColours.mutedText)
-                            }
-                        },
-                        RRResponsiveFormGridItem(span: .fullWidth) {
                             VStack(spacing: 12) {
                                 RRSecondaryButton(
                                     title: entitlementManager.purchaseInProgress ? "Restoring…" : "Restore purchase",
@@ -88,41 +81,44 @@ struct PaywallView: View {
                         },
                     ])
                 }
+                .padding(.horizontal, RRTheme.screenPadding)
+                .padding(.top, RRTheme.cardSpacing)
+                .padding(.bottom, RRTheme.screenPadding)
             }
-            .navigationTitle("Unlock Rentory")
-            .rrInlineNavigationTitle()
-            .overlay {
-                if entitlementManager.purchaseInProgress {
-                    ZStack {
-                        Color.black.opacity(0.12)
-                            .ignoresSafeArea()
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+        .overlay {
+            if entitlementManager.purchaseInProgress {
+                ZStack {
+                    Color.black.opacity(0.12)
+                        .ignoresSafeArea()
 
-                        RRLoadingView(
-                            title: "Checking purchase",
-                            message: "Please wait a moment."
-                        )
-                        .padding(24)
-                    }
+                    RRLoadingView(
+                        title: "Checking purchase",
+                        message: "Please wait a moment."
+                    )
+                    .padding(24)
                 }
             }
-            .alert(item: errorBinding) { error in
-                Alert(
-                    title: Text(error.title),
-                    message: Text(error.message),
-                    dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK")) {
-                        entitlementManager.clearLastError()
-                    }
-                )
-            }
-            .alert(item: $successAlertContent) { content in
-                Alert(
-                    title: Text(content.title),
-                    message: Text(content.message),
-                    dismissButton: .cancel(Text(content.buttonTitle)) {
-                        dismiss()
-                    }
-                )
-            }
+        }
+        .alert(item: errorBinding) { error in
+            Alert(
+                title: Text(error.title),
+                message: Text(error.message),
+                dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK")) {
+                    entitlementManager.clearLastError()
+                }
+            )
+        }
+        .alert(item: $successAlertContent) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .cancel(Text(content.buttonTitle)) {
+                    dismiss()
+                }
+            )
         }
     }
 
@@ -139,38 +135,32 @@ struct PaywallView: View {
 
     private var lifetimeUnlockPanel: some View {
         RRGlassPanel {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("Lifetime unlock")
-                    .font(RRTypography.headline)
-                    .foregroundStyle(RRColours.primary)
+            if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockProduct == nil {
+                RRLoadingView(
+                    title: "Loading unlock option",
+                    message: "Please wait a moment."
+                )
+            } else if let product = entitlementManager.lifetimeUnlockProduct {
+                VStack(alignment: .leading, spacing: 12) {
+                    PurchaseRowView(product: product)
 
-                if entitlementManager.isLoadingProducts && entitlementManager.lifetimeUnlockProduct == nil {
-                    RRLoadingView(
-                        title: "Loading unlock option",
-                        message: "Please wait a moment."
-                    )
-                } else if let product = entitlementManager.lifetimeUnlockProduct {
-                    VStack(alignment: .leading, spacing: 12) {
-                        PurchaseRowView(product: product)
-
-                        RRPrimaryButton(
-                            title: entitlementManager.purchaseInProgress ? "Unlocking…" : "Unlock for life",
-                            isDisabled: entitlementManager.purchaseInProgress || entitlementManager.isUnlocked
-                        ) {
-                            Task {
-                                await entitlementManager.purchaseLifetimeUnlock()
-                                if entitlementManager.isUnlocked {
-                                    successAlertContent = DialogCopy.purchaseCompleted
-                                }
+                    RRPrimaryButton(
+                        title: entitlementManager.purchaseInProgress ? "Unlocking…" : "Unlock for life",
+                        isDisabled: entitlementManager.purchaseInProgress || entitlementManager.isUnlocked
+                    ) {
+                        Task {
+                            await entitlementManager.purchaseLifetimeUnlock()
+                            if entitlementManager.isUnlocked {
+                                successAlertContent = DialogCopy.purchaseCompleted
                             }
                         }
                     }
-                } else {
-                    unavailableProductPanel(
-                        title: "Unlock option is unavailable",
-                        message: "Rentory could not find the lifetime unlock in the current StoreKit setup. Re-select `Rentory.storekit` in the Run scheme, then run the app again."
-                    )
                 }
+            } else {
+                unavailableProductPanel(
+                    title: "Unlock option is unavailable",
+                    message: "Rentory could not find the lifetime unlock in the current StoreKit setup. Re-select `Rentory.storekit` in the Run scheme, then run the app again."
+                )
             }
         }
     }
