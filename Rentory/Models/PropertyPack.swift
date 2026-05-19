@@ -13,6 +13,7 @@ final class PropertyPack {
     var id: UUID = UUID()
     var nickname: String = ""
     var recordTypeRawValue: String = PropertyRecordType.house.rawValue
+    var profileRawValue: String = RentoryUserProfile.renter.rawValue
     var isFavourite: Bool = false
     var addressLine1: String?
     var addressLine2: String?
@@ -45,6 +46,7 @@ final class PropertyPack {
         id: UUID = UUID(),
         nickname: String,
         recordType: PropertyRecordType = .house,
+        profile: RentoryUserProfile = .renter,
         isFavourite: Bool = false,
         addressLine1: String? = nil,
         addressLine2: String? = nil,
@@ -75,6 +77,7 @@ final class PropertyPack {
         self.id = id
         self.nickname = nickname
         self.recordTypeRawValue = recordType.rawValue
+        self.profileRawValue = profile.rawValue
         self.isFavourite = isFavourite
         self.addressLine1 = addressLine1
         self.addressLine2 = addressLine2
@@ -108,6 +111,11 @@ extension PropertyPack {
     var recordType: PropertyRecordType {
         get { PropertyRecordType(rawValue: recordTypeRawValue) ?? .house }
         set { recordTypeRawValue = newValue.rawValue }
+    }
+
+    var profile: RentoryUserProfile {
+        get { RentoryUserProfile(rawValue: profileRawValue) ?? .renter }
+        set { profileRawValue = newValue.rawValue }
     }
 
     var manualTenancyStage: TenancyStage? {

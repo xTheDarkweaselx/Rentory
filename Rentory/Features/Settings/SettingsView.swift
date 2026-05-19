@@ -743,7 +743,7 @@ struct SettingsView: View {
     }
 
     private var archivedRecordsCount: Int {
-        propertyPacks.filter(\.isArchived).count
+        propertyPacks.filter { $0.isArchived && $0.profileRawValue == profileRawValue }.count
     }
 
     private var appVersion: String? {

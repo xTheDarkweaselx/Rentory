@@ -19,6 +19,7 @@ struct CreatePropertyView: View {
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @Query private var propertyPacks: [PropertyPack]
     @Query private var allPhotos: [EvidencePhoto]
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var nickname = ""
     @State private var recordType: PropertyRecordType = .house
@@ -62,12 +63,20 @@ struct CreatePropertyView: View {
         .rrDocx,
     ].compactMap { $0 }
 
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
+    private var profileScopedPropertyPacks: [PropertyPack] {
+        propertyPacks.filter { $0.profileRawValue == profileRawValue }
+    }
+
     private var realPropertyPacksCount: Int {
-        propertyPacks.filter { !isSampleProperty($0) }.count
+        profileScopedPropertyPacks.filter { !isSampleProperty($0) }.count
     }
 
     private var isOnlySampleDataUsingFreeRecord: Bool {
-        propertyPacks.contains(where: isSampleProperty) && realPropertyPacksCount == 0
+        profileScopedPropertyPacks.contains(where: isSampleProperty) && realPropertyPacksCount == 0
     }
 
     var body: some View {
@@ -296,7 +305,7 @@ struct CreatePropertyView: View {
         }
 
         guard FeatureAccessService.canCreateProperty(
-            currentPropertyCount: propertyPacks.count,
+            currentPropertyCount: profileScopedPropertyPacks.count,
             isUnlocked: entitlementManager.isUnlocked
         ) else {
             upgradePromptContent = FeatureAccessService.propertyLimitPrompt(
@@ -308,6 +317,7 @@ struct CreatePropertyView: View {
         let propertyPack = PropertyPack(
             nickname: trimmedNickname,
             recordType: recordType,
+            profile: profile,
             isFavourite: isFavourite,
             addressLine1: optionalText(addressLine1),
             addressLine2: optionalText(addressLine2),

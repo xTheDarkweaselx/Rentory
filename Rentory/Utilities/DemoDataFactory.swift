@@ -557,6 +557,7 @@ struct DemoDataFactory {
     private func makePropertyRecord(
         nickname: String,
         recordType: PropertyRecordType = .house,
+        profile: RentoryUserProfile = .renter,
         isFavourite: Bool = false,
         buildingName: String? = nil,
         spaceIdentifier: String? = nil,
@@ -580,6 +581,7 @@ struct DemoDataFactory {
         let propertyPack = PropertyPack(
             nickname: nickname,
             recordType: recordType,
+            profile: profile,
             isFavourite: isFavourite,
             addressLine1: addressLine1,
             townCity: townCity,

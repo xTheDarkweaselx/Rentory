@@ -14,6 +14,7 @@ struct SampleDataSettingsView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
     @Query private var propertyPacks: [PropertyPack]
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var isShowingLoadConfirmation = false
     @State private var isShowingClearConfirmation = false
@@ -29,12 +30,16 @@ struct SampleDataSettingsView: View {
 
     private let demoDataFactory = DemoDataFactory()
 
+    private var profileScopedPropertyPacks: [PropertyPack] {
+        propertyPacks.filter { $0.profileRawValue == profileRawValue }
+    }
+
     private var hasDemoRecord: Bool {
-        propertyPacks.contains(where: DemoModeSettings.matchesDemoRecord)
+        profileScopedPropertyPacks.contains(where: DemoModeSettings.matchesDemoRecord)
     }
 
     private var demoRecordCount: Int {
-        propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+        profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
     }
 
     var body: some View {

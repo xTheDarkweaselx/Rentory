@@ -12,6 +12,7 @@ struct ArchivedRecordsSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var recordToDelete: PropertyPack?
     @State private var alertContent: RRAlertContent?
@@ -20,7 +21,7 @@ struct ArchivedRecordsSettingsView: View {
     private let deletionService = RentoryDataDeletionService()
 
     private var archivedRecords: [PropertyPack] {
-        propertyPacks.filter(\.isArchived)
+        propertyPacks.filter { $0.isArchived && $0.profileRawValue == profileRawValue }
     }
 
     var body: some View {

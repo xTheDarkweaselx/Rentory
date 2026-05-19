@@ -12,6 +12,7 @@ struct PropertiesSplitView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var entitlementManager: EntitlementManager
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var isShowingCreateProperty = false
     @State private var isShowingSettings = false
@@ -21,8 +22,12 @@ struct PropertiesSplitView: View {
     @State private var upgradePromptContent: UpgradePromptContent?
     @State private var filterState = PropertyRecordFilterState()
 
+    private var profileScopedPropertyPacks: [PropertyPack] {
+        propertyPacks.filter { $0.profileRawValue == profileRawValue }
+    }
+
     private var activePropertyPacks: [PropertyPack] {
-        propertyPacks.filter { !$0.isArchived }
+        profileScopedPropertyPacks.filter { !$0.isArchived }
     }
 
     private var filteredPropertyPacks: [PropertyPack] {
@@ -30,11 +35,11 @@ struct PropertiesSplitView: View {
     }
 
     private var realPropertyPacksCount: Int {
-        propertyPacks.filter { !isSampleProperty($0) }.count
+        profileScopedPropertyPacks.filter { !isSampleProperty($0) }.count
     }
 
     private var isOnlySampleDataUsingFreeRecord: Bool {
-        propertyPacks.contains(where: isSampleProperty) && realPropertyPacksCount == 0
+        profileScopedPropertyPacks.contains(where: isSampleProperty) && realPropertyPacksCount == 0
     }
 
     private var selectedPropertyPack: PropertyPack? {
@@ -229,7 +234,7 @@ struct PropertiesSplitView: View {
 
     private func duplicateProperty(_ propertyPack: PropertyPack) {
         guard FeatureAccessService.canCreateProperty(
-            currentPropertyCount: propertyPacks.count,
+            currentPropertyCount: profileScopedPropertyPacks.count,
             isUnlocked: entitlementManager.isUnlocked
         ) else {
             upgradePromptContent = FeatureAccessService.propertyLimitPrompt(
@@ -256,7 +261,7 @@ struct PropertiesSplitView: View {
 
     private func showCreatePropertyOrUpgradePrompt() {
         if FeatureAccessService.canCreateProperty(
-            currentPropertyCount: propertyPacks.count,
+            currentPropertyCount: profileScopedPropertyPacks.count,
             isUnlocked: entitlementManager.isUnlocked
         ) {
             isShowingCreateProperty = true
@@ -282,6 +287,7 @@ private extension PropertyPack {
         return PropertyPack(
             nickname: "\(nickname) copy",
             recordType: recordType,
+            profile: profile,
             isFavourite: false,
             addressLine1: addressLine1,
             addressLine2: addressLine2,

@@ -24,8 +24,8 @@ enum BackupImportMode: String, CaseIterable, Identifiable {
 }
 
 struct RentoryBackupService {
-    static let backupVersion = 2
-    static let supportedBackupVersions: ClosedRange<Int> = 1...2
+    static let backupVersion = 3
+    static let supportedBackupVersions: ClosedRange<Int> = 1...3
     static let backupContentType = UTType(exportedAs: "com.fusionstudios.rentory.backup", conformingTo: .package)
 
     private let fileManager: FileManager
@@ -165,6 +165,7 @@ struct RentoryBackupService {
                     id: propertyPack.id,
                     nickname: propertyPack.nickname,
                     recordTypeRawValue: propertyPack.recordTypeRawValue,
+                    profileRawValue: propertyPack.profileRawValue,
                     isFavourite: propertyPack.isFavourite,
                     addressLine1: propertyPack.addressLine1,
                     addressLine2: propertyPack.addressLine2,
@@ -533,6 +534,7 @@ struct RentoryBackupService {
             propertyPacksByID[property.id] = PropertyPack(
                 nickname: property.nickname,
                 recordType: property.recordTypeRawValue.flatMap(PropertyRecordType.init(rawValue:)) ?? .house,
+                profile: property.profileRawValue.flatMap(RentoryUserProfile.init(rawValue:)) ?? .renter,
                 isFavourite: property.isFavourite ?? false,
                 addressLine1: property.addressLine1,
                 addressLine2: property.addressLine2,
@@ -729,6 +731,7 @@ private struct BackupPropertyPack: Codable {
     let id: UUID
     let nickname: String
     let recordTypeRawValue: String?
+    let profileRawValue: String?
     let isFavourite: Bool?
     let addressLine1: String?
     let addressLine2: String?
