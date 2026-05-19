@@ -34,6 +34,7 @@ struct RootView: View {
     @State private var pendingRootAlertContent: RRAlertContent?
 
     private let demoDataFactory = DemoDataFactory()
+    private let snapshotPublisher = RentorySnapshotPublisher()
 
     private var currentProfile: RentoryUserProfile {
         RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
@@ -85,6 +86,7 @@ struct RootView: View {
         .onChange(of: profileRawValue) { _, _ in
             guard hasCompletedOnboarding else { return }
             scheduleExampleRecordsPromptIfNeeded(for: currentProfile)
+            snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
         }
         .onChange(of: scenePhase) { _, newPhase in
             appSecurityState.handleScenePhaseChange(newPhase)
@@ -96,6 +98,7 @@ struct RootView: View {
                     await iCloudSyncService.refreshStatus()
                     await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
                     await reminderNotificationService.reschedule(context: modelContext)
+                    snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
                 case .background:
                     await iCloudSyncService.syncBeforeBackground(context: modelContext)
                 case .inactive:
@@ -112,6 +115,7 @@ struct RootView: View {
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
             await reminderNotificationService.reschedule(context: modelContext)
+            snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
         }
         .alert(exampleRecordsPromptTitle, isPresented: $isShowingExampleRecordsPrompt) {
             Button("Not now", role: .cancel) {

@@ -1066,6 +1066,119 @@ struct RentoryTests {
         #expect(imported[0].nickname == "Legacy")
     }
 
+    // MARK: - Shared snapshot
+
+    @Test @MainActor func snapshotIncludesOnlyCurrentProfileProperties() throws {
+        let context = try makeModelContext()
+        let renterPack = PropertyPack(nickname: "Renter house", profile: .renter)
+        let landlordPack = PropertyPack(nickname: "Landlord flat", profile: .landlord)
+        context.insert(renterPack)
+        context.insert(landlordPack)
+        try context.save()
+
+        let publisher = RentorySnapshotPublisher()
+        let snapshot = publisher.makeSnapshot(context: context, activeProfile: .renter, now: Date(timeIntervalSince1970: 1_700_000_000))
+
+        #expect(snapshot.properties.count == 1)
+        #expect(snapshot.properties[0].nickname == "Renter house")
+        #expect(snapshot.activeProfileRawValue == "Renter")
+    }
+
+    @Test @MainActor func snapshotIncludesUpcomingRemindersOnlyWithinWindow() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Home", profile: .renter)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let nearDate = Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 3)
+        let farDate = Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 120)
+
+        pack.reminders.append(Reminder(title: "Near", dueDate: nearDate))
+        pack.reminders.append(Reminder(title: "Far", dueDate: farDate))
+        pack.reminders.append(Reminder(title: "No date"))
+        context.insert(pack)
+        try context.save()
+
+        let publisher = RentorySnapshotPublisher(upcomingReminderWindowDays: 21)
+        let snapshot = publisher.makeSnapshot(context: context, activeProfile: .renter, now: now)
+
+        #expect(snapshot.upcomingReminders.count == 1)
+        #expect(snapshot.upcomingReminders[0].title == "Near")
+        #expect(snapshot.totalReminderCount == 3)
+    }
+
+    @Test @MainActor func snapshotMonthlyFinanceForLandlord() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Rental flat", profile: .landlord)
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let tenancy = Tenancy(
+            startDate: Date(timeIntervalSince1970: 1_690_000_000),
+            status: .active,
+            tenants: [Tenant(name: "Sam Sample")]
+        )
+        tenancy.rentPayments.append(
+            RentPayment(
+                dueDate: now,
+                paidDate: now,
+                amount: 800,
+                status: .paid
+            )
+        )
+        pack.tenancies.append(tenancy)
+        pack.expenses.append(
+            PropertyExpense(date: now, title: "Boiler service", amount: 165, category: .maintenance)
+        )
+        context.insert(pack)
+        try context.save()
+
+        let publisher = RentorySnapshotPublisher()
+        let snapshot = publisher.makeSnapshot(context: context, activeProfile: .landlord, now: now)
+
+        #expect(snapshot.properties.count == 1)
+        let entry = snapshot.properties[0]
+        #expect(entry.monthRentReceived == 800)
+        #expect(entry.monthExpenses == 165)
+        #expect(entry.monthNet == 635)
+        #expect(entry.activeTenancyCount == 1)
+        #expect(entry.primaryTenantName == "Sam Sample")
+    }
+
+    @Test func snapshotRoundTripsThroughJSONDecoder() throws {
+        let original = RentorySharedSnapshot(
+            writtenAt: Date(timeIntervalSince1970: 1_700_000_000),
+            activeProfileRawValue: "Landlord",
+            totalReminderCount: 4,
+            properties: [
+                RentorySharedSnapshot.PropertyEntry(
+                    id: UUID(),
+                    nickname: "Sample",
+                    recordTypeRawValue: "House",
+                    profileRawValue: "Landlord",
+                    isFavourite: true,
+                    completionPercent: 80,
+                    completionStatusTitle: "Nearly ready",
+                    nextActionTitle: "Add move-out checks",
+                    recentEventTitle: "Tenancy signed",
+                    activeTenancyCount: 1,
+                    primaryTenantName: "Sam",
+                    tenancyEndDate: nil,
+                    monthRentReceived: 1200,
+                    monthExpenses: 200,
+                    monthNet: 1000,
+                    currencyCode: "GBP"
+                ),
+            ],
+            upcomingReminders: []
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode(original)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let restored = try decoder.decode(RentorySharedSnapshot.self, from: data)
+
+        #expect(restored == original)
+    }
+
     // MARK: - Quality & stability
 
     @Test func syncImportsWhenRemoteNewerThanLastSync() {
