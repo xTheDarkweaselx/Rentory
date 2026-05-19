@@ -42,4 +42,25 @@ enum RentoryUserProfile: String, CaseIterable, Codable, Identifiable {
             return "Landlord mode adds compliance prompts: gas safety, EICR, EPC renewals, tenancy renewals and periodic inspections."
         }
     }
+
+    /// Bullet-point highlights of what the profile unlocks. Used in the
+    /// onboarding profile picker and Settings → Your profile so the user
+    /// can see what changes when they pick a profile.
+    var featureHighlights: [String] {
+        switch self {
+        case .renter:
+            return [
+                "Move-in & move-out evidence checks",
+                "Deposit and tenancy-document storage",
+                "Repair, cleaning and meter-reading prompts",
+            ]
+        case .landlord:
+            return [
+                "Per-tenancy records with multiple tenants",
+                "Compliance reminders: gas safety, EICR, EPC",
+                "Periodic inspection + tenancy renewal nudges",
+                "Deposit protection records and rent tracking",
+            ]
+        }
+    }
 }

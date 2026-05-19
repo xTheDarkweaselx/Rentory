@@ -266,6 +266,23 @@ struct SettingsView: View {
                             .foregroundStyle(RRColours.mutedText)
                             .fixedSize(horizontal: false, vertical: true)
 
+                        VStack(alignment: .leading, spacing: 6) {
+                            ForEach(currentProfile.featureHighlights, id: \.self) { highlight in
+                                HStack(alignment: .top, spacing: 8) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(RRColours.success)
+                                        .padding(.top, 2)
+                                    Text(highlight)
+                                        .font(RRTypography.footnote)
+                                        .foregroundStyle(RRColours.primary)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
+
                         if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
                             Text("Landlord mode is part of the lifetime unlock.")
                                 .font(RRTypography.caption.weight(.semibold))

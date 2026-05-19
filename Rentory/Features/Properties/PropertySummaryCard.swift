@@ -11,6 +11,12 @@ struct PropertySummaryCard: View {
     let propertyPack: PropertyPack
     var showsLastUpdated = false
 
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
     private var locationSummary: String? {
         firstNonEmpty(propertyPack.townCity, propertyPack.postcode)
     }
@@ -112,6 +118,9 @@ struct PropertySummaryCard: View {
             RRProgressPill(title: "\(propertyPack.rooms.count) rooms", tint: RRColours.secondary)
             RRProgressPill(title: "\(propertyPack.documents.count) documents", tint: RRColours.warning)
             RRProgressPill(title: "\(propertyPack.timelineEvents.count) events", tint: RRColours.success)
+            if profile == .landlord, !propertyPack.tenancies.isEmpty {
+                RRProgressPill(title: "\(propertyPack.tenancies.count) \(propertyPack.tenancies.count == 1 ? "tenancy" : "tenancies")", tint: RRColours.danger)
+            }
         }
     }
 
@@ -135,6 +144,9 @@ struct PropertySummaryCard: View {
         parts.append("\(propertyPack.rooms.count) rooms")
         parts.append("\(propertyPack.documents.count) documents")
         parts.append("\(propertyPack.timelineEvents.count) events")
+        if profile == .landlord, !propertyPack.tenancies.isEmpty {
+            parts.append("\(propertyPack.tenancies.count) \(propertyPack.tenancies.count == 1 ? "tenancy" : "tenancies")")
+        }
         return parts.joined(separator: ", ")
     }
 }

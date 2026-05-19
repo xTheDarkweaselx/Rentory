@@ -221,6 +221,25 @@ struct OnboardingView: View {
                         .multilineTextAlignment(.leading)
                         .fixedSize(horizontal: false, vertical: true)
 
+                    if isSelected {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(profile.featureHighlights, id: \.self) { highlight in
+                                HStack(alignment: .top, spacing: 6) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(RRColours.success)
+                                        .padding(.top, 2)
+                                    Text(highlight)
+                                        .font(RRTypography.caption)
+                                        .foregroundStyle(RRColours.primary)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                        }
+                        .padding(.top, 4)
+                    }
+
                     if locked {
                         Text("Lifetime unlock required")
                             .font(RRTypography.caption.weight(.semibold))
