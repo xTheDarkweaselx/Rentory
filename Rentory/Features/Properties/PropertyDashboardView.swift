@@ -94,6 +94,11 @@ struct PropertyDashboardView: View {
                         onViewAllReminders: { isShowingRemindersList = true },
                         onAddReminder: { activeSheet = .addReminder }
                     )
+                    FinanceSummaryCard(
+                        propertyPack: propertyPack,
+                        onAddExpense: { activeSheet = .addExpense },
+                        onViewAllExpenses: { activeSheet = .addExpense }
+                    )
                 }
                 CompletionScoreCard(result: completionScore) {
                     isShowingProgressView = true
@@ -225,6 +230,28 @@ struct PropertyDashboardView: View {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Add tenancy")
                         .accessibilityHint("Records a new tenancy for this property.")
+
+                        Button {
+                            activeSheet = .addExpense
+                        } label: {
+                            RRGlassCard {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    RRIconBadge(systemName: "creditcard", tint: RRColours.secondary)
+
+                                    Text("Add expense")
+                                        .font(RRTypography.headline)
+                                        .foregroundStyle(RRColours.primary)
+
+                                    Text("Log an outgoing — repair, insurance, agent fee, anything you pay.")
+                                        .font(RRTypography.caption)
+                                        .foregroundStyle(RRColours.mutedText)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Add expense")
+                        .accessibilityHint("Records an expense for this property.")
                     }
                     Button {
                         isShowingProgressView = true
@@ -357,6 +384,8 @@ struct PropertyDashboardView: View {
             AddReminderView(propertyPack: propertyPack)
         case .addTenancy:
             AddTenancyView(propertyPack: propertyPack)
+        case .addExpense:
+            AddPropertyExpenseView(propertyPack: propertyPack)
         }
     }
 
@@ -587,6 +616,7 @@ private enum DashboardSheet: Identifiable {
     case addEvent
     case addReminder
     case addTenancy
+    case addExpense
 
     var id: String {
         switch self {
@@ -606,6 +636,8 @@ private enum DashboardSheet: Identifiable {
             return "addReminder"
         case .addTenancy:
             return "addTenancy"
+        case .addExpense:
+            return "addExpense"
         }
     }
 }
