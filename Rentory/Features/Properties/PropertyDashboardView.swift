@@ -19,8 +19,17 @@ struct PropertyDashboardView: View {
     @State private var isShowingExportOptions = false
     @State private var isShowingProgressView = false
     @State private var isShowingRemindersList = false
+    @State private var isShowingTenanciesList = false
     @State private var selectedReminder: Reminder?
     @State private var infoAlertContent: RRAlertContent?
+
+    @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
+
+    private var profile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
+    }
+
+    private var isLandlord: Bool { profile == .landlord }
 
     private var recentDocuments: [DocumentRecord] {
         propertyPack.documents.sorted { $0.addedAt > $1.addedAt }
@@ -73,6 +82,19 @@ struct PropertyDashboardView: View {
                     onViewAllReminders: { isShowingRemindersList = true },
                     onAddReminder: { activeSheet = .addReminder }
                 )
+                if isLandlord {
+                    TenanciesCard(
+                        propertyPack: propertyPack,
+                        onAddTenancy: { activeSheet = .addTenancy },
+                        onViewAllTenancies: { isShowingTenanciesList = true }
+                    )
+                    ComplianceCard(
+                        propertyPack: propertyPack,
+                        onSelectReminder: { reminder in selectedReminder = reminder },
+                        onViewAllReminders: { isShowingRemindersList = true },
+                        onAddReminder: { activeSheet = .addReminder }
+                    )
+                }
                 CompletionScoreCard(result: completionScore) {
                     isShowingProgressView = true
                 }
@@ -181,6 +203,29 @@ struct PropertyDashboardView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Add reminder")
                     .accessibilityHint("Adds a reminder to track for this rental record.")
+                    if isLandlord {
+                        Button {
+                            activeSheet = .addTenancy
+                        } label: {
+                            RRGlassCard {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    RRIconBadge(systemName: "person.2", tint: RRColours.secondary)
+
+                                    Text("Add tenancy")
+                                        .font(RRTypography.headline)
+                                        .foregroundStyle(RRColours.primary)
+
+                                    Text("Record a new tenancy — tenants, dates, deposit and rent.")
+                                        .font(RRTypography.caption)
+                                        .foregroundStyle(RRColours.mutedText)
+                                }
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Add tenancy")
+                        .accessibilityHint("Records a new tenancy for this property.")
+                    }
                     Button {
                         isShowingProgressView = true
                     } label: {
@@ -257,6 +302,10 @@ struct PropertyDashboardView: View {
             RemindersListView(propertyPack: propertyPack)
                 .dismissOnPropertySelectionChange()
         }
+        .navigationDestination(isPresented: $isShowingTenanciesList) {
+            TenanciesListView(propertyPack: propertyPack)
+                .dismissOnPropertySelectionChange()
+        }
         .navigationDestination(item: $selectedReminder) { reminder in
             ReminderDetailView(reminder: reminder, propertyPack: propertyPack)
                 .dismissOnPropertySelectionChange()
@@ -306,6 +355,8 @@ struct PropertyDashboardView: View {
             AddTimelineEventView(propertyPack: propertyPack)
         case .addReminder:
             AddReminderView(propertyPack: propertyPack)
+        case .addTenancy:
+            AddTenancyView(propertyPack: propertyPack)
         }
     }
 
@@ -314,6 +365,7 @@ struct PropertyDashboardView: View {
         isShowingExportOptions = false
         isShowingProgressView = false
         isShowingRemindersList = false
+        isShowingTenanciesList = false
         selectedReminder = nil
         infoAlertContent = nil
     }
@@ -534,6 +586,7 @@ private enum DashboardSheet: Identifiable {
     case addRoom
     case addEvent
     case addReminder
+    case addTenancy
 
     var id: String {
         switch self {
@@ -551,6 +604,8 @@ private enum DashboardSheet: Identifiable {
             return "addEvent"
         case .addReminder:
             return "addReminder"
+        case .addTenancy:
+            return "addTenancy"
         }
     }
 }
