@@ -704,7 +704,7 @@ struct RentoryTests {
 
         let backupURL = try sourceBackupService.createBackup(context: sourceContext)
         let loaded = try sourceBackupService.loadBackup(from: backupURL)
-        #expect(loaded.manifest.backupVersion == 3)
+        #expect(loaded.manifest.backupVersion == 4)
         #expect(loaded.manifest.reminderCount == 1)
 
         let destinationStorageService = makeService()
@@ -837,6 +837,87 @@ struct RentoryTests {
         #expect(endedImported.mode == .standard)
         #expect(endedImported.tenants.count == 1)
         #expect(endedImported.tenants[0].name == "Previous Sample")
+    }
+
+    @Test func backupRoundTripPreservesRentPaymentsAndExpenses() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let backupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let dueDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let paidDate = Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 2)
+        let payment = RentPayment(
+            dueDate: dueDate,
+            paidDate: paidDate,
+            amount: 950,
+            currencyCode: "GBP",
+            status: .paid,
+            notes: "Paid by bank transfer."
+        )
+        let tenancy = Tenancy(
+            startDate: dueDate,
+            status: .active,
+            tenants: [Tenant(name: "Sam Sample")],
+            rentPayments: [payment]
+        )
+
+        let expense = PropertyExpense(
+            date: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 5),
+            title: "Boiler service",
+            amount: 165.50,
+            currencyCode: "GBP",
+            category: .maintenance,
+            notes: "Annual."
+        )
+
+        let propertyPack = PropertyPack(
+            nickname: "Finance test property",
+            profile: .landlord,
+            tenancies: [tenancy],
+            expenses: [expense]
+        )
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try backupService.createBackup(context: sourceContext)
+        let loaded = try backupService.loadBackup(from: backupURL)
+        #expect(loaded.manifest.backupVersion == 4)
+        #expect(loaded.manifest.rentPaymentCount == 1)
+        #expect(loaded.manifest.expenseCount == 1)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+
+        try destinationBackupService.importBackup(loaded, mode: .addToExisting, context: destinationContext)
+
+        let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+        #expect(imported.count == 1)
+        let pack = imported[0]
+        #expect(pack.expenses.count == 1)
+        let restoredExpense = pack.expenses[0]
+        #expect(restoredExpense.title == "Boiler service")
+        #expect(restoredExpense.amount == 165.50)
+        #expect(restoredExpense.category == .maintenance)
+        #expect(restoredExpense.currencyCode == "GBP")
+        #expect(restoredExpense.notes == "Annual.")
+
+        #expect(pack.tenancies.count == 1)
+        let restoredTenancy = pack.tenancies[0]
+        #expect(restoredTenancy.rentPayments.count == 1)
+        let restoredPayment = restoredTenancy.rentPayments[0]
+        #expect(restoredPayment.amount == 950)
+        #expect(restoredPayment.status == .paid)
+        #expect(restoredPayment.currencyCode == "GBP")
+        #expect(restoredPayment.dueDate == dueDate)
+        #expect(restoredPayment.paidDate == paidDate)
+        #expect(restoredPayment.notes == "Paid by bank transfer.")
     }
 
     @Test func backupRoundTripPreservesProfileTag() throws {
@@ -1297,6 +1378,8 @@ struct RentoryTests {
             ItemComment.self,
             Tenancy.self,
             Tenant.self,
+            RentPayment.self,
+            PropertyExpense.self,
         ])
         let container = try ModelContainer(
             for: schema,

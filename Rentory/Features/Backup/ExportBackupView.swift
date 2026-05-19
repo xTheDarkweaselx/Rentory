@@ -25,7 +25,9 @@ struct ExportBackupView: View {
         reminderCount: 0,
         commentCount: 0,
         tenancyCount: 0,
-        tenantCount: 0
+        tenantCount: 0,
+        rentPaymentCount: 0,
+        expenseCount: 0
     )
     @State private var backupURL: URL?
     @State private var userFacingError: UserFacingError?

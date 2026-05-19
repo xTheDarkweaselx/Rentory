@@ -211,6 +211,8 @@ final class RentoryPerformanceTests: XCTestCase {
             ItemComment.self,
             Tenancy.self,
             Tenant.self,
+            RentPayment.self,
+            PropertyExpense.self,
         ])
         let container = try ModelContainer(
             for: schema,

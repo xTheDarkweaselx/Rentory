@@ -24,8 +24,8 @@ enum BackupImportMode: String, CaseIterable, Identifiable {
 }
 
 struct RentoryBackupService {
-    static let backupVersion = 3
-    static let supportedBackupVersions: ClosedRange<Int> = 1...3
+    static let backupVersion = 4
+    static let supportedBackupVersions: ClosedRange<Int> = 1...4
     static let backupContentType = UTType(exportedAs: "com.fusionstudios.rentory.backup", conformingTo: .package)
 
     private let fileManager: FileManager
@@ -158,6 +158,8 @@ struct RentoryBackupService {
         var comments: [BackupItemComment] = []
         var tenancies: [BackupTenancy] = []
         var tenants: [BackupTenant] = []
+        var rentPayments: [BackupRentPayment] = []
+        var expenses: [BackupPropertyExpense] = []
 
         for propertyPack in sortedPropertyPacks {
             properties.append(
@@ -343,6 +345,40 @@ struct RentoryBackupService {
                         )
                     )
                 }
+
+                for payment in tenancy.rentPayments.sorted(by: { $0.dueDate < $1.dueDate }) {
+                    rentPayments.append(
+                        BackupRentPayment(
+                            id: payment.id,
+                            tenancyID: tenancy.id,
+                            dueDate: payment.dueDate,
+                            paidDate: payment.paidDate,
+                            amount: payment.amount,
+                            currencyCode: payment.currencyCode,
+                            statusRawValue: payment.statusRawValue,
+                            notes: payment.notes,
+                            createdAt: payment.createdAt,
+                            updatedAt: payment.updatedAt
+                        )
+                    )
+                }
+            }
+
+            for expense in propertyPack.expenses.sorted(by: { $0.date < $1.date }) {
+                expenses.append(
+                    BackupPropertyExpense(
+                        id: expense.id,
+                        propertyID: propertyPack.id,
+                        date: expense.date,
+                        title: expense.title,
+                        amount: expense.amount,
+                        currencyCode: expense.currencyCode,
+                        categoryRawValue: expense.categoryRawValue,
+                        notes: expense.notes,
+                        createdAt: expense.createdAt,
+                        updatedAt: expense.updatedAt
+                    )
+                )
             }
         }
 
@@ -356,7 +392,9 @@ struct RentoryBackupService {
             reminders: reminders,
             comments: comments,
             tenancies: tenancies,
-            tenants: tenants
+            tenants: tenants,
+            rentPayments: rentPayments,
+            expenses: expenses
         )
     }
 
@@ -374,7 +412,9 @@ struct RentoryBackupService {
             reminderCount: payload.reminderList.count,
             commentCount: payload.commentList.count,
             tenancyCount: payload.tenancyList.count,
-            tenantCount: payload.tenantList.count
+            tenantCount: payload.tenantList.count,
+            rentPaymentCount: payload.rentPaymentList.count,
+            expenseCount: payload.expenseList.count
         )
     }
 
@@ -698,6 +738,34 @@ struct RentoryBackupService {
             tenanciesByID[tenant.tenancyID]?.tenants.append(importedTenant)
         }
 
+        for payment in payload.rentPaymentList.sorted(by: { $0.dueDate < $1.dueDate }) {
+            let importedPayment = RentPayment(
+                dueDate: payment.dueDate,
+                paidDate: payment.paidDate,
+                amount: payment.amount,
+                currencyCode: payment.currencyCode,
+                status: RentPaymentStatus(rawValue: payment.statusRawValue) ?? .pending,
+                notes: payment.notes,
+                createdAt: payment.createdAt,
+                updatedAt: payment.updatedAt
+            )
+            tenanciesByID[payment.tenancyID]?.rentPayments.append(importedPayment)
+        }
+
+        for expense in payload.expenseList.sorted(by: { $0.date < $1.date }) {
+            let importedExpense = PropertyExpense(
+                date: expense.date,
+                title: expense.title,
+                amount: expense.amount,
+                currencyCode: expense.currencyCode,
+                category: ExpenseCategory(rawValue: expense.categoryRawValue) ?? .other,
+                notes: expense.notes,
+                createdAt: expense.createdAt,
+                updatedAt: expense.updatedAt
+            )
+            propertyPacksByID[expense.propertyID]?.expenses.append(importedExpense)
+        }
+
         return payload.properties.compactMap { propertyPacksByID[$0.id] }
     }
 }
@@ -720,11 +788,15 @@ private struct RentoryBackupPayload: Codable {
     let comments: [BackupItemComment]?
     let tenancies: [BackupTenancy]?
     let tenants: [BackupTenant]?
+    let rentPayments: [BackupRentPayment]?
+    let expenses: [BackupPropertyExpense]?
 
     var reminderList: [BackupReminder] { reminders ?? [] }
     var commentList: [BackupItemComment] { comments ?? [] }
     var tenancyList: [BackupTenancy] { tenancies ?? [] }
     var tenantList: [BackupTenant] { tenants ?? [] }
+    var rentPaymentList: [BackupRentPayment] { rentPayments ?? [] }
+    var expenseList: [BackupPropertyExpense] { expenses ?? [] }
 }
 
 private struct BackupPropertyPack: Codable {
@@ -872,4 +944,30 @@ private struct BackupReminder: Codable {
     let linkedChecklistItemID: UUID?
     let linkedDocumentID: UUID?
     let linkedTimelineEventID: UUID?
+}
+
+private struct BackupRentPayment: Codable {
+    let id: UUID
+    let tenancyID: UUID
+    let dueDate: Date
+    let paidDate: Date?
+    let amount: Double
+    let currencyCode: String
+    let statusRawValue: String
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
+}
+
+private struct BackupPropertyExpense: Codable {
+    let id: UUID
+    let propertyID: UUID
+    let date: Date
+    let title: String
+    let amount: Double
+    let currencyCode: String
+    let categoryRawValue: String
+    let notes: String?
+    let createdAt: Date
+    let updatedAt: Date
 }

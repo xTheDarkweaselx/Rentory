@@ -38,6 +38,7 @@ final class Tenancy {
     var updatedAt: Date = Date.now
 
     @Relationship(deleteRule: .cascade) var tenants: [Tenant] = []
+    @Relationship(deleteRule: .cascade) var rentPayments: [RentPayment] = []
 
     init(
         id: UUID = UUID(),
@@ -57,7 +58,8 @@ final class Tenancy {
         mode: TenancyMode = .standard,
         createdAt: Date = .now,
         updatedAt: Date = .now,
-        tenants: [Tenant] = []
+        tenants: [Tenant] = [],
+        rentPayments: [RentPayment] = []
     ) {
         self.id = id
         self.startDate = startDate
@@ -77,6 +79,7 @@ final class Tenancy {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.tenants = tenants
+        self.rentPayments = rentPayments
     }
 }
 

@@ -29,6 +29,10 @@ struct RentoryApp: App {
             TimelineEvent.self,
             Reminder.self,
             ItemComment.self,
+            Tenancy.self,
+            Tenant.self,
+            RentPayment.self,
+            PropertyExpense.self,
         ])
 
         do {

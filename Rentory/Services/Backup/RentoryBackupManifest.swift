@@ -21,4 +21,6 @@ struct RentoryBackupManifest: Codable, Equatable {
     let commentCount: Int?
     let tenancyCount: Int?
     let tenantCount: Int?
+    let rentPaymentCount: Int?
+    let expenseCount: Int?
 }

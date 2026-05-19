@@ -465,3 +465,53 @@ enum ReminderPriority: String, CaseIterable, Codable {
     case normal = "Normal"
     case high = "High"
 }
+
+enum RentPaymentStatus: String, CaseIterable, Codable, Identifiable {
+    case paid = "Paid"
+    case pending = "Pending"
+    case late = "Late"
+    case waived = "Waived"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .paid: return "checkmark.circle.fill"
+        case .pending: return "clock"
+        case .late: return "exclamationmark.triangle.fill"
+        case .waived: return "circle.slash"
+        }
+    }
+}
+
+enum ExpenseCategory: String, CaseIterable, Codable, Identifiable {
+    case maintenance = "Maintenance & repair"
+    case insurance = "Insurance"
+    case agentFee = "Agent fees"
+    case cleaning = "Cleaning"
+    case utilities = "Utilities"
+    case mortgage = "Mortgage interest"
+    case professional = "Legal & professional"
+    case taxes = "Taxes & licences"
+    case furnishing = "Furnishings"
+    case marketing = "Marketing"
+    case other = "Other"
+
+    var id: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .maintenance: return "wrench.and.screwdriver"
+        case .insurance: return "shield.lefthalf.filled"
+        case .agentFee: return "person.badge.shield.checkmark"
+        case .cleaning: return "sparkles"
+        case .utilities: return "bolt.fill"
+        case .mortgage: return "sterlingsign.circle"
+        case .professional: return "doc.text.fill"
+        case .taxes: return "percent"
+        case .furnishing: return "sofa.fill"
+        case .marketing: return "megaphone"
+        case .other: return "ellipsis.circle"
+        }
+    }
+}
