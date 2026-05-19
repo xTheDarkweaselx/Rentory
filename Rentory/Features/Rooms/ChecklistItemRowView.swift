@@ -21,6 +21,8 @@ struct ChecklistItemRowView: View {
         }
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -46,7 +48,7 @@ struct ChecklistItemRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(item.title), move-in \(item.moveInCondition.rawValue), move-out \(item.moveOutCondition.rawValue), \(photoSummary)")
         .accessibilityHint("Opens this checklist item.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var conditionSummary: some View {

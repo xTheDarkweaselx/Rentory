@@ -10,6 +10,8 @@ import SwiftUI
 struct TimelineEventRowView: View {
     let event: TimelineEvent
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRGlassCard {
             HStack(alignment: .top, spacing: 12) {
@@ -39,7 +41,7 @@ struct TimelineEventRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this timeline event.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var accessibilitySummary: String {

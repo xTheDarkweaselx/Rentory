@@ -37,22 +37,3 @@ enum AppColourTheme: String, CaseIterable, Identifiable {
         AppColourTheme(rawValue: UserDefaults.standard.string(forKey: storageKey) ?? "") ?? .defaultLook
     }
 }
-
-private struct ObservesAppColourTheme: ViewModifier {
-    @AppStorage(AppColourTheme.storageKey) private var themeRawValue = AppColourTheme.defaultLook.rawValue
-
-    func body(content: Content) -> some View {
-        content.id(themeRawValue)
-    }
-}
-
-extension View {
-    /// Re-renders the wrapped view when the app's colour theme changes.
-    /// Use on row views inside Lists / LazyVStacks whose bodies read
-    /// RRColours.* but don't otherwise observe the theme — SwiftUI's
-    /// row caching can otherwise keep stale colours until the row's
-    /// own input parameters change.
-    func observesAppColourTheme() -> some View {
-        modifier(ObservesAppColourTheme())
-    }
-}

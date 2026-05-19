@@ -10,6 +10,8 @@ import SwiftUI
 struct DocumentRowView: View {
     let document: DocumentRecord
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRGlassCard {
             VStack(alignment: .leading, spacing: 10) {
@@ -47,7 +49,7 @@ struct DocumentRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this document.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var accessibilitySummary: String {

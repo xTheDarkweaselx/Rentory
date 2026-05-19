@@ -45,6 +45,8 @@ struct RemindersListView: View {
         }
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
@@ -158,7 +160,7 @@ struct RemindersListView: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
         .contentShape(Rectangle())
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     @ViewBuilder

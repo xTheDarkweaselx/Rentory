@@ -45,6 +45,8 @@ struct PropertyDashboardView: View {
             ]
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -492,6 +494,8 @@ private struct DashboardTimelinePreviewRow: View {
     let isFirst: Bool
     let isLast: Bool
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
             previewConnector
@@ -511,7 +515,7 @@ private struct DashboardTimelinePreviewRow: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(event.title), \(event.eventType.rawValue), \(event.eventDate.formatted(date: .abbreviated, time: .omitted))")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var previewConnector: some View {

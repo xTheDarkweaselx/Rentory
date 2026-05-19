@@ -17,6 +17,8 @@ struct RemindersCard: View {
         ReminderService.overview(for: propertyPack)
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRGlassPanel {
             VStack(alignment: .leading, spacing: 16) {
@@ -131,7 +133,7 @@ struct RemindersCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(snapshot.title), \(accessibilityDateDescription(for: snapshot))")
         .accessibilityHint("Opens the reminder.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private func datePill(snapshot: ReminderSnapshot) -> some View {

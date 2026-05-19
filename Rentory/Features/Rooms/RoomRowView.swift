@@ -36,6 +36,8 @@ struct RoomRowView: View {
         return "In progress"
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -63,7 +65,7 @@ struct RoomRowView: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this room.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var summaryPills: some View {

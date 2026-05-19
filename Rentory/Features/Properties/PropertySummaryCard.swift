@@ -32,6 +32,8 @@ struct PropertySummaryCard: View {
         }
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         RRGlassPanel {
             VStack(alignment: .leading, spacing: 16) {
@@ -102,7 +104,7 @@ struct PropertySummaryCard: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilitySummary)
         .accessibilityHint("Opens this rental record.")
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var summaryPills: some View {

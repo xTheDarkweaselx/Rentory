@@ -41,6 +41,8 @@ struct PropertiesSplitView: View {
         activePropertyPacks.first { $0.id == selectedPropertyID }
     }
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         NavigationSplitView {
             List {
@@ -348,6 +350,8 @@ private struct PropertySidebarRow: View {
     let propertyPack: PropertyPack
     let isSelected: Bool
 
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: propertyPack.recordIconName)
@@ -390,7 +394,7 @@ private struct PropertySidebarRow: View {
             }
         }
         .padding(.vertical, 4)
-        .observesAppColourTheme()
+        .id(appColourThemeRawValue)
     }
 
     private var locationSummary: String? {

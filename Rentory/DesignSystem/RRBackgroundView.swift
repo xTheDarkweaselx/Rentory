@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct RRBackgroundView: View {
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
+
     var body: some View {
         ZStack {
             RRColours.background
@@ -36,5 +38,6 @@ struct RRBackgroundView: View {
                 .blur(radius: 44)
                 .offset(x: 160, y: 280)
         }
+        .id(appColourThemeRawValue)
     }
 }
