@@ -71,7 +71,6 @@ struct RentoryApp: App {
                     .modelContainer(sharedModelContainer)
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
                     .tint(RRColours.secondary(for: selectedColourTheme))
-                    .id(appColourThemeRawValue)
             } else {
                 RRErrorStateView(
                     symbolName: "exclamationmark.triangle",
