@@ -206,13 +206,29 @@ final class ICloudSyncService: ObservableObject {
 
     private func shouldImport(remoteRecord: CKRecord, context: ModelContext) -> Bool {
         let localCount = (try? context.fetchCount(FetchDescriptor<PropertyPack>())) ?? 0
+        return Self.shouldImportRemoteSnapshot(
+            remoteModificationDate: remoteRecord.modificationDate,
+            localRecordCount: localCount,
+            lastSyncDate: lastSyncDate
+        )
+    }
 
-        guard let remoteDate = remoteRecord.modificationDate else {
-            return localCount == 0
+    /// Pure decision function: should we replace local data with the remote snapshot?
+    ///
+    /// - Empty device with a remote snapshot: import (otherwise the empty device never picks up records).
+    /// - Non-empty device that has never synced: do NOT import — we'd nuke local-only data.
+    /// - Otherwise: import only if remote was modified after our last successful sync.
+    nonisolated static func shouldImportRemoteSnapshot(
+        remoteModificationDate: Date?,
+        localRecordCount: Int,
+        lastSyncDate: Date?
+    ) -> Bool {
+        guard let remoteDate = remoteModificationDate else {
+            return localRecordCount == 0
         }
 
         guard let lastSyncDate else {
-            return localCount == 0
+            return localRecordCount == 0
         }
 
         return remoteDate > lastSyncDate

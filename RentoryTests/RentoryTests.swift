@@ -984,6 +984,276 @@ struct RentoryTests {
         #expect(imported[0].nickname == "Legacy")
     }
 
+    // MARK: - Quality & stability
+
+    @Test func syncImportsWhenRemoteNewerThanLastSync() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: Date(timeIntervalSince1970: 100),
+            localRecordCount: 3,
+            lastSyncDate: Date(timeIntervalSince1970: 50)
+        )
+        #expect(result)
+    }
+
+    @Test func syncSkipsImportWhenRemoteOlderThanLastSync() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: Date(timeIntervalSince1970: 50),
+            localRecordCount: 3,
+            lastSyncDate: Date(timeIntervalSince1970: 100)
+        )
+        #expect(!result)
+    }
+
+    @Test func syncImportsOntoEmptyDeviceWithMissingRemoteDate() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: nil,
+            localRecordCount: 0,
+            lastSyncDate: nil
+        )
+        #expect(result)
+    }
+
+    @Test func syncSkipsImportOntoPopulatedDeviceThatHasNeverSynced() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: Date(timeIntervalSince1970: 100),
+            localRecordCount: 5,
+            lastSyncDate: nil
+        )
+        #expect(!result)
+    }
+
+    @Test func syncImportsOntoEmptyDeviceEvenWithNoLastSync() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: Date(timeIntervalSince1970: 100),
+            localRecordCount: 0,
+            lastSyncDate: nil
+        )
+        #expect(result)
+    }
+
+    @Test func syncSkipsImportOntoPopulatedDeviceWithNoRemoteDate() {
+        let result = ICloudSyncService.shouldImportRemoteSnapshot(
+            remoteModificationDate: nil,
+            localRecordCount: 5,
+            lastSyncDate: Date(timeIntervalSince1970: 100)
+        )
+        #expect(!result)
+    }
+
+    @Test func reportPaginatesAcrossMultiplePagesForHeavyProperty() throws {
+        let builder = PDFReportBuilder()
+        var rooms: [RoomRecord] = []
+        for roomIndex in 0..<20 {
+            let items = (0..<8).map { itemIndex in
+                ChecklistItemRecord(
+                    title: "Item \(itemIndex) in room \(roomIndex)",
+                    sortOrder: itemIndex,
+                    moveInConditionRawValue: EvidenceCondition.good.rawValue,
+                    moveOutConditionRawValue: EvidenceCondition.notChecked.rawValue,
+                    moveInNotes: "Move-in note for item \(itemIndex).",
+                    moveOutNotes: nil,
+                    isFlagged: false
+                )
+            }
+            rooms.append(
+                RoomRecord(
+                    name: "Room \(roomIndex)",
+                    type: .other,
+                    sortOrder: roomIndex,
+                    notes: "Sample notes for room \(roomIndex).",
+                    checklistItems: items
+                )
+            )
+        }
+        let propertyPack = PropertyPack(nickname: "Heavy property", rooms: rooms)
+
+        let sections = builder.makeReportSections(for: propertyPack, options: ExportOptions())
+        let titles = sections.map(\.title)
+        let lineCounts = sections.map(\.lines.count)
+
+        // Roughly 20 rooms × ~5 lines each = ~100+ lines, exceeding the 26-line per-page chunk.
+        #expect(titles.contains("Rooms and checklist"))
+        let roomsSectionLines = sections.first { $0.title == "Rooms and checklist" }?.lines.count ?? 0
+        #expect(roomsSectionLines > 80)
+        // Ensure at least one of the sections produced enough content to span multiple pages
+        // when paginated at 26 lines each.
+        #expect(lineCounts.contains(where: { $0 > 26 }))
+    }
+
+    @Test func backupLoadRejectsMissingPhotoFile() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let backupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let image = try makeImage(size: CGSize(width: 80, height: 80))
+        let photoStorageService = PhotoStorageService(fileStorageService: sourceStorageService)
+        let photoFileName = try photoStorageService.savePhoto(image)
+
+        let photo = EvidencePhoto(localFileName: photoFileName, phase: .moveIn)
+        let item = ChecklistItemRecord(title: "Hob", sortOrder: 0, photos: [photo])
+        let room = RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0, checklistItems: [item])
+        let propertyPack = PropertyPack(nickname: "Missing photo", rooms: [room])
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try backupService.createBackup(context: sourceContext)
+        let photoDirectory = backupURL.appendingPathComponent("EvidencePhotos", isDirectory: true)
+        let storedPhotos = try FileManager.default.contentsOfDirectory(at: photoDirectory, includingPropertiesForKeys: nil)
+        guard let firstPhoto = storedPhotos.first else {
+            throw TestImageError.unableToCreateImage
+        }
+        try FileManager.default.removeItem(at: firstPhoto)
+
+        #expect(throws: RentoryBackupError.backupIncomplete) {
+            _ = try backupService.loadBackup(from: backupURL)
+        }
+    }
+
+    @Test func backupLoadRejectsForeignKeyMismatch() throws {
+        let baseURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("RentoryFKTest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
+
+        let packageURL = baseURL.appendingPathComponent("rentory-fk.rentorybackup", isDirectory: true)
+        try FileManager.default.createDirectory(at: packageURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: packageURL.appendingPathComponent("EvidencePhotos"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: packageURL.appendingPathComponent("ImportedDocuments"), withIntermediateDirectories: true)
+
+        let manifest = """
+        {
+          "appName": "Rentory",
+          "backupVersion": 3,
+          "createdAt": "2026-05-01T00:00:00Z",
+          "appVersion": "1.0",
+          "propertyCount": 1,
+          "roomCount": 1,
+          "photoCount": 0,
+          "documentCount": 0,
+          "timelineEventCount": 0
+        }
+        """
+        try Data(manifest.utf8).write(to: packageURL.appendingPathComponent("manifest.json"))
+
+        let propertyID = UUID().uuidString.uppercased()
+        let orphanedRoomPropertyID = UUID().uuidString.uppercased()
+        let payload = """
+        {
+          "checklistItems": [],
+          "documents": [],
+          "photos": [],
+          "properties": [{
+            "createdAt": "2026-05-01T00:00:00Z",
+            "id": "\(propertyID)",
+            "isArchived": false,
+            "nickname": "Mismatch",
+            "updatedAt": "2026-05-01T00:00:00Z"
+          }],
+          "rooms": [{
+            "id": "\(UUID().uuidString.uppercased())",
+            "propertyID": "\(orphanedRoomPropertyID)",
+            "name": "Orphan",
+            "typeRawValue": "Other",
+            "sortOrder": 0,
+            "createdAt": "2026-05-01T00:00:00Z",
+            "updatedAt": "2026-05-01T00:00:00Z"
+          }],
+          "timelineEvents": []
+        }
+        """
+        try Data(payload.utf8).write(to: packageURL.appendingPathComponent("data.json"))
+
+        let backupService = RentoryBackupService(
+            fileStorageService: makeService(),
+            deletionService: RentoryDataDeletionService(fileStorageService: makeService())
+        )
+
+        #expect(throws: RentoryBackupError.backupIncomplete) {
+            _ = try backupService.loadBackup(from: packageURL)
+        }
+    }
+
+    @Test @MainActor func photoCacheInvalidatesOnDelete() throws {
+        let storage = makeService()
+        let photoService = PhotoStorageService(fileStorageService: storage)
+        let image = try makeImage(size: CGSize(width: 100, height: 100))
+        let fileName = try photoService.savePhoto(image)
+
+        // Simulate the UI populating the thumbnail cache after a fetch.
+        photoService.storeThumbnail(image, for: fileName)
+        #expect(photoService.cachedThumbnail(for: fileName) != nil)
+
+        try photoService.deletePhoto(fileName: fileName)
+
+        #expect(photoService.cachedThumbnail(for: fileName) == nil)
+    }
+
+    @Test @MainActor func demoDataFactoryClearsPartialRecordsOnCancellation() async throws {
+        let storage = makeService()
+        let factory = DemoDataFactory(fileStorageService: storage)
+        let context = try makeModelContext()
+
+        let task = Task {
+            try await factory.loadSampleData(
+                context: context,
+                profile: .renter,
+                style: .fullSampleSet
+            ) { _ in }
+        }
+
+        try await Task.sleep(nanoseconds: 150_000_000)
+        task.cancel()
+
+        let result = await task.result
+        switch result {
+        case .success:
+            // If the loader actually finished before we cancelled, that's fine — there's nothing
+            // partial to verify. The test only asserts the cleanup contract when cancellation lands
+            // mid-flight.
+            break
+        case .failure(let error):
+            #expect(error is CancellationError)
+            let remaining = try context.fetch(FetchDescriptor<PropertyPack>())
+            #expect(remaining.isEmpty)
+        }
+    }
+
+    @Test @MainActor func landlordSampleSetLoadsSixRecordsWithLandlordOnlyContent() throws {
+        let storage = makeService()
+        let factory = DemoDataFactory(fileStorageService: storage)
+        let context = try makeModelContext()
+
+        let records = try factory.loadSampleData(
+            context: context,
+            profile: .landlord,
+            style: .fullSampleSet
+        )
+
+        #expect(records.count == 6)
+        for record in records {
+            #expect(record.profile == .landlord)
+        }
+
+        let allTenancies = records.flatMap(\.tenancies)
+        #expect(!allTenancies.isEmpty)
+
+        let landlordOnlyKinds: Set<ReminderKind> = [
+            .gasSafety, .electricalSafety, .energyPerformance, .periodicInspection, .tenancyRenewal,
+        ]
+        let landlordOnlyReminders = records
+            .flatMap(\.reminders)
+            .filter { landlordOnlyKinds.contains($0.kind) }
+        #expect(!landlordOnlyReminders.isEmpty)
+
+        let recordsWithTenancies = records.filter { !$0.tenancies.isEmpty }
+        #expect(recordsWithTenancies.count >= 4)
+
+        let archivedRecords = records.filter(\.isArchived)
+        #expect(archivedRecords.count == 1)
+    }
+
     private func makeService() -> FileStorageService {
         let baseURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("RentoryTests-\(UUID().uuidString)", isDirectory: true)
