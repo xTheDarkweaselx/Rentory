@@ -205,8 +205,9 @@ final class ICloudSyncService: ObservableObject {
 
     /// Maps a CloudKit (or generic) error into a user-facing alert.
     /// Specific cases give the user something to do; everything else falls
-    /// back to a generic "try again" message.
-    nonisolated static func alertContent(for error: Error) -> RRAlertContent {
+    /// back to a generic "try again" message. Inherits @MainActor from
+    /// ICloudSyncService — call from a MainActor context.
+    static func alertContent(for error: Error) -> RRAlertContent {
         if let ckError = error as? CKError {
             switch ckError.code {
             case .notAuthenticated:

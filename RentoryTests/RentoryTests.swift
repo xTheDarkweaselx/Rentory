@@ -1302,24 +1302,24 @@ struct RentoryTests {
         }
     }
 
-    @Test func syncAlertContentSurfacesSignInGuidanceWhenNotAuthenticated() {
+    @Test @MainActor func syncAlertContentSurfacesSignInGuidanceWhenNotAuthenticated() {
         let content = ICloudSyncService.alertContent(for: CKError(.notAuthenticated))
         #expect(content.title.localizedCaseInsensitiveContains("not signed in"))
     }
 
-    @Test func syncAlertContentSurfacesConnectionGuidanceForNetworkErrors() {
+    @Test @MainActor func syncAlertContentSurfacesConnectionGuidanceForNetworkErrors() {
         let unavailable = ICloudSyncService.alertContent(for: CKError(.networkUnavailable))
         let failure = ICloudSyncService.alertContent(for: CKError(.networkFailure))
         #expect(unavailable.title.localizedCaseInsensitiveContains("connection"))
         #expect(failure.title.localizedCaseInsensitiveContains("connection"))
     }
 
-    @Test func syncAlertContentSurfacesStorageGuidanceWhenQuotaExceeded() {
+    @Test @MainActor func syncAlertContentSurfacesStorageGuidanceWhenQuotaExceeded() {
         let content = ICloudSyncService.alertContent(for: CKError(.quotaExceeded))
         #expect(content.title.localizedCaseInsensitiveContains("storage is full"))
     }
 
-    @Test func syncAlertContentFallsBackToTryAgainForUnknownError() {
+    @Test @MainActor func syncAlertContentFallsBackToTryAgainForUnknownError() {
         struct UnknownError: Error {}
         let content = ICloudSyncService.alertContent(for: UnknownError())
         #expect(content.title.localizedCaseInsensitiveContains("could not finish"))
