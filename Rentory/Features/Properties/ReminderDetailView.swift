@@ -11,6 +11,7 @@ import SwiftUI
 struct ReminderDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     let reminder: Reminder
@@ -154,7 +155,7 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
-            Task { await ReminderNotificationScheduler.scheduleOrCancel(for: reminder) }
+            Task { await reminderNotificationService.reschedule(context: modelContext) }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -167,7 +168,8 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
-            ReminderNotificationScheduler.cancel(for: reminderID)
+            reminderNotificationService.cancel(reminderID: reminderID)
+            Task { await reminderNotificationService.reschedule(context: modelContext) }
             dismiss()
         } catch {
             alertContent = RRAlertContent(

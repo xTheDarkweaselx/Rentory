@@ -19,6 +19,7 @@ struct RootView: View {
     @EnvironmentObject private var appSecurityState: AppSecurityState
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
+    @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
 
     @State private var isShowingExampleRecordsPrompt = false
     @State private var pendingPromptProfile: RentoryUserProfile?
@@ -94,6 +95,7 @@ struct RootView: View {
                     await entitlementManager.refreshEntitlements()
                     await iCloudSyncService.refreshStatus()
                     await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
+                    await reminderNotificationService.reschedule(context: modelContext)
                 case .background:
                     await iCloudSyncService.syncBeforeBackground(context: modelContext)
                 case .inactive:
@@ -109,6 +111,7 @@ struct RootView: View {
             await entitlementManager.refreshEntitlements()
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
+            await reminderNotificationService.reschedule(context: modelContext)
         }
         .alert(exampleRecordsPromptTitle, isPresented: $isShowingExampleRecordsPrompt) {
             Button("Not now", role: .cancel) {

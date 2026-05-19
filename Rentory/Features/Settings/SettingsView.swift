@@ -631,6 +631,10 @@ struct SettingsView: View {
                 NavigationLink("Backups", value: SettingsDestination.backups)
             }
 
+            Section("Reminders") {
+                NavigationLink("Notifications", value: SettingsDestination.notifications)
+            }
+
             Section("Records and data") {
                 NavigationLink("Data on this device", value: SettingsDestination.privacyAndData)
                 NavigationLink("Archived records", value: SettingsDestination.archivedRecords)
@@ -759,6 +763,8 @@ struct SettingsView: View {
             ActivityHistorySettingsView()
         case .sampleData:
             SampleDataSettingsView()
+        case .notifications:
+            NotificationSettingsView()
         }
     }
 
@@ -1033,6 +1039,7 @@ private enum SettingsDestination: Hashable, Identifiable {
     case info
     case activityHistory
     case sampleData
+    case notifications
 
     var id: String {
         switch self {
@@ -1052,6 +1059,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "activityHistory"
         case .sampleData:
             return "sampleData"
+        case .notifications:
+            return "notifications"
         }
     }
 
@@ -1073,6 +1082,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Activity history"
         case .sampleData:
             return "Sample data"
+        case .notifications:
+            return "Notifications"
         }
     }
 
@@ -1094,6 +1105,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Recent backups, imports, reports, sync attempts and record changes on this device."
         case .sampleData:
             return "Load example records to explore Rentory, or remove them when you are done."
+        case .notifications:
+            return "Get a heads-up the morning a reminder is due."
         }
     }
 }

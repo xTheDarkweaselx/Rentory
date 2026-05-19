@@ -13,6 +13,7 @@ struct RentoryApp: App {
     @StateObject private var appSecurityState = AppSecurityState()
     @StateObject private var entitlementManager = EntitlementManager()
     @StateObject private var iCloudSyncService = ICloudSyncService()
+    @StateObject private var reminderNotificationService = ReminderNotificationService()
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
@@ -68,6 +69,7 @@ struct RentoryApp: App {
                     .environmentObject(appSecurityState)
                     .environmentObject(entitlementManager)
                     .environmentObject(iCloudSyncService)
+                    .environmentObject(reminderNotificationService)
                     .modelContainer(sharedModelContainer)
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
                     .tint(RRColours.secondary(for: selectedColourTheme))
