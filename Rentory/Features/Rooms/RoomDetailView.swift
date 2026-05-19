@@ -13,6 +13,7 @@ struct RoomDetailView: View {
     @Environment(\.modelContext) private var modelContext
 
     let room: RoomRecord
+    var stage: TenancyStage? = nil
 
     @State private var isShowingAddItemSheet = false
     @State private var alertContent: RRAlertContent?
@@ -186,7 +187,7 @@ struct RoomDetailView: View {
                 NavigationLink {
                     ChecklistItemDetailView(checklistItem: item)
                 } label: {
-                    ChecklistItemRowView(item: item)
+                    ChecklistItemRowView(item: item, stage: stage)
                 }
                 .buttonStyle(.plain)
             }

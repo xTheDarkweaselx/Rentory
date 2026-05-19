@@ -81,6 +81,57 @@ struct RentoryTests {
         #expect(cases.contains(.tenancyAgreement))
     }
 
+    @Test func tenancyStageDerivesMoveInWhenStartDateInFuture() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let future = referenceDate.addingTimeInterval(7 * 86_400)
+        #expect(TenancyStage.derive(from: future, to: nil, on: referenceDate) == .moveIn)
+    }
+
+    @Test func tenancyStageDerivesLivingWhenWithinRange() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let past = referenceDate.addingTimeInterval(-7 * 86_400)
+        let future = referenceDate.addingTimeInterval(7 * 86_400)
+        #expect(TenancyStage.derive(from: past, to: future, on: referenceDate) == .living)
+    }
+
+    @Test func tenancyStageDerivesMoveOutWhenEndDateInPast() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let past = referenceDate.addingTimeInterval(-7 * 86_400)
+        let pastEnd = referenceDate.addingTimeInterval(-1 * 86_400)
+        #expect(TenancyStage.derive(from: past, to: pastEnd, on: referenceDate) == .moveOut)
+    }
+
+    @Test func tenancyStageReturnsNilWithNoDates() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        #expect(TenancyStage.derive(from: nil, to: nil, on: referenceDate) == nil)
+    }
+
+    @Test func effectiveTenancyStageDefaultsToMoveInForFreshProperty() {
+        let property = PropertyPack(nickname: "Fresh")
+        #expect(property.derivedTenancyStage == nil)
+        #expect(property.effectiveTenancyStage == .moveIn)
+    }
+
+    @Test func manualTenancyStagePrefersManualOverDerived() {
+        let referenceDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let past = referenceDate.addingTimeInterval(-7 * 86_400)
+        let future = referenceDate.addingTimeInterval(7 * 86_400)
+        let property = PropertyPack(
+            nickname: "Test",
+            tenancyStartDate: past,
+            tenancyEndDate: future
+        )
+        // Without manual: derived is living
+        #expect(TenancyStage.derive(from: property.tenancyStartDate, to: property.tenancyEndDate, on: referenceDate) == .living)
+
+        // Set manual to moveOut
+        property.manualTenancyStage = .moveOut
+        #expect(property.manualTenancyStage == .moveOut)
+        #expect(property.effectiveTenancyStage == .moveOut)
+        // Mismatch flag should fire — derived would be living, but evaluated at .now
+        // which differs from referenceDate, so this test only asserts the manual sticks.
+    }
+
     @Test func renterProfileExcludesLandlordOnlyTimelineEvents() {
         let cases = TimelineEventType.availableCases(for: .renter)
         #expect(!cases.contains(.gasSafetyRenewed))

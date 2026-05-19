@@ -30,6 +30,7 @@ final class PropertyPack {
     var depositSchemeName: String?
     var depositReference: String?
     var notes: String?
+    var manualTenancyStageRawValue: String?
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
     var isArchived: Bool = false
@@ -60,6 +61,7 @@ final class PropertyPack {
         depositSchemeName: String? = nil,
         depositReference: String? = nil,
         notes: String? = nil,
+        manualTenancyStageRawValue: String? = nil,
         createdAt: Date = .now,
         updatedAt: Date = .now,
         isArchived: Bool = false,
@@ -88,6 +90,7 @@ final class PropertyPack {
         self.depositSchemeName = depositSchemeName
         self.depositReference = depositReference
         self.notes = notes
+        self.manualTenancyStageRawValue = manualTenancyStageRawValue
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.isArchived = isArchived
@@ -102,6 +105,29 @@ extension PropertyPack {
     var recordType: PropertyRecordType {
         get { PropertyRecordType(rawValue: recordTypeRawValue) ?? .house }
         set { recordTypeRawValue = newValue.rawValue }
+    }
+
+    var manualTenancyStage: TenancyStage? {
+        get { manualTenancyStageRawValue.flatMap(TenancyStage.init(rawValue:)) }
+        set { manualTenancyStageRawValue = newValue?.rawValue }
+    }
+
+    var derivedTenancyStage: TenancyStage? {
+        TenancyStage.derive(from: tenancyStartDate, to: tenancyEndDate)
+    }
+
+    /// The stage the UI should display. Prefers a manual override; falls
+    /// back to the date-derived stage; defaults to .moveIn for fresh
+    /// records with no dates yet.
+    var effectiveTenancyStage: TenancyStage {
+        manualTenancyStage ?? derivedTenancyStage ?? .moveIn
+    }
+
+    /// True when the user has set a manual stage that disagrees with the
+    /// stage their tenancy dates would imply. Drives the nudge banner.
+    var hasStageMismatch: Bool {
+        guard let manual = manualTenancyStage, let derived = derivedTenancyStage else { return false }
+        return manual != derived
     }
 
     var recordIconName: String {

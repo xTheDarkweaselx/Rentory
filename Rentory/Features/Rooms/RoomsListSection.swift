@@ -9,6 +9,7 @@ import SwiftUI
 
 struct RoomsListSection: View {
     let rooms: [RoomRecord]
+    var stage: TenancyStage? = nil
     let addRoomAction: () -> Void
 
     private var sortedRooms: [RoomRecord] {
@@ -17,7 +18,7 @@ struct RoomsListSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            RRSectionHeader(title: "Rooms", subtitle: "Work through each space at your own pace.")
+            RRSectionHeader(title: "Rooms", subtitle: roomsSubtitle)
 
             if sortedRooms.isEmpty {
                 RREmptyStateView(
@@ -31,7 +32,7 @@ struct RoomsListSection: View {
                 LazyVStack(spacing: 12) {
                     ForEach(sortedRooms) { room in
                         NavigationLink {
-                            RoomDetailView(room: room)
+                            RoomDetailView(room: room, stage: stage)
                         } label: {
                             RoomRowView(room: room)
                         }
@@ -39,6 +40,19 @@ struct RoomsListSection: View {
                     }
                 }
             }
+        }
+    }
+
+    private var roomsSubtitle: String {
+        switch stage {
+        case .moveIn:
+            return "Record the move-in condition for each space."
+        case .living:
+            return "Note anything new during the tenancy."
+        case .moveOut:
+            return "Record the move-out condition for each space."
+        case .none:
+            return "Work through each space at your own pace."
         }
     }
 }

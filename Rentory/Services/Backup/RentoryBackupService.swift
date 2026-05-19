@@ -180,6 +180,7 @@ struct RentoryBackupService {
                     depositSchemeName: propertyPack.depositSchemeName,
                     depositReference: propertyPack.depositReference,
                     notes: propertyPack.notes,
+                    manualTenancyStageRawValue: propertyPack.manualTenancyStageRawValue,
                     createdAt: propertyPack.createdAt,
                     updatedAt: propertyPack.updatedAt,
                     isArchived: propertyPack.isArchived
@@ -500,6 +501,7 @@ struct RentoryBackupService {
                 depositSchemeName: property.depositSchemeName,
                 depositReference: property.depositReference,
                 notes: property.notes,
+                manualTenancyStageRawValue: property.manualTenancyStageRawValue,
                 createdAt: property.createdAt,
                 updatedAt: property.updatedAt,
                 isArchived: property.isArchived
@@ -655,6 +657,7 @@ private struct BackupPropertyPack: Codable {
     let depositSchemeName: String?
     let depositReference: String?
     let notes: String?
+    let manualTenancyStageRawValue: String?
     let createdAt: Date
     let updatedAt: Date
     let isArchived: Bool

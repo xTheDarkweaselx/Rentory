@@ -275,6 +275,58 @@ enum TimelineEventType: String, CaseIterable, Codable {
     }
 }
 
+enum TenancyStage: String, CaseIterable, Codable, Identifiable {
+    case moveIn = "Move-in"
+    case living = "Living"
+    case moveOut = "Move-out"
+
+    var id: String { rawValue }
+
+    var shortTitle: String { rawValue }
+
+    var systemImage: String {
+        switch self {
+        case .moveIn: return "key"
+        case .living: return "house.fill"
+        case .moveOut: return "rectangle.portrait.and.arrow.right"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .moveIn:
+            return "Recording the property condition before or as you move in."
+        case .living:
+            return "During the tenancy — ongoing notes, reminders and incidents."
+        case .moveOut:
+            return "Documenting the property at the end of the tenancy."
+        }
+    }
+
+    var matchingPhase: EvidencePhase {
+        switch self {
+        case .moveIn: return .moveIn
+        case .living: return .duringTenancy
+        case .moveOut: return .moveOut
+        }
+    }
+
+    static func derive(from startDate: Date?, to endDate: Date?, on referenceDate: Date = .now) -> TenancyStage? {
+        switch (startDate, endDate) {
+        case (nil, nil):
+            return nil
+        case (.some(let start), nil):
+            return start > referenceDate ? .moveIn : .living
+        case (nil, .some(let end)):
+            return end < referenceDate ? .moveOut : .moveIn
+        case (.some(let start), .some(let end)):
+            if start > referenceDate { return .moveIn }
+            if end < referenceDate { return .moveOut }
+            return .living
+        }
+    }
+}
+
 enum RoomType: String, CaseIterable, Codable {
     case hallway = "Hallway"
     case livingRoom = "Living room"

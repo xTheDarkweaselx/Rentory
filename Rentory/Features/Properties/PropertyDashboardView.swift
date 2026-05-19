@@ -5,11 +5,13 @@
 //  Created by Adam Ibrahim on 30/04/2026.
 //
 
+import SwiftData
 import SwiftUI
 
 struct PropertyDashboardView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.modelContext) private var modelContext
 
     let propertyPack: PropertyPack
 
@@ -47,10 +49,24 @@ struct PropertyDashboardView: View {
 
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
+    private var activeStage: TenancyStage { propertyPack.effectiveTenancyStage }
+
+    private var stageBinding: Binding<TenancyStage> {
+        Binding(
+            get: { propertyPack.effectiveTenancyStage },
+            set: { newStage in
+                propertyPack.manualTenancyStage = newStage
+                propertyPack.updatedAt = .now
+                try? modelContext.save()
+            }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 PropertySummaryCard(propertyPack: propertyPack, showsLastUpdated: true)
+                stageSelector
                 RemindersCard(
                     propertyPack: propertyPack,
                     onSelectReminder: { reminder in selectedReminder = reminder },
@@ -200,7 +216,7 @@ struct PropertyDashboardView: View {
                     .accessibilityHint("Choose what to include in a report.")
                 }
 
-                RoomsListSection(rooms: propertyPack.rooms) {
+                RoomsListSection(rooms: propertyPack.rooms, stage: activeStage) {
                     activeSheet = .addRoom
                 }
 
@@ -421,6 +437,75 @@ struct PropertyDashboardView: View {
                     .foregroundStyle(RRColours.mutedText)
             }
         }
+    }
+
+    private var stageSelector: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Stage")
+                        .font(RRTypography.footnote.weight(.semibold))
+                        .foregroundStyle(RRColours.mutedText)
+                        .textCase(.uppercase)
+
+                    Spacer()
+
+                    Image(systemName: activeStage.systemImage)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(RRColours.secondary)
+                }
+
+                Picker("Stage", selection: stageBinding) {
+                    ForEach(TenancyStage.allCases) { stage in
+                        Text(stage.shortTitle).tag(stage)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(activeStage.description)
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if propertyPack.hasStageMismatch, let derived = propertyPack.derivedTenancyStage {
+                    stageMismatchBanner(derived: derived)
+                }
+            }
+            .accessibilityElement(children: .contain)
+        }
+    }
+
+    private func stageMismatchBanner(derived: TenancyStage) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "info.circle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(RRColours.warning)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Your tenancy dates suggest \(derived.shortTitle).")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Button {
+                    propertyPack.manualTenancyStage = nil
+                    propertyPack.updatedAt = .now
+                    try? modelContext.save()
+                } label: {
+                    Text("Switch to \(derived.shortTitle)")
+                        .font(RRTypography.footnote.weight(.semibold))
+                        .foregroundStyle(RRColours.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(RRColours.warning.opacity(0.12))
+        )
     }
 
     private func quickActionCard(title: String, icon: String, message: String) -> some View {

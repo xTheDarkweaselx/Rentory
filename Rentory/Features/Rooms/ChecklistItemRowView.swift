@@ -9,6 +9,7 @@ import SwiftUI
 
 struct ChecklistItemRowView: View {
     let item: ChecklistItemRecord
+    var stage: TenancyStage? = nil
 
     private var photoSummary: String {
         switch item.photos.count {
@@ -51,10 +52,27 @@ struct ChecklistItemRowView: View {
         .id(appColourThemeRawValue)
     }
 
+    @ViewBuilder
     private var conditionSummary: some View {
-        Group {
-            RRConditionBadge(condition: item.moveInCondition)
-            RRConditionBadge(condition: item.moveOutCondition)
+        switch stage {
+        case .moveIn:
+            labelledCondition(label: "Move-in", condition: item.moveInCondition)
+        case .moveOut:
+            labelledCondition(label: "Move-out", condition: item.moveOutCondition)
+        case .living, .none:
+            Group {
+                RRConditionBadge(condition: item.moveInCondition)
+                RRConditionBadge(condition: item.moveOutCondition)
+            }
+        }
+    }
+
+    private func labelledCondition(label: String, condition: EvidenceCondition) -> some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(RRTypography.caption.weight(.semibold))
+                .foregroundStyle(RRColours.mutedText)
+            RRConditionBadge(condition: condition)
         }
     }
 }
