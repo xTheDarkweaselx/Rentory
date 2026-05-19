@@ -11,6 +11,8 @@ import SwiftUI
 struct ChecklistItemDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
     let checklistItem: ChecklistItemRecord
 
@@ -54,96 +56,31 @@ struct ChecklistItemDetailView: View {
     }
 
     var body: some View {
-        Form {
-            Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
                 RRSheetHeader(
                     title: "Item",
-                    subtitle: "Update the title, conditions, summary or comments — and manage photos.",
+                    subtitle: "Update the title, conditions, summaries or comments — and manage photos.",
                     systemImage: "checklist"
                 )
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
 
-            Section("Item") {
-                TextField("Title", text: $title)
-                    .rrTextInputAutocapitalizationWords()
-            }
+                detailsPanel
+                summariesPanel
+                commentsPanel
+                photosPanel
 
-            Section("Conditions") {
-                Picker("Move-in", selection: $moveInCondition) {
-                    ForEach(EvidenceCondition.allCases, id: \.self) { condition in
-                        Text(condition.rawValue).tag(condition)
-                    }
-                }
-
-                Picker("Move-out", selection: $moveOutCondition) {
-                    ForEach(EvidenceCondition.allCases, id: \.self) { condition in
-                        Text(condition.rawValue).tag(condition)
-                    }
-                }
-            }
-
-            Section("Move-in summary") {
-                TextField("Add a short summary", text: $moveInSummary, axis: .vertical)
-                    .lineLimit(3...6)
-            }
-
-            Section("Move-out summary") {
-                TextField("Add a short summary", text: $moveOutSummary, axis: .vertical)
-                    .lineLimit(3...6)
-            }
-
-            Section("Comments") {
-                if sortedComments.isEmpty {
-                    Text("No comments yet.")
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                } else {
-                    ForEach(sortedComments) { comment in
-                        commentRow(comment)
-                    }
-                    .onDelete(perform: deleteComments)
-                }
-
-                addCommentEditor
-            }
-
-            Section("Photos") {
-                if checklistItem.photos.isEmpty {
-                    Text("No photos yet.")
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-
-                Button {
-                    isShowingAddPhotoFlow = true
-                } label: {
-                    Label("Add a photo", systemImage: "camera")
-                }
-                .accessibilityHint("Adds a photo to this checklist item.")
-
-                if !moveInPhotos.isEmpty {
-                    EvidencePhotoGridView(title: "Move-in", photos: moveInPhotos)
-                }
-                if !duringTenancyPhotos.isEmpty {
-                    EvidencePhotoGridView(title: "During tenancy", photos: duringTenancyPhotos)
-                }
-                if !moveOutPhotos.isEmpty {
-                    EvidencePhotoGridView(title: "Move-out", photos: moveOutPhotos)
-                }
-            }
-
-            Section {
                 RRDestructiveButton(title: "Delete item") {
                     isShowingDeleteConfirmation = true
                 }
             }
+            .frame(maxWidth: DeviceLayout.contentWidth(for: horizontalSizeClass, maximum: PlatformLayout.preferredDialogWidth), alignment: .leading)
+            .padding(RRTheme.screenPadding)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
+        .scrollIndicators(.hidden)
+        .background(RRBackgroundView())
         .navigationTitle(checklistItem.title)
         .rrInlineNavigationTitle()
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
         .toolbar {
             ToolbarItem(placement: .rrPrimaryAction) {
                 Button("Save") {
@@ -175,32 +112,168 @@ struct ChecklistItemDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func commentRow(_ comment: ItemComment) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(comment.body)
-                .font(RRTypography.body)
-                .foregroundStyle(RRColours.primary)
+    // MARK: - Panels
 
-            HStack(spacing: 8) {
-                if let phase = comment.evidencePhase {
-                    Text(phase.rawValue)
-                        .font(RRTypography.caption.weight(.semibold))
-                        .foregroundStyle(RRColours.secondary)
+    private var detailsPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                RRSectionHeader(
+                    title: "Details",
+                    subtitle: "Name the item and record the move-in and move-out conditions."
+                )
+
+                labelledField(label: "Title") {
+                    TextField("Title", text: $title)
+                        .textFieldStyle(.roundedBorder)
+                        .rrTextInputAutocapitalizationWords()
                 }
-                Text(comment.createdAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(RRTypography.caption)
-                    .foregroundStyle(RRColours.mutedText)
+
+                conditionRow(label: "Move-in condition", selection: $moveInCondition)
+                conditionRow(label: "Move-out condition", selection: $moveOutCondition)
             }
         }
     }
 
-    private var addCommentEditor: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            TextField("Add a comment", text: $newCommentBody, axis: .vertical)
-                .lineLimit(2...4)
+    private var summariesPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                RRSectionHeader(
+                    title: "Summaries",
+                    subtitle: "A short note for each phase."
+                )
 
-            HStack {
+                labelledField(label: "Move-in summary") {
+                    TextField("Add a short summary", text: $moveInSummary, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(3...6)
+                }
+
+                labelledField(label: "Move-out summary") {
+                    TextField("Add a short summary", text: $moveOutSummary, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                        .lineLimit(3...6)
+                }
+            }
+        }
+    }
+
+    private var commentsPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                RRSectionHeader(
+                    title: "Comments",
+                    subtitle: sortedComments.isEmpty
+                        ? "Add notes as you go."
+                        : "\(sortedComments.count) comment\(sortedComments.count == 1 ? "" : "s")"
+                )
+
+                if !sortedComments.isEmpty {
+                    VStack(spacing: 0) {
+                        ForEach(Array(sortedComments.enumerated()), id: \.element.id) { index, comment in
+                            if index > 0 {
+                                Divider()
+                                    .background(RRColours.border)
+                            }
+                            commentRow(comment)
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(RRColours.cardBackground.opacity(0.55))
+                    )
+                }
+
+                addCommentEditor
+            }
+        }
+    }
+
+    private var photosPanel: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                RRSectionHeader(
+                    title: "Photos",
+                    subtitle: checklistItem.photos.isEmpty
+                        ? "Add photos when you want a clearer record of this item."
+                        : "\(checklistItem.photos.count) photo\(checklistItem.photos.count == 1 ? "" : "s")"
+                )
+
+                RRSecondaryButton(title: "Add a photo") {
+                    isShowingAddPhotoFlow = true
+                }
+                .accessibilityHint("Adds a photo to this checklist item.")
+
+                if !moveInPhotos.isEmpty {
+                    EvidencePhotoGridView(title: "Move-in", photos: moveInPhotos)
+                }
+                if !duringTenancyPhotos.isEmpty {
+                    EvidencePhotoGridView(title: "During tenancy", photos: duringTenancyPhotos)
+                }
+                if !moveOutPhotos.isEmpty {
+                    EvidencePhotoGridView(title: "Move-out", photos: moveOutPhotos)
+                }
+            }
+        }
+    }
+
+    // MARK: - Comment row + editor
+
+    @ViewBuilder
+    private func commentRow(_ comment: ItemComment) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(comment.body)
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    if let phase = comment.evidencePhase {
+                        Text(phase.rawValue)
+                            .font(RRTypography.caption.weight(.semibold))
+                            .foregroundStyle(RRColours.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(RRColours.secondary.opacity(0.14))
+                            )
+                    }
+                    Text(comment.createdAt.formatted(date: .abbreviated, time: .omitted))
+                        .font(RRTypography.caption)
+                        .foregroundStyle(RRColours.mutedText)
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                deleteComment(comment)
+            } label: {
+                Image(systemName: "trash")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(RRColours.danger)
+                    .padding(6)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Delete comment")
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+    }
+
+    private var addCommentEditor: some View {
+        VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+            Text("Add a comment")
+                .font(RRTypography.footnote.weight(.semibold))
+                .foregroundStyle(RRColours.mutedText)
+
+            TextField("What did you notice?", text: $newCommentBody, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .lineLimit(2...5)
+
+            HStack(spacing: 12) {
                 Picker("Phase", selection: $newCommentPhase) {
                     Text("No phase").tag(EvidencePhase?.none)
                     ForEach(EvidencePhase.allCases, id: \.self) { phase in
@@ -211,13 +284,58 @@ struct ChecklistItemDetailView: View {
 
                 Spacer()
 
-                Button("Add comment") {
+                Button {
                     addComment()
+                } label: {
+                    Label("Add comment", systemImage: "plus.circle.fill")
+                        .labelStyle(.titleAndIcon)
+                        .font(RRTypography.footnote.weight(.semibold))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(canAddComment ? RRColours.secondary : RRColours.secondary.opacity(0.3))
+                        )
+                        .foregroundStyle(.white)
                 }
-                .disabled(newCommentBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .buttonStyle(.plain)
+                .disabled(!canAddComment)
+                .accessibilityLabel("Add comment")
             }
         }
     }
+
+    private var canAddComment: Bool {
+        !newCommentBody.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func labelledField<Content: View>(label: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+            Text(label)
+                .font(RRTypography.footnote.weight(.semibold))
+                .foregroundStyle(RRColours.mutedText)
+
+            content()
+        }
+    }
+
+    @ViewBuilder
+    private func conditionRow(label: String, selection: Binding<EvidenceCondition>) -> some View {
+        labelledField(label: label) {
+            Picker(label, selection: selection) {
+                ForEach(EvidenceCondition.allCases, id: \.self) { condition in
+                    Text(condition.rawValue).tag(condition)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    // MARK: - Actions
 
     private func addComment() {
         let trimmed = newCommentBody.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -240,12 +358,8 @@ struct ChecklistItemDetailView: View {
         }
     }
 
-    private func deleteComments(at offsets: IndexSet) {
-        let comments = sortedComments
-        for offset in offsets {
-            let comment = comments[offset]
-            modelContext.delete(comment)
-        }
+    private func deleteComment(_ comment: ItemComment) {
+        modelContext.delete(comment)
         checklistItem.updatedAt = .now
 
         do {
