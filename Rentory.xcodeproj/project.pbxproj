@@ -103,6 +103,30 @@
 		99CCDD030300000000000001 /* RentoryWatchComplications.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RentoryWatchComplications.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		77AABB01010000000000000E /* Exceptions for "RentoryWidgets" folder in "RentoryWidgets" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 77AABB010100000000000002 /* RentoryWidgets */;
+		};
+		88BBCC02020000000000000E /* Exceptions for "RentoryWatch" folder in "RentoryWatch" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 88BBCC020200000000000002 /* RentoryWatch */;
+		};
+		99CCDD03030000000000000E /* Exceptions for "RentoryWatchComplications" folder in "RentoryWatchComplications" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 99CCDD030300000000000002 /* RentoryWatchComplications */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6691EBD02FA3DC04006FC53C /* Rentory */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -122,7 +146,7 @@
 		77AABB010100000000000003 /* RentoryWidgets */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				77AABB01010000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				77AABB01010000000000000E /* Exceptions for "RentoryWidgets" folder in "RentoryWidgets" target */,
 			);
 			path = RentoryWidgets;
 			sourceTree = "<group>";
@@ -130,7 +154,7 @@
 		88BBCC020200000000000003 /* RentoryWatch */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				88BBCC02020000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				88BBCC02020000000000000E /* Exceptions for "RentoryWatch" folder in "RentoryWatch" target */,
 			);
 			path = RentoryWatch;
 			sourceTree = "<group>";
@@ -138,39 +162,12 @@
 		99CCDD030300000000000003 /* RentoryWatchComplications */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				99CCDD03030000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				99CCDD03030000000000000E /* Exceptions for "RentoryWatchComplications" folder in "RentoryWatchComplications" target */,
 			);
 			path = RentoryWatchComplications;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		77AABB01010000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				RentoryWidgets.entitlements,
-			);
-			target = 77AABB010100000000000002 /* RentoryWidgets */;
-		};
-		88BBCC02020000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				RentoryWatch.entitlements,
-			);
-			target = 88BBCC020200000000000002 /* RentoryWatch */;
-		};
-		99CCDD03030000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-				RentoryWatchComplications.entitlements,
-			);
-			target = 99CCDD030300000000000002 /* RentoryWatchComplications */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		6691EBCB2FA3DC04006FC53C /* Frameworks */ = {
@@ -1020,7 +1017,9 @@
 		88BBCC02020000000000000B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1054,7 +1053,9 @@
 		88BBCC02020000000000000C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
