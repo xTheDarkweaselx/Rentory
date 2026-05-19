@@ -11,10 +11,27 @@
 //  Stays local-first: nothing leaves the device pair. If no watch is
 //  paired or the session isn't reachable, calls are no-ops.
 //
+//  WatchConnectivity is only available on iOS (and watchOS). The main
+//  Rentory target also builds for macOS and visionOS, where the
+//  framework is absent — there we compile a no-op stub so the rest of
+//  the app keeps building. Watch features are inherently
+//  iPhone-paired, so no user-facing capability is lost on those
+//  platforms.
+//
 
 import Foundation
 import Combine
 import SwiftData
+
+struct PendingReminderPayload: Codable, Equatable {
+    let id: UUID
+    let propertyID: UUID
+    let title: String
+    let dueDate: Date
+    let createdAt: Date
+}
+
+#if canImport(WatchConnectivity)
 import WatchConnectivity
 
 @MainActor
@@ -92,14 +109,6 @@ final class WatchSyncService: NSObject, ObservableObject {
     }
 }
 
-struct PendingReminderPayload: Codable, Equatable {
-    let id: UUID
-    let propertyID: UUID
-    let title: String
-    let dueDate: Date
-    let createdAt: Date
-}
-
 extension WatchSyncService: @preconcurrency WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         Task { @MainActor in
@@ -144,6 +153,29 @@ extension WatchSyncService: @preconcurrency WCSessionDelegate {
         handleIncoming(message)
     }
 }
+
+#else
+
+@MainActor
+final class WatchSyncService: NSObject, ObservableObject {
+    @Published private(set) var isWatchAppInstalled: Bool = false
+    @Published private(set) var isReachable: Bool = false
+    @Published private(set) var lastSendError: String?
+
+    override init() {
+        super.init()
+    }
+
+    func setPendingReminderHandler(_ handler: @escaping (PendingReminderPayload) -> Void) {
+        _ = handler
+    }
+
+    func send(_ snapshot: RentorySharedSnapshot) {
+        _ = snapshot
+    }
+}
+
+#endif
 
 /// Convert a watch-originated pending reminder into a persisted
 /// Reminder on the paired PropertyPack. Returns the saved Reminder or
