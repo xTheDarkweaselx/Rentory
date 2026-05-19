@@ -724,6 +724,120 @@ struct RentoryTests {
         #expect(imported[0].reminders[0].notes == "Email landlord")
     }
 
+    @Test func backupRoundTripPreservesTenanciesAndTenants() throws {
+        let sourceStorageService = makeService()
+        let sourceContext = try makeModelContext()
+        let sourceBackupService = RentoryBackupService(
+            fileStorageService: sourceStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: sourceStorageService)
+        )
+
+        let startDate = Date(timeIntervalSince1970: 1_700_000_000)
+        let endDate = Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 365)
+        let primaryTenant = Tenant(
+            name: "Alex Sample",
+            email: "alex@sample.test",
+            phone: "07000 111222",
+            sortOrder: 0,
+            notes: "Primary contact"
+        )
+        let secondaryTenant = Tenant(
+            name: "Sam Sample",
+            email: "sam@sample.test",
+            phone: nil,
+            sortOrder: 1,
+            notes: nil
+        )
+        let activeTenancy = Tenancy(
+            startDate: startDate,
+            endDate: endDate,
+            status: .active,
+            tenancyType: .assuredShorthold,
+            depositAmount: 1500,
+            depositSchemeName: "Custodial sample",
+            depositReference: "CST-7788",
+            rentAmount: 1200,
+            rentFrequency: .monthly,
+            notes: "Twelve-month fixed term.",
+            signedOnDate: startDate,
+            breakClauseDate: Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 180),
+            mode: .comprehensive,
+            tenants: [primaryTenant, secondaryTenant]
+        )
+        let endedTenancy = Tenancy(
+            startDate: Date(timeIntervalSince1970: 1_700_000_000 - 86_400 * 365),
+            endDate: Date(timeIntervalSince1970: 1_700_000_000 - 86_400),
+            status: .ended,
+            tenancyType: .fixedTerm,
+            rentAmount: 950,
+            rentFrequency: .monthly,
+            mode: .standard,
+            tenants: [
+                Tenant(name: "Previous Sample", sortOrder: 0),
+            ]
+        )
+
+        let propertyPack = PropertyPack(
+            nickname: "Linden Avenue",
+            profile: .landlord,
+            tenancies: [activeTenancy, endedTenancy]
+        )
+        sourceContext.insert(propertyPack)
+        try sourceContext.save()
+
+        let backupURL = try sourceBackupService.createBackup(context: sourceContext)
+        let loaded = try sourceBackupService.loadBackup(from: backupURL)
+        #expect(loaded.manifest.tenancyCount == 2)
+        #expect(loaded.manifest.tenantCount == 3)
+
+        let destinationStorageService = makeService()
+        let destinationContext = try makeModelContext()
+        let destinationBackupService = RentoryBackupService(
+            fileStorageService: destinationStorageService,
+            deletionService: RentoryDataDeletionService(fileStorageService: destinationStorageService)
+        )
+
+        try destinationBackupService.importBackup(loaded, mode: .addToExisting, context: destinationContext)
+
+        let imported = try destinationContext.fetch(FetchDescriptor<PropertyPack>())
+        #expect(imported.count == 1)
+
+        let pack = imported[0]
+        #expect(pack.profile == .landlord)
+        #expect(pack.tenancies.count == 2)
+
+        let sortedTenancies = pack.tenancies.sorted { $0.startDate > $1.startDate }
+        let activeImported = sortedTenancies[0]
+        #expect(activeImported.status == .active)
+        #expect(activeImported.tenancyType == .assuredShorthold)
+        #expect(activeImported.depositAmount == 1500)
+        #expect(activeImported.depositSchemeName == "Custodial sample")
+        #expect(activeImported.depositReference == "CST-7788")
+        #expect(activeImported.rentAmount == 1200)
+        #expect(activeImported.rentFrequency == .monthly)
+        #expect(activeImported.notes == "Twelve-month fixed term.")
+        #expect(activeImported.mode == .comprehensive)
+        #expect(activeImported.signedOnDate == startDate)
+        #expect(activeImported.breakClauseDate != nil)
+        #expect(activeImported.tenants.count == 2)
+
+        let sortedTenants = activeImported.tenants.sorted { $0.sortOrder < $1.sortOrder }
+        #expect(sortedTenants[0].name == "Alex Sample")
+        #expect(sortedTenants[0].email == "alex@sample.test")
+        #expect(sortedTenants[0].phone == "07000 111222")
+        #expect(sortedTenants[0].notes == "Primary contact")
+        #expect(sortedTenants[1].name == "Sam Sample")
+        #expect(sortedTenants[1].email == "sam@sample.test")
+        #expect(sortedTenants[1].phone == nil)
+
+        let endedImported = sortedTenancies[1]
+        #expect(endedImported.status == .ended)
+        #expect(endedImported.tenancyType == .fixedTerm)
+        #expect(endedImported.mode == .standard)
+        #expect(endedImported.tenants.count == 1)
+        #expect(endedImported.tenants[0].name == "Previous Sample")
+    }
+
     @Test func backupRoundTripPreservesProfileTag() throws {
         let sourceStorageService = makeService()
         let sourceContext = try makeModelContext()
