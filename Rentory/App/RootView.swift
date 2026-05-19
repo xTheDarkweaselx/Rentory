@@ -21,6 +21,9 @@ struct RootView: View {
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
     @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
 
+    @StateObject private var watchSyncService = WatchSyncService()
+    @State private var didWireWatchBridge = false
+
     @State private var isShowingExampleRecordsPrompt = false
     @State private var pendingPromptProfile: RentoryUserProfile?
     @State private var isLoadingExampleRecords = false
@@ -111,6 +114,7 @@ struct RootView: View {
         .task {
             migrateLegacyExampleRecordsPromptFlag()
             try? FileStorageService().cleanupOldTemporaryExports()
+            wireWatchBridgeIfNeeded()
             await entitlementManager.refreshEntitlements()
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
@@ -185,6 +189,18 @@ struct RootView: View {
         switch profile {
         case .renter: hasAnsweredRenterPrompt = answered
         case .landlord: hasAnsweredLandlordPrompt = answered
+        }
+    }
+
+    private func wireWatchBridgeIfNeeded() {
+        guard !didWireWatchBridge else { return }
+        didWireWatchBridge = true
+        snapshotPublisher.onPublish = { [weak watchSyncService] snapshot in
+            watchSyncService?.send(snapshot)
+        }
+        let context = modelContext
+        watchSyncService.setPendingReminderHandler { payload in
+            WatchPendingReminderApplier.apply(payload, in: context)
         }
     }
 

@@ -13,6 +13,7 @@
 		6691EEC42FA67181006FC53C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6691EEC32FA67181006FC53C /* StoreKit.framework */; };
 		66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 66C91F7E2FAAA38000EA887C /* Rentory.storekit */; };
 		77AABB010100000000000008 /* RentoryWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 77AABB010100000000000001 /* RentoryWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 88BBCC020200000000000001 /* RentoryWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,6 +38,13 @@
 			remoteGlobalIDString = 77AABB010100000000000002;
 			remoteInfo = RentoryWidgets;
 		};
+		88BBCC020200000000000009 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6691EBC62FA3DC04006FC53C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 88BBCC020200000000000002;
+			remoteInfo = RentoryWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -51,6 +59,17 @@
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88BBCC020200000000000007 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +80,7 @@
 		6691EEC32FA67181006FC53C /* StoreKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreKit.framework; path = System/Library/Frameworks/StoreKit.framework; sourceTree = SDKROOT; };
 		66C91F7E2FAAA38000EA887C /* Rentory.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Rentory.storekit; sourceTree = "<group>"; };
 		77AABB010100000000000001 /* RentoryWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RentoryWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		88BBCC020200000000000001 /* RentoryWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RentoryWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -87,6 +107,14 @@
 			path = RentoryWidgets;
 			sourceTree = "<group>";
 		};
+		88BBCC020200000000000003 /* RentoryWatch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				88BBCC02020000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
+			path = RentoryWatch;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -97,6 +125,14 @@
 				RentoryWidgets.entitlements,
 			);
 			target = 77AABB010100000000000002 /* RentoryWidgets */;
+		};
+		88BBCC02020000000000000E /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+				RentoryWatch.entitlements,
+			);
+			target = 88BBCC020200000000000002 /* RentoryWatch */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -130,6 +166,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88BBCC020200000000000005 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -142,6 +185,7 @@
 				6691EBE02FA3DC06006FC53C /* RentoryTests */,
 				6691EBEA2FA3DC06006FC53C /* RentoryUITests */,
 				77AABB010100000000000003 /* RentoryWidgets */,
+				88BBCC020200000000000003 /* RentoryWatch */,
 				6691EEC22FA67181006FC53C /* Frameworks */,
 				6691EBCF2FA3DC04006FC53C /* Products */,
 			);
@@ -154,6 +198,7 @@
 				6691EBDD2FA3DC06006FC53C /* RentoryTests.xctest */,
 				6691EBE72FA3DC06006FC53C /* RentoryUITests.xctest */,
 				77AABB010100000000000001 /* RentoryWidgets.appex */,
+				88BBCC020200000000000001 /* RentoryWatch.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -177,11 +222,13 @@
 				6691EBCB2FA3DC04006FC53C /* Frameworks */,
 				6691EBCC2FA3DC04006FC53C /* Resources */,
 				77AABB010100000000000007 /* Embed Foundation Extensions */,
+				88BBCC020200000000000007 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				77AABB01010000000000000A /* PBXTargetDependency */,
+				88BBCC02020000000000000A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				6691EBD02FA3DC04006FC53C /* Rentory */,
@@ -261,6 +308,28 @@
 			productReference = 77AABB010100000000000001 /* RentoryWidgets.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		88BBCC020200000000000002 /* RentoryWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 88BBCC02020000000000000D /* Build configuration list for PBXNativeTarget "RentoryWatch" */;
+			buildPhases = (
+				88BBCC020200000000000004 /* Sources */,
+				88BBCC020200000000000005 /* Frameworks */,
+				88BBCC020200000000000006 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				88BBCC020200000000000003 /* RentoryWatch */,
+			);
+			name = RentoryWatch;
+			packageProductDependencies = (
+			);
+			productName = RentoryWatch;
+			productReference = 88BBCC020200000000000001 /* RentoryWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -285,6 +354,9 @@
 					77AABB010100000000000002 = {
 						CreatedOnToolsVersion = 26.4.1;
 					};
+					88BBCC020200000000000002 = {
+						CreatedOnToolsVersion = 26.4.1;
+					};
 				};
 			};
 			buildConfigurationList = 6691EBC92FA3DC04006FC53C /* Build configuration list for PBXProject "Rentory" */;
@@ -306,6 +378,7 @@
 				6691EBDC2FA3DC06006FC53C /* RentoryTests */,
 				6691EBE62FA3DC06006FC53C /* RentoryUITests */,
 				77AABB010100000000000002 /* RentoryWidgets */,
+				88BBCC020200000000000002 /* RentoryWatch */,
 			);
 		};
 /* End PBXProject section */
@@ -343,6 +416,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88BBCC020200000000000006 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -374,6 +454,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		88BBCC020200000000000004 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -391,6 +478,11 @@
 			isa = PBXTargetDependency;
 			target = 77AABB010100000000000002 /* RentoryWidgets */;
 			targetProxy = 77AABB010100000000000009 /* PBXContainerItemProxy */;
+		};
+		88BBCC02020000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 88BBCC020200000000000002 /* RentoryWatch */;
+			targetProxy = 88BBCC020200000000000009 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -833,6 +925,74 @@
 			};
 			name = Release;
 		};
+		88BBCC02020000000000000B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 8RUSX2C6R9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RentoryWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.97;
+				PRODUCT_BUNDLE_IDENTIFIER = "Fusion-Studios.Rentory.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Debug;
+		};
+		88BBCC02020000000000000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEAD_CODE_STRIPPING = YES;
+				DEVELOPMENT_TEAM = 8RUSX2C6R9;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = RentoryWatch/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.97;
+				PRODUCT_BUNDLE_IDENTIFIER = "Fusion-Studios.Rentory.watchkitapp";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 11.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -877,6 +1037,15 @@
 			buildConfigurations = (
 				77AABB01010000000000000B /* Debug */,
 				77AABB01010000000000000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		88BBCC02020000000000000D /* Build configuration list for PBXNativeTarget "RentoryWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				88BBCC02020000000000000B /* Debug */,
+				88BBCC02020000000000000C /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

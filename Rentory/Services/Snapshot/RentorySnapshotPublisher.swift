@@ -38,7 +38,13 @@ final class RentorySnapshotPublisher {
     func publish(context: ModelContext, activeProfile: RentoryUserProfile) {
         let snapshot = makeSnapshot(context: context, activeProfile: activeProfile)
         try? RentorySharedSnapshotStore.write(snapshot)
+        onPublish?(snapshot)
     }
+
+    /// Optional hook fired after each successful publish. Used to mirror the
+    /// snapshot to the paired Apple Watch via WatchSyncService without
+    /// coupling the publisher to WatchConnectivity directly.
+    var onPublish: ((RentorySharedSnapshot) -> Void)?
 
     /// Pure builder, separated so tests can drive it without filesystem
     /// side effects.
