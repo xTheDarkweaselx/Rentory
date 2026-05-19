@@ -60,7 +60,7 @@ struct OnboardingView: View {
 
                 pageDeck
                     .frame(maxWidth: 640)
-                    .frame(height: 480)
+                    .frame(minHeight: 480, maxHeight: .infinity)
 
                 compactPageIndicator
 
@@ -155,30 +155,28 @@ struct OnboardingView: View {
 
     private var profilePickerCard: some View {
         RRGlassPanel {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
-                    RRIconBadge(systemName: "person.crop.circle.badge.questionmark", tint: RRColours.secondary, size: 56)
-                        .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 18) {
+                RRIconBadge(systemName: "person.crop.circle.badge.questionmark", tint: RRColours.secondary, size: 56)
+                    .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("How will you use Rentory?")
-                            .font(RRTypography.largeTitle)
-                            .foregroundStyle(RRColours.primary)
-                            .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("How will you use Rentory?")
+                        .font(RRTypography.largeTitle)
+                        .foregroundStyle(RRColours.primary)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                        Text("Pick the profile that fits how you'll use the app. You can switch at any time in Settings.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
-                    VStack(spacing: 12) {
-                        profileChoiceRow(.renter)
-                        profileChoiceRow(.landlord)
-                    }
+                    Text("Pick the profile that fits how you'll use the app. You can switch at any time in Settings.")
+                        .font(RRTypography.body)
+                        .foregroundStyle(RRColours.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+
+                VStack(spacing: 12) {
+                    profileChoiceRow(.renter)
+                    profileChoiceRow(.landlord)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
