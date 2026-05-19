@@ -6,17 +6,28 @@
 - [x] App Lock tested.
 - [x] Photo adding tested.
 - [x] Document adding tested.
-- [x] Report export tested.
+- [x] Report export tested (renter).
+- [ ] Report export tested (landlord — Tenancies + Reminders sections).
 - [x] Backup export tested.
 - [x] Backup import tested.
+- [ ] Backup payload v3 verified to carry tenancies, tenants, reminders and profile tag.
 - [x] Delete record tested.
 - [x] Delete all data tested.
 - [x] Free limits tested.
 - [x] Lifetime unlock tested with StoreKit configuration.
+- [ ] Landlord profile gated behind lifetime unlock (free users see paywall).
+- [ ] Profile switch in Settings shows / hides the right records.
+- [ ] Landlord onboarding sample prompt fires on first switch.
+- [ ] Renter sample set loads (8 records).
+- [ ] Landlord sample set loads (6 records).
+- [ ] Tenancy CRUD (add / edit / delete) tested.
+- [ ] Tenant add / edit / delete tested.
+- [ ] Compliance reminder kinds appear only for landlord profile.
+- [ ] iCloud sync round-trip tested (two simulators / devices, opt-in).
 - [x] VoiceOver spot check completed.
 - [x] Dynamic Type spot check completed.
 - [x] Light and dark mode checked.
-- [ ] App Store screenshots prepared.
+- [ ] App Store screenshots prepared (includes at least one landlord screen).
 - [ ] Privacy nutrition labels reviewed.
 - [x] No debug sample data left in release build.
 - [x] No sensitive print statements.
