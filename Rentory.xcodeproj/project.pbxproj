@@ -76,7 +76,6 @@
 				88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
-			platformFilter = ios;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		99CCDD030300000000000007 /* Embed Foundation Extensions */ = {
