@@ -13,7 +13,7 @@
 		6691EEC42FA67181006FC53C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6691EEC32FA67181006FC53C /* StoreKit.framework */; };
 		66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 66C91F7E2FAAA38000EA887C /* Rentory.storekit */; };
 		77AABB010100000000000008 /* RentoryWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 77AABB010100000000000001 /* RentoryWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
-		88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 88BBCC020200000000000001 /* RentoryWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 88BBCC020200000000000001 /* RentoryWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		99CCDD030300000000000008 /* RentoryWatchComplications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 99CCDD030300000000000001 /* RentoryWatchComplications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
@@ -76,6 +76,7 @@
 				88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */,
 			);
 			name = "Embed Watch Content";
+			platformFilter = ios;
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		99CCDD030300000000000007 /* Embed Foundation Extensions */ = {
@@ -565,6 +566,7 @@
 		};
 		88BBCC02020000000000000A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
+			platformFilter = ios;
 			target = 88BBCC020200000000000002 /* RentoryWatch */;
 			targetProxy = 88BBCC020200000000000009 /* PBXContainerItemProxy */;
 		};
