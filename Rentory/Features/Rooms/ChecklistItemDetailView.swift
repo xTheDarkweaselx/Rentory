@@ -15,6 +15,7 @@ struct ChecklistItemDetailView: View {
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
     let checklistItem: ChecklistItemRecord
+    var stage: TenancyStage? = nil
 
     @State private var title: String
     @State private var moveInCondition: EvidenceCondition
@@ -27,13 +28,40 @@ struct ChecklistItemDetailView: View {
     @State private var alertContent: RRAlertContent?
     @State private var isShowingDeleteConfirmation = false
 
-    init(checklistItem: ChecklistItemRecord) {
+    init(checklistItem: ChecklistItemRecord, stage: TenancyStage? = nil) {
         self.checklistItem = checklistItem
+        self.stage = stage
         _title = State(initialValue: checklistItem.title)
         _moveInCondition = State(initialValue: checklistItem.moveInCondition)
         _moveOutCondition = State(initialValue: checklistItem.moveOutCondition)
         _moveInSummary = State(initialValue: checklistItem.moveInNotes ?? "")
         _moveOutSummary = State(initialValue: checklistItem.moveOutNotes ?? "")
+    }
+
+    /// True when the tenancy is in a phase where move-out evidence
+    /// makes sense to capture. During move-in or while living we hide
+    /// the move-out controls so the user isn't tempted to record an
+    /// exit summary mid-tenancy. With no tenancy dates set at all we
+    /// fall back to showing everything — the user has opted out of the
+    /// staged flow.
+    private var showsMoveOutControls: Bool {
+        switch stage {
+        case .moveIn, .living: return false
+        case .moveOut, .none: return true
+        }
+    }
+
+    /// A small hint shown in place of the move-out controls so the user
+    /// understands *why* they're missing, not just that they vanished.
+    private var moveOutLockedHint: String? {
+        switch stage {
+        case .moveIn:
+            return "Move-out unlocks when you reach the end of your tenancy."
+        case .living:
+            return "Move-out unlocks when your tenancy is ending."
+        case .moveOut, .none:
+            return nil
+        }
     }
 
     private var moveInPhotos: [EvidencePhoto] {
@@ -108,7 +136,7 @@ struct ChecklistItemDetailView: View {
             )
         }
         .sheet(isPresented: $isShowingAddPhotoFlow) {
-            AddPhotoFlowView(checklistItem: checklistItem)
+            AddPhotoFlowView(checklistItem: checklistItem, stage: stage)
         }
     }
 
@@ -119,7 +147,9 @@ struct ChecklistItemDetailView: View {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
                 RRSectionHeader(
                     title: "Details",
-                    subtitle: "Name the item and record the move-in and move-out conditions."
+                    subtitle: showsMoveOutControls
+                        ? "Name the item and record the move-in and move-out conditions."
+                        : "Name the item and record the move-in condition."
                 )
 
                 labelledField(label: "Title") {
@@ -129,7 +159,12 @@ struct ChecklistItemDetailView: View {
                 }
 
                 conditionRow(label: "Move-in condition", selection: $moveInCondition)
-                conditionRow(label: "Move-out condition", selection: $moveOutCondition)
+
+                if showsMoveOutControls {
+                    conditionRow(label: "Move-out condition", selection: $moveOutCondition)
+                } else if let hint = moveOutLockedHint {
+                    lockedFieldHint(label: "Move-out condition", hint: hint)
+                }
             }
         }
     }
@@ -139,7 +174,9 @@ struct ChecklistItemDetailView: View {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
                 RRSectionHeader(
                     title: "Summaries",
-                    subtitle: "A short note for each phase."
+                    subtitle: showsMoveOutControls
+                        ? "A short note for each phase."
+                        : "A short note for the move-in phase."
                 )
 
                 labelledField(label: "Move-in summary") {
@@ -148,10 +185,14 @@ struct ChecklistItemDetailView: View {
                         .lineLimit(3...6)
                 }
 
-                labelledField(label: "Move-out summary") {
-                    TextField("Add a short summary", text: $moveOutSummary, axis: .vertical)
-                        .textFieldStyle(.roundedBorder)
-                        .lineLimit(3...6)
+                if showsMoveOutControls {
+                    labelledField(label: "Move-out summary") {
+                        TextField("Add a short summary", text: $moveOutSummary, axis: .vertical)
+                            .textFieldStyle(.roundedBorder)
+                            .lineLimit(3...6)
+                    }
+                } else if let hint = moveOutLockedHint {
+                    lockedFieldHint(label: "Move-out summary", hint: hint)
                 }
             }
         }
@@ -323,6 +364,28 @@ struct ChecklistItemDetailView: View {
     }
 
     @ViewBuilder
+    private func lockedFieldHint(label: String, hint: String) -> some View {
+        labelledField(label: label) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(RRColours.mutedText)
+                Text(hint)
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(RRColours.cardBackground.opacity(0.55))
+            )
+        }
+    }
+
+    @ViewBuilder
     private func conditionRow(label: String, selection: Binding<EvidenceCondition>) -> some View {
         labelledField(label: label) {
             Picker(label, selection: selection) {
@@ -382,9 +445,14 @@ struct ChecklistItemDetailView: View {
 
         checklistItem.title = trimmedTitle
         checklistItem.moveInCondition = moveInCondition
-        checklistItem.moveOutCondition = moveOutCondition
         checklistItem.moveInNotes = optionalText(moveInSummary)
-        checklistItem.moveOutNotes = optionalText(moveOutSummary)
+        // Only persist move-out fields when the staged flow allows
+        // capturing them — protects against stale local state being
+        // written back over a previously-untouched value.
+        if showsMoveOutControls {
+            checklistItem.moveOutCondition = moveOutCondition
+            checklistItem.moveOutNotes = optionalText(moveOutSummary)
+        }
         checklistItem.updatedAt = .now
 
         do {

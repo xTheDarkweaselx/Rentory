@@ -182,10 +182,14 @@ struct RoomDetailView: View {
     }
 
     private var checklistRows: some View {
-        LazyVStack(spacing: 12) {
+        // Spacing has to clear the card's drop-shadow (radius 20, y +10)
+        // and its own internal padding — at 12pt the next card landed
+        // visually on top of the previous card's shadow tail and made
+        // the rows feel cramped/overlapping.
+        LazyVStack(spacing: 20) {
             ForEach(sortedChecklistItems) { item in
                 NavigationLink {
-                    ChecklistItemDetailView(checklistItem: item)
+                    ChecklistItemDetailView(checklistItem: item, stage: stage)
                 } label: {
                     ChecklistItemRowView(item: item, stage: stage)
                 }

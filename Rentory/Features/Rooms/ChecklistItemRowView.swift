@@ -57,9 +57,20 @@ struct ChecklistItemRowView: View {
         switch stage {
         case .moveIn:
             labelledCondition(label: "Move-in", condition: item.moveInCondition)
+        case .living:
+            // Tenancy is in progress: move-out condition isn't a thing yet.
+            // Surface only the move-in record so the renter / landlord
+            // doesn't think they're meant to fill move-out in mid-tenancy.
+            labelledCondition(label: "Move-in", condition: item.moveInCondition)
         case .moveOut:
-            labelledCondition(label: "Move-out", condition: item.moveOutCondition)
-        case .living, .none:
+            // At move-out the move-in is the historical reference and
+            // move-out is what's actively being captured — show both so
+            // the user can compare before/after at a glance.
+            Group {
+                labelledCondition(label: "Move-in", condition: item.moveInCondition)
+                labelledCondition(label: "Move-out", condition: item.moveOutCondition)
+            }
+        case .none:
             Group {
                 RRConditionBadge(condition: item.moveInCondition)
                 RRConditionBadge(condition: item.moveOutCondition)
