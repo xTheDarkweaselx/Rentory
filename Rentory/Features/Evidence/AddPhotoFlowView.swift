@@ -19,6 +19,21 @@ struct AddPhotoFlowView: View {
     @Query private var allPhotos: [EvidencePhoto]
 
     let checklistItem: ChecklistItemRecord
+    var stage: TenancyStage? = nil
+
+    /// Phases the user is allowed to tag a new photo with. Mirrors the
+    /// move-out lock applied in ChecklistItemDetailView: during move-in
+    /// or while living, "Move-out" is hidden so the user doesn't end up
+    /// with a stray exit photo before the tenancy is actually winding
+    /// down.
+    private var allowedPhases: [EvidencePhase] {
+        switch stage {
+        case .moveIn, .living:
+            return EvidencePhase.allCases.filter { $0 != .moveOut }
+        case .moveOut, .none:
+            return EvidencePhase.allCases
+        }
+    }
 
     private let photoStorageService = PhotoStorageService()
 
@@ -65,7 +80,7 @@ struct AddPhotoFlowView: View {
                             systemImage: "camera.viewfinder"
                         )
 
-                        PhotoPhasePickerView { phase in
+                        PhotoPhasePickerView(allowedPhases: allowedPhases) { phase in
                             selectedPhase = phase
                         }
                     }

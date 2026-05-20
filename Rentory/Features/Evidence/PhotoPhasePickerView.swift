@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct PhotoPhasePickerView: View {
+    var allowedPhases: [EvidencePhase] = EvidencePhase.allCases
     let onSelectPhase: (EvidencePhase) -> Void
 
     var body: some View {
@@ -18,7 +19,7 @@ struct PhotoPhasePickerView: View {
             )
 
             VStack(spacing: 12) {
-                ForEach(EvidencePhase.allCases, id: \.self) { phase in
+                ForEach(allowedPhases, id: \.self) { phase in
                     Button {
                         onSelectPhase(phase)
                     } label: {
