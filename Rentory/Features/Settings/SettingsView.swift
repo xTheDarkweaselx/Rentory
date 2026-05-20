@@ -154,6 +154,10 @@ struct SettingsView: View {
                     settingsDetailGrid(items: appLockItems)
                 case .appearance:
                     settingsDetailGrid(items: appearanceItems)
+                case .notifications:
+                    settingsDetailGrid(items: notificationsItems)
+                case .widgets:
+                    settingsDetailGrid(items: widgetsItems)
                 case .iCloudSync:
                     settingsDetailGrid(items: iCloudItems)
                 case .backups:
@@ -415,6 +419,44 @@ struct SettingsView: View {
         ]
     }
 
+    private var notificationsItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Reminder notifications",
+                    body: "Get a notification at 9 am on the day a reminder is due. Notifications are scheduled locally — Rentory never sends them through a server."
+                ) {
+                    settingsDestinationAction("Open notifications settings", destination: .notifications)
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "iOS-level permission",
+                    body: "Rentory respects the system notification permission. If you change your mind later, you can adjust it in the iOS Settings app for Rentory."
+                )
+            },
+        ]
+    }
+
+    private var widgetsItems: [RRResponsiveFormGridItem] {
+        [
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Widgets and watch surfaces",
+                    body: "Glanceable Rentory tiles for the Home Screen and Apple Watch — added from the system, not from inside the app."
+                ) {
+                    settingsDestinationAction("Open widget overview", destination: .widgets)
+                }
+            },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "How they stay current",
+                    body: "Widgets read a snapshot Rentory writes to its shared container whenever you open the app, change profile or come back from the background. No network calls."
+                )
+            },
+        ]
+    }
+
     private var iCloudItems: [RRResponsiveFormGridItem] {
         [
             RRResponsiveFormGridItem {
@@ -635,6 +677,10 @@ struct SettingsView: View {
                 NavigationLink("Notifications", value: SettingsDestination.notifications)
             }
 
+            Section("Widgets") {
+                NavigationLink("Widgets and watch", value: SettingsDestination.widgets)
+            }
+
             Section("Records and data") {
                 NavigationLink("Data on this device", value: SettingsDestination.privacyAndData)
                 NavigationLink("Archived records", value: SettingsDestination.archivedRecords)
@@ -765,6 +811,8 @@ struct SettingsView: View {
             SampleDataSettingsView()
         case .notifications:
             NotificationSettingsView()
+        case .widgets:
+            WidgetSettingsView()
         }
     }
 
@@ -979,6 +1027,8 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
     case profile
     case appLock
     case appearance
+    case notifications
+    case widgets
     case iCloudSync
     case backups
     case rentoryUnlock
@@ -993,6 +1043,8 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .profile: "Profile"
         case .appLock: "App Lock"
         case .appearance: "Appearance"
+        case .notifications: "Notifications"
+        case .widgets: "Widgets & Watch"
         case .iCloudSync: "iCloud Sync"
         case .backups: "Backups"
         case .rentoryUnlock: "Rentory Unlock"
@@ -1007,6 +1059,8 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .profile: "Choose whether Rentory tailors prompts for a renter or a landlord."
         case .appLock: "Choose whether Rentory should ask you to unlock before showing your records."
         case .appearance: "Choose light, dark or this device’s default appearance."
+        case .notifications: "Get a heads-up the morning a reminder is due."
+        case .widgets: "Glanceable Rentory tiles for iPhone, iPad and Apple Watch."
         case .iCloudSync: "Check whether iCloud sync is available on this device."
         case .backups: "Keep a copy of your records when you want one."
         case .rentoryUnlock: "View your unlock status and restore earlier purchases."
@@ -1021,6 +1075,8 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         case .profile: "person.crop.circle"
         case .appLock: "lock.shield.fill"
         case .appearance: "circle.lefthalf.filled"
+        case .notifications: "bell.badge"
+        case .widgets: "square.grid.2x2"
         case .iCloudSync: "icloud"
         case .backups: "externaldrive"
         case .rentoryUnlock: "sparkles"
@@ -1040,6 +1096,7 @@ private enum SettingsDestination: Hashable, Identifiable {
     case activityHistory
     case sampleData
     case notifications
+    case widgets
 
     var id: String {
         switch self {
@@ -1061,6 +1118,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "sampleData"
         case .notifications:
             return "notifications"
+        case .widgets:
+            return "widgets"
         }
     }
 
@@ -1084,6 +1143,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Sample data"
         case .notifications:
             return "Notifications"
+        case .widgets:
+            return "Widgets & Watch"
         }
     }
 
@@ -1107,6 +1168,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Load example records to explore Rentory, or remove them when you are done."
         case .notifications:
             return "Get a heads-up the morning a reminder is due."
+        case .widgets:
+            return "Glanceable Rentory tiles for iPhone, iPad and Apple Watch."
         }
     }
 }
