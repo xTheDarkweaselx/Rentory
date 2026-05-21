@@ -10,6 +10,7 @@
 		664E07C72FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		664E07C82FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		664E07C92FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
+		AABBCC040400000000000001 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		6691EEC42FA67181006FC53C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6691EEC32FA67181006FC53C /* StoreKit.framework */; };
 		66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 66C91F7E2FAAA38000EA887C /* Rentory.storekit */; };
 		77AABB010100000000000008 /* RentoryWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 77AABB010100000000000001 /* RentoryWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -494,6 +495,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AABBCC040400000000000001 /* Rentory App Icon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1022,7 +1024,9 @@
 		88BBCC02020000000000000B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1032,6 +1036,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RentoryWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_CFBundleIconName = "Rentory App Icon";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1056,7 +1061,9 @@
 		88BBCC02020000000000000C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1066,6 +1073,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RentoryWatch/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_CFBundleIconName = "Rentory App Icon";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
