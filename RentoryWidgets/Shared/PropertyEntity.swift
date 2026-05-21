@@ -2,11 +2,11 @@
 //  PropertyEntity.swift  (RentoryWidgets target)
 //  Rentory
 //
-//  AppIntent surface that lets the user pick a specific Rentory record
-//  to pin to a widget. Configuration is per-widget (long-press → Edit),
-//  so a landlord with several properties can give each widget on the
-//  Home Screen a different record without changing what the main app
-//  shows.
+//  Shared AppIntent surface used by every widget in the bundle. Each
+//  widget that wants per-property configuration accepts the same
+//  RentoryPropertyConfigurationIntent below — `property == nil` means
+//  "across all records" (the original aggregate behaviour) and any
+//  picked PropertyEntity narrows the widget to that one record.
 //
 //  Lookups go through the shared App Group snapshot — no SwiftData in
 //  the widget process. Suggested entities is the same property list
@@ -54,9 +54,9 @@ struct PropertyEntityQuery: EntityQuery {
     }
 }
 
-struct PropertyActionConfigurationIntent: WidgetConfigurationIntent {
+struct RentoryPropertyConfigurationIntent: WidgetConfigurationIntent {
     static var title: LocalizedStringResource = "Choose a record"
-    static var description = IntentDescription("Pick which Rentory record this widget should focus on.")
+    static var description = IntentDescription("Pick a Rentory record to focus the widget on. Leave blank to keep the aggregate view across every record on the active profile.")
 
     @Parameter(title: "Record")
     var property: PropertyEntity?

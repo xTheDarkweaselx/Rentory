@@ -8,6 +8,7 @@
 //  changes). No network. No login.
 //
 
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -15,12 +16,16 @@ struct NextReminderWidget: Widget {
     let kind = "RentoryNextReminderWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: NextReminderTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: RentoryPropertyConfigurationIntent.self,
+            provider: NextReminderTimelineProvider()
+        ) { entry in
             NextReminderWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Next reminder")
-        .description("The next reminder due across your Rentory records.")
+        .description("The next reminder due across your Rentory records. Long-press to pin a single record.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -51,34 +56,44 @@ struct NextReminderEntry: TimelineEntry {
     )
 }
 
-struct NextReminderTimelineProvider: TimelineProvider {
+struct NextReminderTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> NextReminderEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (NextReminderEntry) -> Void) {
-        completion(makeEntry(forContext: context))
+    func snapshot(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> NextReminderEntry {
+        makeEntry(configuration: configuration, context: context)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<NextReminderEntry>) -> Void) {
-        let entry = makeEntry(forContext: context)
+    func timeline(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> Timeline<NextReminderEntry> {
+        let entry = makeEntry(configuration: configuration, context: context)
         let nextMidnight = Calendar.current.nextDate(
             after: Date(),
             matching: DateComponents(hour: 0, minute: 1),
             matchingPolicy: .nextTime
         ) ?? Date().addingTimeInterval(60 * 60)
-        completion(Timeline(entries: [entry], policy: .after(nextMidnight)))
+        return Timeline(entries: [entry], policy: .after(nextMidnight))
     }
 
-    private func makeEntry(forContext context: Context) -> NextReminderEntry {
+    private func makeEntry(configuration: RentoryPropertyConfigurationIntent, context: Context) -> NextReminderEntry {
         if context.isPreview {
             return .sample
         }
 
         let snapshot = RentorySharedSnapshotStore.read()
+        // If the user pinned a specific record, narrow the reminder feed
+        // to only that property's upcoming reminders. Otherwise keep the
+        // original "next reminder across every record" aggregate.
+        let reminder: RentorySharedSnapshot.ReminderEntry?
+        if let configuredID = configuration.property?.id {
+            reminder = snapshot.upcomingReminders.first(where: { $0.propertyID == configuredID })
+        } else {
+            reminder = snapshot.upcomingReminders.first
+        }
+
         return NextReminderEntry(
             date: Date(),
-            reminder: snapshot.upcomingReminders.first,
+            reminder: reminder,
             activeProfileRawValue: snapshot.activeProfileRawValue
         )
     }

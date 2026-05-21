@@ -143,7 +143,7 @@ struct TenancyDetailView: View {
                     Spacer()
                 }
                 .padding(10)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(RRColours.warning.opacity(0.12)))
+                .background(RoundedRectangle(cornerRadius: RRTheme.inlineBannerRadius, style: .continuous).fill(RRColours.warning.opacity(0.12)))
             )
         }
         return AnyView(EmptyView())

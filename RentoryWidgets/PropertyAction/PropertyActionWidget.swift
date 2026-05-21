@@ -20,7 +20,7 @@ struct PropertyActionWidget: Widget {
     var body: some WidgetConfiguration {
         AppIntentConfiguration(
             kind: kind,
-            intent: PropertyActionConfigurationIntent.self,
+            intent: RentoryPropertyConfigurationIntent.self,
             provider: PropertyActionTimelineProvider()
         ) { entry in
             PropertyActionWidgetEntryView(entry: entry)
@@ -84,17 +84,17 @@ struct PropertyActionTimelineProvider: AppIntentTimelineProvider {
         .placeholder
     }
 
-    func snapshot(for configuration: PropertyActionConfigurationIntent, in context: Context) async -> PropertyActionEntry {
+    func snapshot(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> PropertyActionEntry {
         makeEntry(configuration: configuration, context: context)
     }
 
-    func timeline(for configuration: PropertyActionConfigurationIntent, in context: Context) async -> Timeline<PropertyActionEntry> {
+    func timeline(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> Timeline<PropertyActionEntry> {
         let entry = makeEntry(configuration: configuration, context: context)
         let nextRefresh = Date().addingTimeInterval(60 * 60 * 4)
         return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
-    private func makeEntry(configuration: PropertyActionConfigurationIntent, context: Context) -> PropertyActionEntry {
+    private func makeEntry(configuration: RentoryPropertyConfigurationIntent, context: Context) -> PropertyActionEntry {
         if context.isPreview {
             return .placeholder
         }
