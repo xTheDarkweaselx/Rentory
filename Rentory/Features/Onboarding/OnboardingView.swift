@@ -27,6 +27,11 @@ struct OnboardingView: View {
             systemImage: "point.topleft.down.curvedto.point.bottomright.up"
         ),
         OnboardingPage(
+            title: "Glanceable on Home Screen and Watch",
+            body: "Add the Rentory widgets to your Home Screen for the next reminder and a quick monthly summary. The Apple Watch app lets you check upcoming reminders and capture a new one with dictation when something comes to mind.",
+            systemImage: "square.grid.2x2.fill"
+        ),
+        OnboardingPage(
             title: "Private by design",
             body: "Rentory does not need an account. Your records stay on this device by default, and you decide when to use iCloud sync, export a backup or share a report.",
             systemImage: "lock.shield.fill"

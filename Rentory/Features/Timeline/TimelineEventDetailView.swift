@@ -118,6 +118,7 @@ struct TimelineEventDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -129,6 +130,7 @@ struct TimelineEventDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             dismiss()
         } catch {
             alertContent = RRAlertContent(

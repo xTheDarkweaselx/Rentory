@@ -13,6 +13,10 @@ struct AddReminderView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
+    /// Once-per-user gate so the inline notifications offer only fires
+    /// the first time the user saves a reminder, not on every subsequent
+    /// add. Stored in user defaults via @AppStorage.
+    @AppStorage("rentory.hasOfferedNotificationsAfterFirstReminder") private var hasOfferedNotificationsPrompt = false
 
     let propertyPack: PropertyPack
 
@@ -28,6 +32,7 @@ struct AddReminderView: View {
     @State private var dueDate = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
     @State private var validationMessage: String?
     @State private var alertContent: RRAlertContent?
+    @State private var isShowingNotificationOffer = false
 
     var body: some View {
         NavigationStack {
@@ -157,6 +162,20 @@ struct AddReminderView: View {
                 dismissButton: .cancel(Text(content.buttonTitle))
             )
         }
+        .confirmationDialog(
+            "Get notified when a reminder is due?",
+            isPresented: $isShowingNotificationOffer,
+            titleVisibility: .visible
+        ) {
+            Button("Turn on notifications") {
+                acceptNotificationOffer()
+            }
+            Button("Not now", role: .cancel) {
+                declineNotificationOffer()
+            }
+        } message: {
+            Text("Rentory can send a heads-up at 9 am on the day a reminder is due. Notifications are scheduled locally — never through a server.")
+        }
     }
 
     private var actionButtons: some View {
@@ -194,10 +213,46 @@ struct AddReminderView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             Task { await reminderNotificationService.reschedule(context: modelContext) }
-            dismiss()
+
+            // If this looks like the user's first reminder AND they haven't
+            // been offered notifications yet AND iOS hasn't already
+            // declined for them, surface a one-shot inline offer before
+            // dismissing. Otherwise dismiss immediately.
+            if shouldOfferNotifications {
+                isShowingNotificationOffer = true
+            } else {
+                dismiss()
+            }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
+    }
+
+    /// We only ask once per user (`hasOfferedNotificationsPrompt`) and we
+    /// don't ask if the user has already opted in elsewhere or iOS denied
+    /// the permission previously (re-asking from a different surface is
+    /// pointless — iOS will silently no-op).
+    private var shouldOfferNotifications: Bool {
+        guard !hasOfferedNotificationsPrompt else { return false }
+        guard !reminderNotificationService.isEnabledByUser else { return false }
+        let status = reminderNotificationService.authorizationStatus
+        return status != .denied
+    }
+
+    private func acceptNotificationOffer() {
+        Task {
+            reminderNotificationService.isEnabledByUser = true
+            _ = await reminderNotificationService.requestAuthorization()
+            await reminderNotificationService.reschedule(context: modelContext)
+            hasOfferedNotificationsPrompt = true
+            dismiss()
+        }
+    }
+
+    private func declineNotificationOffer() {
+        hasOfferedNotificationsPrompt = true
+        dismiss()
     }
 }

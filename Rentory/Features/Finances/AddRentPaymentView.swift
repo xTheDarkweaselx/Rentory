@@ -134,6 +134,7 @@ struct AddRentPaymentView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             dismiss()
         } catch {
             validationMessage = "This payment could not be saved. Please try again."

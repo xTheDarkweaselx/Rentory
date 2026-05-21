@@ -12,6 +12,7 @@ struct PropertiesSplitView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var entitlementManager: EntitlementManager
+    @EnvironmentObject private var deepLinkRouter: RentoryDeepLinkRouter
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var isShowingCreateProperty = false
@@ -191,6 +192,16 @@ struct PropertiesSplitView: View {
                 resetDetailNavigation()
                 self.selectedPropertyID = nil
             }
+        }
+        .onReceive(deepLinkRouter.$pendingPropertyID) { newID in
+            // A widget or notification tap asks us to focus a property.
+            // Silently no-op if the target isn't in the current profile's
+            // scoped list — auto-switching profile would be surprising.
+            guard let newID,
+                  profileScopedPropertyPacks.contains(where: { $0.id == newID }) else { return }
+            selectedPropertyID = newID
+            resetDetailNavigation()
+            deepLinkRouter.clearPending()
         }
     }
 

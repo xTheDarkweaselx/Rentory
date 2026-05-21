@@ -12,11 +12,13 @@ struct PropertiesListView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var entitlementManager: EntitlementManager
+    @EnvironmentObject private var deepLinkRouter: RentoryDeepLinkRouter
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
     @State private var isShowingCreateProperty = false
     @State private var isShowingSettings = false
     @State private var upgradePromptContent: UpgradePromptContent?
     @State private var filterState = PropertyRecordFilterState()
+    @State private var navigationPath = NavigationPath()
 
     private var profileScopedPropertyPacks: [PropertyPack] {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
@@ -47,7 +49,7 @@ struct PropertiesListView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if needsRestoreUnlockBanner {
@@ -84,9 +86,7 @@ struct PropertiesListView: View {
                     } else {
                         LazyVStack(spacing: 14) {
                             ForEach(filteredPropertyPacks) { propertyPack in
-                                NavigationLink {
-                                    PropertyDashboardView(propertyPack: propertyPack)
-                                } label: {
+                                NavigationLink(value: propertyPack) {
                                     PropertySummaryCard(propertyPack: propertyPack, showsLastUpdated: true)
                                 }
                                 .buttonStyle(.plain)
@@ -107,6 +107,9 @@ struct PropertiesListView: View {
                 .padding(RRTheme.screenPadding)
             }
             .background(RRBackgroundView())
+            .navigationDestination(for: PropertyPack.self) { propertyPack in
+                PropertyDashboardView(propertyPack: propertyPack)
+            }
             .navigationTitle("Rentory")
             .searchable(text: $filterState.searchText, prompt: "Search records")
             .toolbar {
@@ -141,6 +144,16 @@ struct PropertiesListView: View {
         }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
+        }
+        .onReceive(deepLinkRouter.$pendingPropertyID) { newID in
+            // Push the targeted property onto the stack when a widget or
+            // notification tap arrives. Silently no-op if it isn't in the
+            // current profile.
+            guard let newID,
+                  let target = profileScopedPropertyPacks.first(where: { $0.id == newID }) else { return }
+            navigationPath = NavigationPath()
+            navigationPath.append(target)
+            deepLinkRouter.clearPending()
         }
     }
 

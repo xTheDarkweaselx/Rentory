@@ -16,12 +16,17 @@ enum RRTheme {
 
     static let iconSize: CGFloat = 18
     static let badgeIconSize: CGFloat = 20
+    static let tileIconSize: CGFloat = 40
     static let heroIconSize: CGFloat = 42
 
     static let cornerRadius: CGFloat = 18
     static let cardRadius: CGFloat = 26
     static let panelRadius: CGFloat = 30
     static let buttonRadius: CGFloat = 18
+    /// Smaller radius used by inline banners and tile-sized chrome where
+    /// the larger `cornerRadius` would look heavy. Pick this over
+    /// hardcoding a literal in feature views.
+    static let inlineBannerRadius: CGFloat = 10
 
     static let borderOpacity: Double = 0.18
     static let softShadowOpacity: Double = 0.08

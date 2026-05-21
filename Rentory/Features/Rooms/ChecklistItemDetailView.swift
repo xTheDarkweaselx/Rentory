@@ -14,6 +14,8 @@ struct ChecklistItemDetailView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
+    private let photoStorageService = PhotoStorageService()
+
     let checklistItem: ChecklistItemRecord
     var stage: TenancyStage? = nil
 
@@ -414,6 +416,7 @@ struct ChecklistItemDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             newCommentBody = ""
             newCommentPhase = nil
         } catch {
@@ -427,6 +430,7 @@ struct ChecklistItemDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -457,16 +461,27 @@ struct ChecklistItemDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
     }
 
     private func deleteItem() {
+        // SwiftData cascades the photo model objects when the checklist
+        // item is deleted, but the actual files on disk are owned by
+        // PhotoStorageService, so we have to remove them ourselves before
+        // dropping the model — otherwise every per-item delete leaks the
+        // photo bytes into EvidencePhotos/ forever.
+        for photo in checklistItem.photos {
+            try? photoStorageService.deletePhoto(fileName: photo.localFileName)
+        }
+
         modelContext.delete(checklistItem)
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             dismiss()
         } catch {
             alertContent = RRAlertContent(

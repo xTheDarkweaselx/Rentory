@@ -1141,6 +1141,162 @@ struct RentoryTests {
         #expect(entry.primaryTenantName == "Sam Sample")
     }
 
+    @Test @MainActor func snapshotDoesNotLeakCrossProfileReminders() throws {
+        // Regression: before scoping the publisher's reminder feed, the
+        // active profile's snapshot included reminders from the *other*
+        // profile's properties, with propertyIDs that weren't in
+        // snapshot.properties[].
+        let context = try makeModelContext()
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let dueSoon = Date(timeIntervalSince1970: 1_700_000_000 + 86_400 * 3)
+
+        let renterPack = PropertyPack(nickname: "Renter house", profile: .renter)
+        renterPack.reminders.append(Reminder(title: "Renter reminder", dueDate: dueSoon))
+        let landlordPack = PropertyPack(nickname: "Landlord flat", profile: .landlord)
+        landlordPack.reminders.append(Reminder(title: "Landlord reminder", dueDate: dueSoon))
+
+        context.insert(renterPack)
+        context.insert(landlordPack)
+        try context.save()
+
+        let publisher = RentorySnapshotPublisher()
+        let snapshot = publisher.makeSnapshot(context: context, activeProfile: .renter, now: now)
+
+        #expect(snapshot.properties.count == 1)
+        #expect(snapshot.upcomingReminders.count == 1)
+        #expect(snapshot.upcomingReminders[0].title == "Renter reminder")
+        #expect(snapshot.totalReminderCount == 1)
+        // Every reminder propertyID must resolve to a property in the snapshot.
+        let propertyIDs = Set(snapshot.properties.map(\.id))
+        for reminder in snapshot.upcomingReminders {
+            #expect(propertyIDs.contains(reminder.propertyID))
+        }
+    }
+
+    // MARK: - Reminder notifications
+
+    @Test @MainActor func triggerDateUsesNineAmOnTheDueDayInTheFuture() {
+        let calendar = Calendar(identifier: .gregorian)
+        let service = ReminderNotificationService(calendar: calendar)
+        let dueDate = Date.now.addingTimeInterval(86_400 * 3) // three days out
+        let reminder = Reminder(title: "Inspection", dueDate: dueDate)
+
+        let fired = service.triggerDate(for: reminder)
+
+        #expect(fired != nil)
+        if let fired {
+            let components = calendar.dateComponents([.hour, .minute], from: fired)
+            #expect(components.hour == 9)
+            #expect(components.minute == 0)
+        }
+    }
+
+    @Test @MainActor func triggerDateFiresImmediatelyIfTodaysPreferredTimeHasPassed() {
+        // Regression: prior to the fix, a reminder due today created after
+        // 9 AM was silently dropped. It should now schedule 1 minute out.
+        let calendar = Calendar(identifier: .gregorian)
+        let service = ReminderNotificationService(calendar: calendar)
+        let dueToday = Date.now
+        let reminder = Reminder(title: "Boiler", dueDate: dueToday)
+
+        let fired = service.triggerDate(for: reminder)
+
+        if calendar.component(.hour, from: .now) >= 9 {
+            // After 9 AM the preferred slot is gone; fall through to ASAP.
+            #expect(fired != nil)
+            if let fired {
+                #expect(fired > Date.now)
+                #expect(fired <= Date.now.addingTimeInterval(120))
+            }
+        } else {
+            // Before 9 AM today, the preferred slot is still in the future.
+            #expect(fired != nil)
+        }
+    }
+
+    @Test @MainActor func triggerDateRefusesGenuinelyPastDueReminders() {
+        let calendar = Calendar(identifier: .gregorian)
+        let service = ReminderNotificationService(calendar: calendar)
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: .now) ?? Date.now
+        let reminder = Reminder(title: "Overdue", dueDate: yesterday)
+
+        let fired = service.triggerDate(for: reminder)
+
+        #expect(fired == nil)
+    }
+
+    @Test @MainActor func triggerDateReturnsNilForUndatedReminders() {
+        let service = ReminderNotificationService()
+        let reminder = Reminder(title: "No date")
+
+        #expect(service.triggerDate(for: reminder) == nil)
+    }
+
+    // MARK: - Watch pending reminder applier
+
+    @Test @MainActor func watchApplierIgnoresUnknownProperty() throws {
+        let context = try makeModelContext()
+        let payload = PendingReminderPayload(
+            id: UUID(),
+            propertyID: UUID(),
+            title: "Doesn't matter",
+            dueDate: .now,
+            createdAt: .now
+        )
+
+        let result = WatchPendingReminderApplier.apply(payload, in: context)
+
+        #expect(result == nil)
+    }
+
+    @Test @MainActor func watchApplierAddsReminderToMatchingProperty() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Home", profile: .renter)
+        context.insert(pack)
+        try context.save()
+
+        let payload = PendingReminderPayload(
+            id: UUID(),
+            propertyID: pack.id,
+            title: "Boiler from watch",
+            dueDate: .now.addingTimeInterval(86_400),
+            createdAt: .now
+        )
+
+        let result = WatchPendingReminderApplier.apply(payload, in: context)
+
+        #expect(result != nil)
+        #expect(result?.title == "Boiler from watch")
+        let saved = try context.fetch(FetchDescriptor<PropertyPack>()).first
+        #expect(saved?.reminders.count == 1)
+        #expect(saved?.reminders.first?.title == "Boiler from watch")
+    }
+
+    // MARK: - Deep link router
+
+    @Test @MainActor func deepLinkRouterParsesPropertyURL() {
+        let router = RentoryDeepLinkRouter()
+        let uuid = UUID()
+        let url = URL(string: "rentory://property/\(uuid.uuidString)")!
+
+        router.handle(url)
+
+        #expect(router.pendingPropertyID == uuid)
+    }
+
+    @Test @MainActor func deepLinkRouterIgnoresUnknownScheme() {
+        let router = RentoryDeepLinkRouter()
+        router.handle(URL(string: "https://example.com/property/123")!)
+        #expect(router.pendingPropertyID == nil)
+    }
+
+    @Test @MainActor func deepLinkRouterClearsPendingTarget() {
+        let router = RentoryDeepLinkRouter()
+        router.pendingPropertyID = UUID()
+        router.clearPending()
+        #expect(router.pendingPropertyID == nil)
+    }
+
     @Test func snapshotRoundTripsThroughJSONDecoder() throws {
         let original = RentorySharedSnapshot(
             writtenAt: Date(timeIntervalSince1970: 1_700_000_000),

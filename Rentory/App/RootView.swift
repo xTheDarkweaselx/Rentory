@@ -20,8 +20,8 @@ struct RootView: View {
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
     @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
+    @EnvironmentObject private var watchSyncService: WatchSyncService
 
-    @StateObject private var watchSyncService = WatchSyncService()
     @State private var didWireWatchBridge = false
 
     @State private var isShowingExampleRecordsPrompt = false
@@ -119,6 +119,13 @@ struct RootView: View {
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
             await reminderNotificationService.reschedule(context: modelContext)
+            snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: RentorySnapshotPublisher.snapshotShouldRepublish)) { _ in
+            // Any feature view that mutates snapshot-visible data
+            // (reminders, tenancies, rent payments, expenses, completion-
+            // affecting fields) posts this. Republishing is idempotent so
+            // multiple posts in quick succession are safe.
             snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
         }
         .alert(exampleRecordsPromptTitle, isPresented: $isShowingExampleRecordsPrompt) {
@@ -314,4 +321,6 @@ struct RootView: View {
         .environmentObject(AppSecurityState())
         .environmentObject(EntitlementManager())
         .environmentObject(ICloudSyncService())
+        .environmentObject(ReminderNotificationService())
+        .environmentObject(WatchSyncService())
 }

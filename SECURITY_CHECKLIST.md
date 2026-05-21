@@ -18,6 +18,13 @@
 - [x] No third-party AI APIs.
 - [x] No networking except StoreKit and Apple iCloud services chosen by the user.
 
+## Cross-process data sharing
+- [x] App Group `group.com.fusionstudios.rentory` is used only to share a JSON snapshot between the main app, widget extension and watch complication extension on the same device.
+- [x] No user data leaves the device through the App Group container — the file is sandboxed to processes signed with the same Team ID and the same App Group entitlement.
+- [x] The shared snapshot contains only what the widgets and watch surface need (property nicknames, completion %, monthly totals, upcoming reminders). It does not include photos, document files or notes.
+- [x] WatchConnectivity carries the same snapshot from iPhone to the paired Apple Watch (and a tiny "pending reminder" payload in the reverse direction). The transport is the device-pair link only — no internet hop.
+- [x] Notification scheduling is local (UNCalendarNotificationTrigger). No remote push, no APNS dependency.
+
 ## Logging
 - [x] No property names in logs.
 - [x] No addresses in logs.

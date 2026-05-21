@@ -13,6 +13,10 @@ import SwiftData
 import SwiftUI
 import UserNotifications
 
+#if canImport(AppKit)
+import AppKit
+#endif
+
 @MainActor
 struct NotificationSettingsView: View {
     @Environment(\.modelContext) private var modelContext
@@ -136,6 +140,16 @@ struct NotificationSettingsView: View {
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 RRSecondaryButton(title: "Open Settings") {
                     UIApplication.shared.open(url)
+                }
+            }
+            #elseif os(macOS)
+            // macOS has no app-scoped Settings deep link; the Notifications
+            // pane is the closest equivalent so the user can flip the
+            // Allow toggle there. URL guarded against a future scheme
+            // change so we silently no-op rather than crash.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                RRSecondaryButton(title: "Open System Settings") {
+                    NSWorkspace.shared.open(url)
                 }
             }
             #endif

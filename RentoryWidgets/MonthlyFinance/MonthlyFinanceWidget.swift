@@ -13,6 +13,7 @@
 //  weight.
 //
 
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -20,12 +21,16 @@ struct MonthlyFinanceWidget: Widget {
     let kind = "RentoryMonthlyFinanceWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: MonthlyFinanceTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: RentoryPropertyConfigurationIntent.self,
+            provider: MonthlyFinanceTimelineProvider()
+        ) { entry in
             MonthlyFinanceWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Monthly finance")
-        .description("This month's rent received, expenses out, and net across your landlord records.")
+        .description("This month's rent received, expenses out, and net across your landlord records. Long-press to scope it to a single record.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -84,17 +89,17 @@ struct MonthlyFinanceEntry: TimelineEntry {
     )
 }
 
-struct MonthlyFinanceTimelineProvider: TimelineProvider {
+struct MonthlyFinanceTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> MonthlyFinanceEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (MonthlyFinanceEntry) -> Void) {
-        completion(makeEntry(forContext: context))
+    func snapshot(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> MonthlyFinanceEntry {
+        makeEntry(configuration: configuration, context: context)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<MonthlyFinanceEntry>) -> Void) {
-        let entry = makeEntry(forContext: context)
+    func timeline(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> Timeline<MonthlyFinanceEntry> {
+        let entry = makeEntry(configuration: configuration, context: context)
         let calendar = Calendar.current
         let now = Date()
         let nextRefresh: Date
@@ -104,10 +109,10 @@ struct MonthlyFinanceTimelineProvider: TimelineProvider {
         } else {
             nextRefresh = now.addingTimeInterval(60 * 60 * 6)
         }
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
-    private func makeEntry(forContext context: Context) -> MonthlyFinanceEntry {
+    private func makeEntry(configuration: RentoryPropertyConfigurationIntent, context: Context) -> MonthlyFinanceEntry {
         if context.isPreview {
             return .placeholder
         }
@@ -116,7 +121,17 @@ struct MonthlyFinanceTimelineProvider: TimelineProvider {
         let isLandlord = snapshot.activeProfileRawValue == "Landlord"
         let landlordProperties = snapshot.properties.filter { $0.profileRawValue == "Landlord" }
 
-        guard isLandlord, !landlordProperties.isEmpty else {
+        // If a record is pinned, scope to just that one — useful when a
+        // multi-property landlord wants a per-property tile on the Home
+        // Screen. Otherwise behave as the original aggregate.
+        let scopedProperties: [RentorySharedSnapshot.PropertyEntry]
+        if let configuredID = configuration.property?.id {
+            scopedProperties = landlordProperties.filter { $0.id == configuredID }
+        } else {
+            scopedProperties = landlordProperties
+        }
+
+        guard isLandlord, !scopedProperties.isEmpty else {
             return MonthlyFinanceEntry(
                 date: Date(),
                 isLandlordProfile: isLandlord,
@@ -129,12 +144,12 @@ struct MonthlyFinanceTimelineProvider: TimelineProvider {
             )
         }
 
-        let totalRent = landlordProperties.reduce(0.0) { $0 + ($1.monthRentReceived ?? 0) }
-        let totalExpenses = landlordProperties.reduce(0.0) { $0 + ($1.monthExpenses ?? 0) }
-        let totalNet = landlordProperties.reduce(0.0) { $0 + ($1.monthNet ?? 0) }
-        let currencyCode = landlordProperties.first(where: { $0.currencyCode != nil })?.currencyCode ?? "GBP"
+        let totalRent = scopedProperties.reduce(0.0) { $0 + ($1.monthRentReceived ?? 0) }
+        let totalExpenses = scopedProperties.reduce(0.0) { $0 + ($1.monthExpenses ?? 0) }
+        let totalNet = scopedProperties.reduce(0.0) { $0 + ($1.monthNet ?? 0) }
+        let currencyCode = scopedProperties.first(where: { $0.currencyCode != nil })?.currencyCode ?? "GBP"
 
-        let topProperties = landlordProperties
+        let topProperties = scopedProperties
             .compactMap { property -> MonthlyFinanceEntry.PropertyLine? in
                 guard let net = property.monthNet else { return nil }
                 return MonthlyFinanceEntry.PropertyLine(id: property.id, nickname: property.nickname, net: net)
@@ -161,12 +176,22 @@ struct MonthlyFinanceWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallLayout
-        default:
-            mediumLayout
+        Group {
+            switch family {
+            case .systemSmall:
+                smallLayout
+            default:
+                mediumLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the widget focuses the highest-net property when one
+    /// exists; otherwise opens Rentory to the dashboard root.
+    private var deepLinkURL: URL? {
+        guard let first = entry.topProperties.first else { return nil }
+        return URL(string: "rentory://property/\(first.id.uuidString)")
     }
 
     private var smallLayout: some View {

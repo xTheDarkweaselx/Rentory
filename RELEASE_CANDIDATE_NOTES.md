@@ -13,11 +13,16 @@ Current version: 1.0 candidate
 - Tenancies and tenants (landlord profile): per-tenancy records with multiple tenants, rent, deposit, mode (standard / comprehensive), status (upcoming / active / ended), and notes
 - Compliance reminder kinds for landlords: gas safety, electrical safety (EICR), energy performance (EPC), periodic inspection, tenancy renewal
 - Local PDF reports (cover, property summary, tenancies, rooms, photos, documents, timeline, reminders, disclaimer)
-- Backup export and import as `.rentorybackup` packages (v3 payload, decodes v1 and v2)
+- Rent payments and property expenses (landlord profile) with current-month net summary
+- Backup export and import as `.rentorybackup` packages (v4 payload — adds rent payments + expenses + item comments + room condition overrides; decodes v1, v2 and v3)
 - Optional iCloud snapshot sync to the user's private CloudKit database
 - Optional App Lock (biometric / device passcode)
 - One-off lifetime unlock IAP
 - Sample data sets for both profiles (eight renter samples, six landlord samples)
+- Local reminder notifications (UNCalendarNotificationTrigger, 9 AM local time, opt-in)
+- Home Screen widgets: Next reminder, Monthly finance (landlord), Next step
+- Apple Watch companion: Reminders / Records / Quick Add tabs
+- Apple Watch face complications: Next reminder, Record progress (accessoryCircular / accessoryRectangular / accessoryInline / accessoryCorner)
 
 ## Features intentionally not included
 - Account sign-in
@@ -35,6 +40,8 @@ Current version: 1.0 candidate
 - No backend storage Rentory controls
 - iCloud sync uses the user's own private CloudKit database (opt-in)
 - StoreKit is the only network-adjacent Apple service used outside iCloud
+- App Group `group.com.fusionstudios.rentory` is shared only between processes signed with this Team ID + entitlement (main app, widget extension, watch complication extension) on a single device
+- WatchConnectivity carries the snapshot between iPhone and the paired Apple Watch; no internet hop
 
 ## Known limitations
 - No account system; sharing across people requires the device-level backup or iCloud sync.
@@ -81,6 +88,15 @@ Current version: 1.0 candidate
 - Test iPad layout (split view in regular size class)
 - Test VoiceOver spot check (profile picker, tenancies card, compliance card, reminder rows)
 - Test large text spot check
+- Add a Home Screen widget (Next reminder / Monthly finance / Next step) and verify it shows live data
+- Tap a Home Screen widget and verify it opens Rentory focused on the relevant property
+- Enable reminder notifications (toggle in Settings or accept the prompt after creating the first reminder); confirm permission dialog appears
+- Install Rentory on a paired Apple Watch via the Watch app
+- On the watch, verify the Reminders tab populates after the iPhone foregrounds
+- On the watch, verify the Records tab shows completion rings and next-step copy
+- On the watch, queue a Quick Add reminder and verify it appears on the iPhone after the next bridge transfer
+- Add a watch face complication (Next reminder, Record progress) and verify it shows live data
+- Trigger a reminder notification (schedule a reminder due ~1 min from now) and tap it; verify Rentory opens to the relevant property
 
 ## App Store submission reminders
 - Confirm the bundle identifier and version number

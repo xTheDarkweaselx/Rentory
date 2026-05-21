@@ -34,7 +34,11 @@ struct UpcomingRemindersView: View {
             ReminderDetailView(reminder: reminder)
         }
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            // Use .confirmationAction (right side of the navigation bar's
+            // own region) so the refresh button doesn't collide with the
+            // watch's system clock label on 40mm faces. .topBarTrailing
+            // sits in the same slot as the clock on smaller geometries.
+            ToolbarItem(placement: .confirmationAction) {
                 Button {
                     session.requestRefresh()
                 } label: {
@@ -72,17 +76,26 @@ struct UpcomingRemindersView: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
-            Image(systemName: "checkmark.seal.fill")
+            Image(systemName: hasSyncedAtLeastOnce ? "checkmark.seal.fill" : "arrow.triangle.2.circlepath")
                 .font(.system(size: 28, weight: .semibold))
-                .foregroundStyle(WatchTheme.Palette.success)
-            Text("All clear")
+                .foregroundStyle(hasSyncedAtLeastOnce ? WatchTheme.Palette.success : WatchTheme.Palette.secondary)
+            Text(hasSyncedAtLeastOnce ? "All clear" : "Waiting for iPhone")
                 .font(WatchTheme.Typography.title)
-            Text("Nothing due in the next three weeks.")
+            Text(hasSyncedAtLeastOnce
+                 ? "Nothing due in the next three weeks."
+                 : "Open Rentory on your iPhone to send the first snapshot to this watch.")
                 .font(WatchTheme.Typography.footnote)
                 .foregroundStyle(WatchTheme.Palette.mutedText)
                 .multilineTextAlignment(.center)
         }
         .padding()
+    }
+
+    /// True once the watch has ever received a snapshot from the paired
+    /// iPhone. Used to distinguish "no reminders to show" from "we don't
+    /// have any data yet because the bridge hasn't fired".
+    private var hasSyncedAtLeastOnce: Bool {
+        snapshotStore.lastUpdated != nil
     }
 }
 

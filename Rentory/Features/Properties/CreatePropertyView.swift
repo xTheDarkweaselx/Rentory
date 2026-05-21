@@ -347,6 +347,7 @@ struct CreatePropertyView: View {
             try appendDraftPhotos(to: propertyPack, savedPhotoFileNames: &savedPhotoFileNames)
             modelContext.insert(propertyPack)
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             dismiss()
         } catch {
             cleanupDraftFiles(documentFileNames: savedDocumentFileNames, photoFileNames: savedPhotoFileNames)

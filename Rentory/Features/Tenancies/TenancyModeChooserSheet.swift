@@ -109,9 +109,9 @@ struct TenancyModeChooserSheet: View {
                 Image(systemName: candidate == .standard ? "doc.text" : "doc.text.fill")
                     .font(.system(size: 22, weight: .semibold))
                     .foregroundStyle(isSelected ? .white : RRColours.secondary)
-                    .frame(width: 40, height: 40)
+                    .frame(width: RRTheme.tileIconSize, height: RRTheme.tileIconSize)
                     .background(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        RoundedRectangle(cornerRadius: RRTheme.inlineBannerRadius, style: .continuous)
                             .fill(isSelected ? RRColours.secondary : RRColours.cardHighlight)
                     )
 
