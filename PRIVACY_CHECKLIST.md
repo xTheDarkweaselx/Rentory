@@ -12,5 +12,8 @@
 - [x] Reports are created locally and shared only by the user
 - [x] Backups are created locally and saved or shared only when the user chooses to do so
 - [x] iCloud status can be checked without using a developer-owned service
+- [x] App Group container is used only for an on-device snapshot shared between the main app, widgets and watch complications (same Team ID, same App Group entitlement)
+- [x] WatchConnectivity moves data only between the user's iPhone and their paired Apple Watch — no internet hop
+- [x] Reminder notifications are local (UNCalendarNotificationTrigger); no APNS or remote push
 
 Warning: Review App Store privacy answers before submission. Only claim “Data Not Collected” if the app does not collect data from the device and does not transmit user data to the developer or third parties. StoreKit purchase handling and any future iCloud sync behaviour must be assessed according to Apple’s current privacy questionnaire.

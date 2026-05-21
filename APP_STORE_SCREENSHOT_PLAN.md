@@ -42,6 +42,34 @@ Title:
 Show:
 Settings privacy screen or App Lock screen.
 
+## Screenshot 7
+Title:
+“Landlord-ready record”
+
+Show:
+Property dashboard on the landlord profile with the Tenancies card, Compliance card and a current-month rent / expenses / net summary visible.
+
+## Screenshot 8
+Title:
+“Glance on the Home Screen”
+
+Show:
+iOS Home Screen with at least two Rentory widgets (Next reminder + Next step, ideally also Monthly finance for the landlord composition). Use demo data only.
+
+## Screenshot 9
+Title:
+“On your wrist”
+
+Show:
+Apple Watch face featuring a Rentory complication (Next reminder accessoryRectangular or Record progress accessoryCircular), plus an inset of the watch app's Reminders tab.
+
+## Screenshot 10
+Title:
+“Heads-up before it’s due”
+
+Show:
+iPhone lock-screen with a Rentory reminder notification banner ("Rentory reminder — Gas safety renewal") landing.
+
 ## Guidance
 - Use fake demo data only.
 - Do not use real addresses.
