@@ -55,8 +55,11 @@ final class RentorySnapshotPublisher {
     ) -> RentorySharedSnapshot {
         let propertyPacks = (try? context.fetch(FetchDescriptor<PropertyPack>())) ?? []
         let scopedPropertyPacks = propertyPacks.filter { $0.profileRawValue == activeProfile.rawValue }
-        let reminderEntries = upcomingReminderEntries(from: propertyPacks, now: now)
-        let totalReminderCount = propertyPacks
+        // Reminders + counts are scoped to the active profile so widgets,
+        // watch surfaces and the upcoming-reminder list never reference
+        // a property the user can't see in their current profile.
+        let reminderEntries = upcomingReminderEntries(from: scopedPropertyPacks, now: now)
+        let totalReminderCount = scopedPropertyPacks
             .flatMap(\.reminders)
             .filter { $0.completedAt == nil }
             .count
