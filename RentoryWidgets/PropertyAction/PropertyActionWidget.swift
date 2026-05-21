@@ -118,12 +118,21 @@ struct PropertyActionWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallLayout
-        default:
-            mediumLayout
+        Group {
+            switch family {
+            case .systemSmall:
+                smallLayout
+            default:
+                mediumLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the widget focuses the primary (top-of-list) property.
+    private var deepLinkURL: URL? {
+        guard let primary = entry.primary else { return nil }
+        return URL(string: "rentory://property/\(primary.id.uuidString)")
     }
 
     private var smallLayout: some View {

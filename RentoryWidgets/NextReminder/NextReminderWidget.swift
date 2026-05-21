@@ -90,12 +90,23 @@ struct NextReminderWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallLayout
-        default:
-            mediumLayout
+        Group {
+            switch family {
+            case .systemSmall:
+                smallLayout
+            default:
+                mediumLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the widget opens Rentory and focuses the relevant property.
+    /// We use the reminder's parent property (not the reminder itself) so
+    /// the user lands on the dashboard where they can act on it.
+    private var deepLinkURL: URL? {
+        guard let propertyID = entry.reminder?.propertyID else { return nil }
+        return URL(string: "rentory://property/\(propertyID.uuidString)")
     }
 
     private var smallLayout: some View {

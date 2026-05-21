@@ -161,12 +161,22 @@ struct MonthlyFinanceWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallLayout
-        default:
-            mediumLayout
+        Group {
+            switch family {
+            case .systemSmall:
+                smallLayout
+            default:
+                mediumLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the widget focuses the highest-net property when one
+    /// exists; otherwise opens Rentory to the dashboard root.
+    private var deepLinkURL: URL? {
+        guard let first = entry.topProperties.first else { return nil }
+        return URL(string: "rentory://property/\(first.id.uuidString)")
     }
 
     private var smallLayout: some View {

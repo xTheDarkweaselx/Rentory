@@ -31,11 +31,24 @@ struct QuickAddReminderView: View {
         case today, tomorrow, nextWeek
         var id: String { rawValue }
 
+        /// Long label shown when there's room. Used by the picker's
+        /// accessibility text and as the wide-screen full title.
         var title: String {
             switch self {
             case .today: return "Today"
             case .tomorrow: return "Tomorrow"
             case .nextWeek: return "Next week"
+            }
+        }
+
+        /// Compact label for 40mm watch buttons where the wide title
+        /// would force per-glyph compression. Combined with
+        /// minimumScaleFactor in the UI so it shrinks cleanly when needed.
+        var shortTitle: String {
+            switch self {
+            case .today: return "Today"
+            case .tomorrow: return "Tom"
+            case .nextWeek: return "+1w"
             }
         }
 
@@ -117,8 +130,10 @@ struct QuickAddReminderView: View {
                     Button {
                         dueBucket = bucket
                     } label: {
-                        Text(bucket.title)
+                        Text(bucket.shortTitle)
                             .font(WatchTheme.Typography.footnote)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 4)
                             .background(
@@ -128,6 +143,7 @@ struct QuickAddReminderView: View {
                             .foregroundStyle(dueBucket == bucket ? Color.white : WatchTheme.Palette.primary)
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel(bucket.title)
                 }
             }
         }

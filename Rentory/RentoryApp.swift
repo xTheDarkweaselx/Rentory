@@ -7,6 +7,7 @@
 
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @main
 struct RentoryApp: App {
@@ -19,6 +20,8 @@ struct RentoryApp: App {
     // on RootView would create a fresh instance per scene and race delegate
     // assignment. Keep it here at the App scope.
     @StateObject private var watchSyncService = WatchSyncService()
+    @StateObject private var deepLinkRouter = RentoryDeepLinkRouter()
+    @StateObject private var notificationDelegate = RentoryNotificationDelegate()
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
@@ -80,7 +83,19 @@ struct RentoryApp: App {
                     .environmentObject(iCloudSyncService)
                     .environmentObject(reminderNotificationService)
                     .environmentObject(watchSyncService)
+                    .environmentObject(deepLinkRouter)
                     .modelContainer(sharedModelContainer)
+                    .onOpenURL { url in
+                        deepLinkRouter.handle(url)
+                    }
+                    .task {
+                        // Wire the notification delegate exactly once.
+                        // Setting it any later means notifications tapped
+                        // before this point would land on the system
+                        // default behaviour (no router hop).
+                        notificationDelegate.attach(router: deepLinkRouter)
+                        UNUserNotificationCenter.current().delegate = notificationDelegate
+                    }
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
                     .tint(RRColours.secondary(for: selectedColourTheme))
             } else {
