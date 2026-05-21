@@ -361,6 +361,7 @@ struct TenancyDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -371,6 +372,7 @@ struct TenancyDetailView: View {
         propertyPack.updatedAt = .now
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             dismiss()
         } catch {
             alertContent = RRAlertContent(

@@ -155,6 +155,7 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             Task { await reminderNotificationService.reschedule(context: modelContext) }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
@@ -168,6 +169,7 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             reminderNotificationService.cancel(reminderID: reminderID)
             Task { await reminderNotificationService.reschedule(context: modelContext) }
             dismiss()

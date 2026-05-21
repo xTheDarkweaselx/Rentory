@@ -14,6 +14,11 @@ struct RentoryApp: App {
     @StateObject private var entitlementManager = EntitlementManager()
     @StateObject private var iCloudSyncService = ICloudSyncService()
     @StateObject private var reminderNotificationService = ReminderNotificationService()
+    // WatchSyncService owns a WCSession.default.delegate and must therefore
+    // be a single per-app instance. On macOS / iPad multi-window, hosting it
+    // on RootView would create a fresh instance per scene and race delegate
+    // assignment. Keep it here at the App scope.
+    @StateObject private var watchSyncService = WatchSyncService()
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
@@ -74,6 +79,7 @@ struct RentoryApp: App {
                     .environmentObject(entitlementManager)
                     .environmentObject(iCloudSyncService)
                     .environmentObject(reminderNotificationService)
+                    .environmentObject(watchSyncService)
                     .modelContainer(sharedModelContainer)
                     .preferredColorScheme(selectedAppearance.preferredColorScheme)
                     .tint(RRColours.secondary(for: selectedColourTheme))

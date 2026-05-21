@@ -194,6 +194,7 @@ struct AddReminderView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
             Task { await reminderNotificationService.reschedule(context: modelContext) }
             dismiss()
         } catch {
