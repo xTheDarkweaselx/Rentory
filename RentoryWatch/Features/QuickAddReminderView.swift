@@ -24,8 +24,14 @@ struct QuickAddReminderView: View {
     @State private var title: String = ""
     @State private var selectedPropertyID: UUID?
     @State private var dueBucket: DueBucket = .tomorrow
-    @State private var pendingCount: Int = 0
+    /// Track every reminder we've queued in this session so we can
+    /// decrement when the iPhone confirms it landed (see
+    /// WatchSessionCoordinator.confirmedReminderIDs). pendingCount is
+    /// derived from this so the UI updates atomically.
+    @State private var pendingReminderIDs: [UUID] = []
     @State private var lastSubmitConfirmation: String?
+
+    private var pendingCount: Int { pendingReminderIDs.count }
 
     enum DueBucket: String, CaseIterable, Identifiable {
         case today, tomorrow, nextWeek
@@ -87,6 +93,22 @@ struct QuickAddReminderView: View {
         .onAppear {
             if selectedPropertyID == nil {
                 selectedPropertyID = snapshotStore.snapshot.properties.first?.id
+            }
+        }
+        .onReceive(session.$confirmedReminderIDs) { confirmedIDs in
+            // The iPhone has acknowledged one or more of our queued
+            // reminders. Drop them from the local list (so the
+            // "Queued to iPhone (N waiting)" string reflects reality)
+            // and tell the session to forget them too so the set
+            // doesn't accumulate forever.
+            for id in confirmedIDs where pendingReminderIDs.contains(id) {
+                pendingReminderIDs.removeAll { $0 == id }
+                session.consumeConfirmation(for: id)
+            }
+            if pendingReminderIDs.isEmpty, lastSubmitConfirmation != nil {
+                lastSubmitConfirmation = "All sent to iPhone"
+            } else if !confirmedIDs.isEmpty {
+                lastSubmitConfirmation = "Queued to iPhone (\(pendingCount) waiting)"
             }
         }
     }
@@ -196,7 +218,7 @@ struct QuickAddReminderView: View {
                     "kind": "pending-reminder",
                     "payload": data
                 ])
-                pendingCount += 1
+                pendingReminderIDs.append(pending.id)
                 lastSubmitConfirmation = "Queued to iPhone (\(pendingCount) waiting)"
                 title = ""
             } else {

@@ -25,6 +25,10 @@ final class WatchSessionCoordinator: NSObject, ObservableObject {
 
     @Published private(set) var isReachable: Bool = false
     @Published private(set) var activationState: WCSessionActivationState = .notActivated
+    /// Reminder UUIDs the iPhone has confirmed it persisted. The
+    /// QuickAdd view observes this and decrements its local "Queued
+    /// to iPhone (N waiting)" counter when an ID it tracked lands.
+    @Published private(set) var confirmedReminderIDs: Set<UUID> = []
 
     private let session: WCSession?
 
@@ -63,6 +67,27 @@ final class WatchSessionCoordinator: NSObject, ObservableObject {
             WatchSnapshotStore.shared.apply(snapshot)
         }
     }
+
+    /// Handles `{ "kind": "confirmed-reminder", "id": "<uuid>" }`
+    /// payloads sent back by the iPhone after it persists a pending
+    /// reminder. Records the ID so the QuickAdd view can decrement
+    /// its local pending counter. We retain a small recent history
+    /// rather than firing-and-forgetting so a view that mounts a tick
+    /// late still sees the confirmation.
+    private func recordConfirmationIfPresent(_ payload: [String: Any]) {
+        guard payload["kind"] as? String == "confirmed-reminder",
+              let raw = payload["id"] as? String,
+              let uuid = UUID(uuidString: raw) else { return }
+        Task { @MainActor in
+            self.confirmedReminderIDs.insert(uuid)
+        }
+    }
+
+    /// Called by the QuickAdd view after it has consumed a confirmed
+    /// ID so the set doesn't grow unbounded.
+    func consumeConfirmation(for id: UUID) {
+        confirmedReminderIDs.remove(id)
+    }
 }
 
 extension WatchSessionCoordinator: @preconcurrency WCSessionDelegate {
@@ -82,13 +107,16 @@ extension WatchSessionCoordinator: @preconcurrency WCSessionDelegate {
 
     func session(_ session: WCSession, didReceiveApplicationContext applicationContext: [String: Any]) {
         applyIfSnapshot(applicationContext)
+        recordConfirmationIfPresent(applicationContext)
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
         applyIfSnapshot(userInfo)
+        recordConfirmationIfPresent(userInfo)
     }
 
     func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         applyIfSnapshot(message)
+        recordConfirmationIfPresent(message)
     }
 }

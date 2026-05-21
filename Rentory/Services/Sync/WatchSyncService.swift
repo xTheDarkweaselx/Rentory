@@ -120,6 +120,26 @@ final class WatchSyncService: NSObject, ObservableObject {
         }
         Task { @MainActor in
             self.pendingReminderHandler?(decoded)
+            // Tell the watch we landed this reminder so it can clear
+            // its local "Queued to iPhone" counter for that ID. Two
+            // transports: live message if reachable, transferUserInfo
+            // otherwise — same guaranteed-delivery property as the
+            // outbound snapshot.
+            self.sendConfirmation(for: decoded.id)
+        }
+    }
+
+    private func sendConfirmation(for reminderID: UUID) {
+        guard let session, session.activationState == .activated else { return }
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+        let payload: [String: Any] = [
+            "kind": "confirmed-reminder",
+            "id": reminderID.uuidString
+        ]
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(payload)
         }
     }
 }
