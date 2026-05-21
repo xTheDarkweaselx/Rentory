@@ -86,20 +86,7 @@ struct PropertiesListView: View {
                     } else {
                         LazyVStack(spacing: 14) {
                             ForEach(filteredPropertyPacks) { propertyPack in
-                                NavigationLink(value: propertyPack) {
-                                    PropertySummaryCard(propertyPack: propertyPack, showsLastUpdated: true)
-                                }
-                                .buttonStyle(.plain)
-                                .contextMenu {
-                                    Button {
-                                        toggleFavourite(for: propertyPack)
-                                    } label: {
-                                        Label(
-                                            propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
-                                            systemImage: propertyPack.isFavourite ? "star.slash" : "star"
-                                        )
-                                    }
-                                }
+                                propertyCardCell(for: propertyPack)
                             }
                         }
                     }
@@ -154,6 +141,29 @@ struct PropertiesListView: View {
             navigationPath = NavigationPath()
             navigationPath.append(target)
             deepLinkRouter.clearPending()
+        }
+    }
+
+    @ViewBuilder
+    private func propertyCardCell(for propertyPack: PropertyPack) -> some View {
+        let hint = propertyPack.searchMatchHint(for: filterState.searchText)
+        NavigationLink(value: propertyPack) {
+            PropertySummaryCard(
+                propertyPack: propertyPack,
+                showsLastUpdated: true,
+                searchHint: hint
+            )
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                toggleFavourite(for: propertyPack)
+            } label: {
+                Label(
+                    propertyPack.isFavourite ? "Remove from favourites" : "Add to favourites",
+                    systemImage: propertyPack.isFavourite ? "star.slash" : "star"
+                )
+            }
         }
     }
 
@@ -212,6 +222,8 @@ struct PropertiesListView: View {
             propertyPack.isFavourite.toggle()
             propertyPack.updatedAt = .now
             try? modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.selection()
         }
     }
 

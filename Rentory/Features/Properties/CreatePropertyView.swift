@@ -348,6 +348,7 @@ struct CreatePropertyView: View {
             modelContext.insert(propertyPack)
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             cleanupDraftFiles(documentFileNames: savedDocumentFileNames, photoFileNames: savedPhotoFileNames)

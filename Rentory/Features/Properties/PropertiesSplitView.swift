@@ -256,6 +256,8 @@ struct PropertiesSplitView: View {
             propertyPack.isFavourite.toggle()
             propertyPack.updatedAt = .now
             try? modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.selection()
         }
     }
 

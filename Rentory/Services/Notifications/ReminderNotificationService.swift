@@ -59,6 +59,25 @@ final class ReminderNotificationService: ObservableObject {
         }
     }
 
+    /// Requests `.provisional` authorisation. iOS grants it silently —
+    /// no system dialog — and notifications deliver quietly to
+    /// Notification Center only (no banner, no sound). The user can
+    /// later flip to full permissions from iOS Settings if they want
+    /// banners. Used as a soft fallback after the user declines the
+    /// in-app "Get notified" prompt so they can still benefit from
+    /// reminders without another permission popup.
+    @discardableResult
+    func requestProvisionalAuthorization() async -> Bool {
+        do {
+            let granted = try await center.requestAuthorization(options: [.provisional])
+            await refreshAuthorizationStatus()
+            return granted
+        } catch {
+            await refreshAuthorizationStatus()
+            return false
+        }
+    }
+
     /// Cancels every previously scheduled Rentory reminder notification and
     /// schedules a new one for each uncompleted reminder with a future due
     /// date. Cheap to call — it's the same operation as a targeted update

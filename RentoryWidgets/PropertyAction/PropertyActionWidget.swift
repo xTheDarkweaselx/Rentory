@@ -37,6 +37,23 @@ struct PropertyActionEntry: TimelineEntry {
     let primary: Item?
     let supporting: [Item]
 
+    /// Smart Stack relevance. Records with low completion + a defined
+    /// next action are the most worth nudging — that's when the widget
+    /// genuinely helps the user move forward. Records already near
+    /// 100% get less air time.
+    var relevance: TimelineEntryRelevance? {
+        guard let primary else {
+            return TimelineEntryRelevance(score: 0)
+        }
+        let hasAction = primary.nextActionTitle != nil
+        switch primary.completionPercent {
+        case ..<26: return TimelineEntryRelevance(score: hasAction ? 70 : 50)
+        case 26...60: return TimelineEntryRelevance(score: hasAction ? 50 : 35)
+        case 61...89: return TimelineEntryRelevance(score: 30)
+        default: return TimelineEntryRelevance(score: 15)
+        }
+    }
+
     struct Item: Identifiable, Hashable {
         let id: UUID
         let nickname: String

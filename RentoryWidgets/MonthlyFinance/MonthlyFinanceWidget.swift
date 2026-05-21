@@ -45,6 +45,23 @@ struct MonthlyFinanceEntry: TimelineEntry {
     let currencyCode: String
     let topProperties: [PropertyLine]
 
+    /// Smart Stack relevance. Finance is most interesting near month-
+    /// end and at the very start of a new month (when the previous
+    /// month's totals lock in). Renters and landlords with no records
+    /// score zero so the slot frees up for more useful widgets.
+    var relevance: TimelineEntryRelevance? {
+        guard isLandlordProfile, hasLandlordRecords else {
+            return TimelineEntryRelevance(score: 0)
+        }
+        let day = Calendar.current.component(.day, from: Date())
+        switch day {
+        case 1...3: return TimelineEntryRelevance(score: 60) // new month, last month's totals fresh
+        case 26...31: return TimelineEntryRelevance(score: 70) // end-of-month, planning + receipts
+        case 4...10: return TimelineEntryRelevance(score: 30)
+        default: return TimelineEntryRelevance(score: 20)
+        }
+    }
+
     struct PropertyLine: Identifiable, Hashable {
         let id: UUID
         let nickname: String

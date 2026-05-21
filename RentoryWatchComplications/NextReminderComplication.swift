@@ -90,18 +90,29 @@ struct NextReminderComplicationView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .accessoryInline:
-            inlineLayout
-        case .accessoryCircular:
-            circularLayout
-        case .accessoryCorner:
-            cornerLayout
-        case .accessoryRectangular:
-            rectangularLayout
-        default:
-            rectangularLayout
+        Group {
+            switch family {
+            case .accessoryInline:
+                inlineLayout
+            case .accessoryCircular:
+                circularLayout
+            case .accessoryCorner:
+                cornerLayout
+            case .accessoryRectangular:
+                rectangularLayout
+            default:
+                rectangularLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the complication opens the watch app focused on the
+    /// reminder's parent property. We use the parent property (not the
+    /// reminder itself) so the user lands on the actionable surface.
+    private var deepLinkURL: URL? {
+        guard let propertyID = entry.reminder?.propertyID else { return nil }
+        return URL(string: "rentory://property/\(propertyID.uuidString)")
     }
 
     private var inlineLayout: some View {
