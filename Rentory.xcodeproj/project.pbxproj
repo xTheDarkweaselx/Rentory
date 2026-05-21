@@ -10,12 +10,12 @@
 		664E07C72FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		664E07C82FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		664E07C92FB0D81D0073DC99 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
-		AABBCC040400000000000001 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 		6691EEC42FA67181006FC53C /* StoreKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6691EEC32FA67181006FC53C /* StoreKit.framework */; };
 		66D4F2112FB1000000EA887C /* Rentory.storekit in Resources */ = {isa = PBXBuildFile; fileRef = 66C91F7E2FAAA38000EA887C /* Rentory.storekit */; };
 		77AABB010100000000000008 /* RentoryWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 77AABB010100000000000001 /* RentoryWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		88BBCC020200000000000008 /* RentoryWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 88BBCC020200000000000001 /* RentoryWatch.app */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		99CCDD030300000000000008 /* RentoryWatchComplications.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 99CCDD030300000000000001 /* RentoryWatchComplications.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		AABBCC040400000000000001 /* Rentory App Icon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 664E07C62FB0D81D0073DC99 /* Rentory App Icon.icon */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
