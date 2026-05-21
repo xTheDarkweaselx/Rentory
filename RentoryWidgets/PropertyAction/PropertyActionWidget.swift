@@ -10,6 +10,7 @@
 //  Falls back to a friendly empty state when the user has no records yet.
 //
 
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -17,12 +18,16 @@ struct PropertyActionWidget: Widget {
     let kind = "RentoryPropertyActionWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PropertyActionTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: PropertyActionConfigurationIntent.self,
+            provider: PropertyActionTimelineProvider()
+        ) { entry in
             PropertyActionWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Next step")
-        .description("Your top record's next suggested action and how complete it is.")
+        .description("Pick a record (long-press to edit) and the widget shows its next suggested action and completion progress.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -74,22 +79,22 @@ struct PropertyActionEntry: TimelineEntry {
     static let emptySample = PropertyActionEntry(date: Date(), primary: nil, supporting: [])
 }
 
-struct PropertyActionTimelineProvider: TimelineProvider {
+struct PropertyActionTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PropertyActionEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (PropertyActionEntry) -> Void) {
-        completion(makeEntry(forContext: context))
+    func snapshot(for configuration: PropertyActionConfigurationIntent, in context: Context) async -> PropertyActionEntry {
+        makeEntry(configuration: configuration, context: context)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PropertyActionEntry>) -> Void) {
-        let entry = makeEntry(forContext: context)
+    func timeline(for configuration: PropertyActionConfigurationIntent, in context: Context) async -> Timeline<PropertyActionEntry> {
+        let entry = makeEntry(configuration: configuration, context: context)
         let nextRefresh = Date().addingTimeInterval(60 * 60 * 4)
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
-    private func makeEntry(forContext context: Context) -> PropertyActionEntry {
+    private func makeEntry(configuration: PropertyActionConfigurationIntent, context: Context) -> PropertyActionEntry {
         if context.isPreview {
             return .placeholder
         }
@@ -106,8 +111,19 @@ struct PropertyActionTimelineProvider: TimelineProvider {
             )
         }
 
-        let primary = items.first
-        let supporting = Array(items.dropFirst().prefix(2))
+        // Honour the user's configured property first; fall back to the
+        // top-of-list item (favourite + most-recently-updated) so the
+        // widget still surfaces something useful on a brand-new install
+        // before the user has edited it.
+        let primary: PropertyActionEntry.Item?
+        if let configuredID = configuration.property?.id,
+           let match = items.first(where: { $0.id == configuredID }) {
+            primary = match
+        } else {
+            primary = items.first
+        }
+
+        let supporting = Array(items.filter { $0.id != primary?.id }.prefix(2))
         return PropertyActionEntry(date: Date(), primary: primary, supporting: supporting)
     }
 }
