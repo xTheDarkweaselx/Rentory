@@ -92,16 +92,27 @@ struct PropertyCompletionComplicationView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .accessoryInline:
-            inlineLayout
-        case .accessoryCircular:
-            circularLayout
-        case .accessoryRectangular:
-            rectangularLayout
-        default:
-            rectangularLayout
+        Group {
+            switch family {
+            case .accessoryInline:
+                inlineLayout
+            case .accessoryCircular:
+                circularLayout
+            case .accessoryRectangular:
+                rectangularLayout
+            default:
+                rectangularLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the complication opens the watch app focused on this
+    /// record. Same URL grammar as the iOS widgets so the deep-link
+    /// router treats them identically.
+    private var deepLinkURL: URL? {
+        guard let property = entry.property else { return nil }
+        return URL(string: "rentory://property/\(property.id.uuidString)")
     }
 
     private var inlineLayout: some View {

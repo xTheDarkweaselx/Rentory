@@ -210,4 +210,46 @@ extension PropertyPack {
             .joined(separator: " ")
             .lowercased()
     }
+
+    /// Returns a short description of where inside this record a search
+    /// term matched — e.g. "Matched in reminder: Gas safety" — or nil
+    /// if the match was already in a prominently displayed field
+    /// (nickname, address) or there's no match at all. Used by the
+    /// search results UI to explain why a record is in the list when
+    /// the user's term doesn't appear on the card itself.
+    func searchMatchHint(for searchText: String) -> String? {
+        let term = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !term.isEmpty else { return nil }
+
+        // Don't add a hint if the term is in fields the card already shows.
+        let primaryFields: [String?] = [
+            nickname, addressLine1, addressLine2, townCity, postcode,
+            landlordOrAgentName,
+        ]
+        if primaryFields.compactMap({ $0?.lowercased() })
+            .contains(where: { $0.contains(term) }) {
+            return nil
+        }
+
+        if let room = rooms.first(where: { $0.name.lowercased().contains(term) }) {
+            return "Matched in room: \(room.name)"
+        }
+        if let item = rooms.flatMap(\.checklistItems)
+            .first(where: { $0.title.lowercased().contains(term) }) {
+            return "Matched in checklist: \(item.title)"
+        }
+        if let document = documents.first(where: { $0.displayName.lowercased().contains(term) }) {
+            return "Matched in document: \(document.displayName)"
+        }
+        if let event = timelineEvents.first(where: { $0.title.lowercased().contains(term) }) {
+            return "Matched in timeline: \(event.title)"
+        }
+        if let reminder = reminders.first(where: { $0.title.lowercased().contains(term) }) {
+            return "Matched in reminder: \(reminder.title)"
+        }
+        if notes?.lowercased().contains(term) == true {
+            return "Matched in notes"
+        }
+        return nil
+    }
 }

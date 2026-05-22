@@ -138,6 +138,8 @@ struct EvidencePhotoDetailView: View {
             try photoStorageService.deletePhoto(fileName: photo.localFileName)
             modelContext.delete(photo)
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             alertContent = RRAlertContent(error: .photoCouldNotBeDeleted)

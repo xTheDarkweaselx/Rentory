@@ -413,6 +413,7 @@ struct AddTenancyView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)

@@ -13,10 +13,14 @@ struct AddReminderView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
-    /// Once-per-user gate so the inline notifications offer only fires
-    /// the first time the user saves a reminder, not on every subsequent
-    /// add. Stored in user defaults via @AppStorage.
-    @AppStorage("rentory.hasOfferedNotificationsAfterFirstReminder") private var hasOfferedNotificationsPrompt = false
+    /// Two-step gate on the notifications offer:
+    ///   0 — never offered; show the inline dialog next time.
+    ///   1 — user declined the dialog once; on the next reminder save
+    ///       silently request .provisional permission so they at least
+    ///       get quiet Notification-Center delivery without another
+    ///       system dialog.
+    ///   2 — we've done both paths; leave the user alone.
+    @AppStorage("rentory.notificationsOfferStep") private var notificationsOfferStep = 0
 
     let propertyPack: PropertyPack
 
@@ -214,14 +218,18 @@ struct AddReminderView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             Task { await reminderNotificationService.reschedule(context: modelContext) }
 
-            // If this looks like the user's first reminder AND they haven't
-            // been offered notifications yet AND iOS hasn't already
-            // declined for them, surface a one-shot inline offer before
-            // dismissing. Otherwise dismiss immediately.
-            if shouldOfferNotifications {
+            // Two-step nudge: dialog first time, silent provisional
+            // permission second time, then stop. See notificationsOfferStep.
+            if shouldShowNotificationDialog {
                 isShowingNotificationOffer = true
+            } else if shouldSilentlyRequestProvisional {
+                Task {
+                    await silentlyRequestProvisionalNotifications()
+                    dismiss()
+                }
             } else {
                 dismiss()
             }
@@ -230,15 +238,25 @@ struct AddReminderView: View {
         }
     }
 
-    /// We only ask once per user (`hasOfferedNotificationsPrompt`) and we
-    /// don't ask if the user has already opted in elsewhere or iOS denied
-    /// the permission previously (re-asking from a different surface is
-    /// pointless — iOS will silently no-op).
-    private var shouldOfferNotifications: Bool {
-        guard !hasOfferedNotificationsPrompt else { return false }
+    /// First-pass nudge: show the explicit confirmation dialog. Skipped
+    /// if the user has already opted in elsewhere or iOS has hard-
+    /// denied the permission (re-asking would just no-op in iOS).
+    private var shouldShowNotificationDialog: Bool {
+        guard notificationsOfferStep == 0 else { return false }
         guard !reminderNotificationService.isEnabledByUser else { return false }
         let status = reminderNotificationService.authorizationStatus
         return status != .denied
+    }
+
+    /// Second-pass nudge: after the user declined the dialog once, ask
+    /// for `.provisional` silently on their next reminder save so they
+    /// still get quiet Notification-Center delivery without seeing
+    /// another system permission popup.
+    private var shouldSilentlyRequestProvisional: Bool {
+        guard notificationsOfferStep == 1 else { return false }
+        guard !reminderNotificationService.isEnabledByUser else { return false }
+        let status = reminderNotificationService.authorizationStatus
+        return status == .notDetermined
     }
 
     private func acceptNotificationOffer() {
@@ -246,13 +264,24 @@ struct AddReminderView: View {
             reminderNotificationService.isEnabledByUser = true
             _ = await reminderNotificationService.requestAuthorization()
             await reminderNotificationService.reschedule(context: modelContext)
-            hasOfferedNotificationsPrompt = true
+            // Bump to 2 so we don't take the provisional path on the
+            // next save — the user explicitly accepted, no more nudges.
+            notificationsOfferStep = 2
             dismiss()
         }
     }
 
     private func declineNotificationOffer() {
-        hasOfferedNotificationsPrompt = true
+        notificationsOfferStep = 1
         dismiss()
+    }
+
+    private func silentlyRequestProvisionalNotifications() async {
+        let granted = await reminderNotificationService.requestProvisionalAuthorization()
+        if granted {
+            reminderNotificationService.isEnabledByUser = true
+            await reminderNotificationService.reschedule(context: modelContext)
+        }
+        notificationsOfferStep = 2
     }
 }

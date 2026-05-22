@@ -16,6 +16,7 @@ struct FinanceSummaryCard: View {
     let propertyPack: PropertyPack
     var onAddExpense: () -> Void = {}
     var onViewAllExpenses: () -> Void = {}
+    var onExportCSV: () -> Void = {}
 
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
@@ -48,6 +49,11 @@ struct FinanceSummaryCard: View {
 
     private var recentExpenses: [PropertyExpense] {
         Array(propertyPack.expenses.sorted(by: { $0.date > $1.date }).prefix(3))
+    }
+
+    private var hasExportableRows: Bool {
+        !propertyPack.expenses.isEmpty
+            || propertyPack.tenancies.contains(where: { !$0.rentPayments.isEmpty })
     }
 
     var body: some View {
@@ -108,6 +114,18 @@ struct FinanceSummaryCard: View {
                     if !propertyPack.expenses.isEmpty {
                         RRSecondaryButton(title: "View all", action: onViewAllExpenses)
                     }
+                }
+
+                if hasExportableRows {
+                    Button {
+                        onExportCSV()
+                    } label: {
+                        Label("Export CSV for this tax year", systemImage: "square.and.arrow.up")
+                            .font(RRTypography.footnote.weight(.semibold))
+                            .foregroundStyle(RRColours.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Saves rent payments and expenses for the current UK tax year as a CSV file.")
                 }
             }
         }

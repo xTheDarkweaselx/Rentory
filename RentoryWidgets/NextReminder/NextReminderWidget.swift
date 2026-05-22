@@ -35,6 +35,28 @@ struct NextReminderEntry: TimelineEntry {
     let reminder: RentorySharedSnapshot.ReminderEntry?
     let activeProfileRawValue: String
 
+    /// Smart Stack relevance score. Higher = more likely to surface in
+    /// the Smart Stack. Tuned so overdue / due-today reminders pop, and
+    /// "nothing for weeks" lets other widgets take the slot.
+    var relevance: TimelineEntryRelevance? {
+        guard let reminder else {
+            return TimelineEntryRelevance(score: 0)
+        }
+        let days = Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: Date()),
+            to: Calendar.current.startOfDay(for: reminder.dueDate)
+        ).day ?? 0
+        switch days {
+        case ..<0: return TimelineEntryRelevance(score: 100)
+        case 0: return TimelineEntryRelevance(score: 90)
+        case 1: return TimelineEntryRelevance(score: 70)
+        case 2...3: return TimelineEntryRelevance(score: 50)
+        case 4...7: return TimelineEntryRelevance(score: 30)
+        default: return TimelineEntryRelevance(score: 10)
+        }
+    }
+
     static let placeholder = NextReminderEntry(
         date: Date(),
         reminder: nil,

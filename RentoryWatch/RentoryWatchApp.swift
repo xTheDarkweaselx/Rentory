@@ -20,11 +20,17 @@ struct RentoryWatchApp: App {
     // Injecting `.shared` directly into the environment lets every view
     // observe them through @EnvironmentObject without the @StateObject /
     // singleton double-retention anti-pattern.
+    @StateObject private var deepLinkRouter = WatchDeepLinkRouter()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(WatchSnapshotStore.shared)
                 .environmentObject(WatchSessionCoordinator.shared)
+                .environmentObject(deepLinkRouter)
+                .onOpenURL { url in
+                    deepLinkRouter.handle(url)
+                }
         }
     }
 }

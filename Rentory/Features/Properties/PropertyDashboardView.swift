@@ -22,6 +22,7 @@ struct PropertyDashboardView: View {
     @State private var isShowingTenanciesList = false
     @State private var selectedReminder: Reminder?
     @State private var infoAlertContent: RRAlertContent?
+    @State private var csvShareItem: CSVShareItem?
 
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
@@ -97,7 +98,8 @@ struct PropertyDashboardView: View {
                     FinanceSummaryCard(
                         propertyPack: propertyPack,
                         onAddExpense: { activeSheet = .addExpense },
-                        onViewAllExpenses: { activeSheet = .addExpense }
+                        onViewAllExpenses: { activeSheet = .addExpense },
+                        onExportCSV: { exportFinanceCSV() }
                     )
                 }
                 CompletionScoreCard(result: completionScore) {
@@ -348,6 +350,30 @@ struct PropertyDashboardView: View {
         .sheet(item: $activeSheet) { sheet in
             dashboardSheetContent(for: sheet)
                 .rrAdaptiveSheetPresentation()
+        }
+        .sheet(item: $csvShareItem) { item in
+            // SwiftUI's ShareLink isn't programmatically triggerable;
+            // a sheet hosting a ShareLink button keeps the flow native
+            // and lets the user pick AirDrop / Mail / Files.
+            VStack(spacing: RRTheme.sectionSpacing) {
+                RRSheetHeader(
+                    title: "Finance CSV ready",
+                    subtitle: "Share or save the file for your tax records.",
+                    systemImage: "tablecells.fill"
+                )
+                Text(item.url.lastPathComponent)
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .multilineTextAlignment(.center)
+                ShareLink(item: item.url) {
+                    Label("Share CSV", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                Spacer()
+            }
+            .padding()
+            .rrAdaptiveSheetPresentation()
         }
         .alert(item: $infoAlertContent) { content in
             Alert(
@@ -605,6 +631,27 @@ struct PropertyDashboardView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
+
+    private func exportFinanceCSV() {
+        let exporter = LandlordFinanceCSVExporter()
+        let range = LandlordFinanceCSVExporter.currentUKTaxYear()
+        do {
+            let url = try exporter.createCSV(for: propertyPack, range: range)
+            csvShareItem = CSVShareItem(url: url)
+            RRHaptics.success()
+        } catch {
+            RRHaptics.error()
+            infoAlertContent = RRAlertContent(
+                title: "CSV could not be created",
+                message: "Rentory could not save the finance CSV just now. Please try again."
+            )
+        }
+    }
+}
+
+private struct CSVShareItem: Identifiable {
+    let url: URL
+    var id: URL { url }
 }
 
 private enum DashboardSheet: Identifiable {

@@ -130,6 +130,7 @@ struct AddPropertyExpenseView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             validationMessage = "This expense could not be saved. Please try again."

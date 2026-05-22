@@ -417,6 +417,7 @@ struct ChecklistItemDetailView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             newCommentBody = ""
             newCommentPhase = nil
         } catch {
@@ -431,6 +432,7 @@ struct ChecklistItemDetailView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -462,6 +464,7 @@ struct ChecklistItemDetailView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -482,6 +485,7 @@ struct ChecklistItemDetailView: View {
         do {
             try modelContext.save()
             RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             alertContent = RRAlertContent(

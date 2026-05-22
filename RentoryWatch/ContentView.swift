@@ -12,6 +12,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var snapshotStore: WatchSnapshotStore
+    @EnvironmentObject private var deepLinkRouter: WatchDeepLinkRouter
     @AppStorage("rentory.watch.selectedTab") private var selectedTab: Int = 0
 
     var body: some View {
@@ -33,6 +34,14 @@ struct ContentView: View {
             }
             .tabItem { Label("Add", systemImage: "plus.circle.fill") }
             .tag(2)
+        }
+        .onReceive(deepLinkRouter.$targetTab) { newTab in
+            // A complication tap (or any rentory:// URL) asks us to
+            // focus a specific tab. Switch and clear the request so a
+            // subsequent manual tab switch isn't immediately overwritten.
+            guard let newTab else { return }
+            selectedTab = newTab
+            deepLinkRouter.clearPendingTab()
         }
     }
 }
