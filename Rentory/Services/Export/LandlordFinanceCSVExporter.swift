@@ -23,8 +23,13 @@ struct LandlordFinanceCSVExporter {
     private let dateFormatter: DateFormatter
     private let amountFormatter: NumberFormatter
 
-    init(fileStorageService: FileStorageService = FileStorageService()) {
-        self.fileStorageService = fileStorageService
+    init(fileStorageService: FileStorageService? = nil) {
+        // Building the FileStorageService inside the init body keeps
+        // the default-parameter expression off the call site, so Swift
+        // 6 strict concurrency doesn't flag a MainActor-isolated call
+        // from a possibly nonisolated context. Same intent as the
+        // previous `= FileStorageService()` default — just relocated.
+        self.fileStorageService = fileStorageService ?? FileStorageService()
 
         let date = DateFormatter()
         date.locale = Locale(identifier: "en_GB")

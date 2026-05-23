@@ -7,6 +7,7 @@
 
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 struct AddReminderView: View {
     @Environment(\.dismiss) private var dismiss
@@ -34,6 +35,7 @@ struct AddReminderView: View {
     @State private var priority: ReminderPriority = .normal
     @State private var hasDueDate = true
     @State private var dueDate = Calendar.current.date(byAdding: .day, value: 7, to: .now) ?? .now
+    @State private var recurrence: ReminderRecurrence = .none
     @State private var validationMessage: String?
     @State private var alertContent: RRAlertContent?
     @State private var isShowingNotificationOffer = false
@@ -107,6 +109,19 @@ struct AddReminderView: View {
 
                                 if hasDueDate {
                                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+
+                                    VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                                        Text("Repeat")
+                                            .font(RRTypography.footnote.weight(.semibold))
+                                            .foregroundStyle(RRColours.mutedText)
+
+                                        Picker("Repeat", selection: $recurrence) {
+                                            ForEach(ReminderRecurrence.allCases) { rule in
+                                                Text(rule.rawValue).tag(rule)
+                                            }
+                                        }
+                                        .pickerStyle(.menu)
+                                    }
                                 }
                             }
                         }
@@ -209,7 +224,11 @@ struct AddReminderView: View {
             notes: optionalText(notes),
             dueDate: hasDueDate ? dueDate : nil,
             kind: kind,
-            priority: priority
+            priority: priority,
+            // Recurrence is only meaningful when there's a due date —
+            // otherwise the picker is hidden and the value is whatever
+            // the user last selected before clearing the toggle.
+            recurrence: hasDueDate ? recurrence : .none
         )
 
         propertyPack.reminders.append(reminder)
