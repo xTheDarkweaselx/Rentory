@@ -21,12 +21,19 @@ import Foundation
 /// App Group container identifier used by the snapshot publisher and by
 /// every extension reader. Must match the value listed in each target's
 /// `com.apple.security.application-groups` entitlement.
-public enum RentorySharedSnapshotConstants {
+//
+// The whole snapshot family is `nonisolated` because the project sets
+// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which would otherwise
+// pin these pure data types — and their Codable conformance — to the
+// main actor. Widget timelines and AppIntents read/write these on
+// background actors, so the conformances need to be callable from
+// anywhere. No shared mutable state, no UI, no behaviour change.
+public nonisolated enum RentorySharedSnapshotConstants {
     public static let appGroupIdentifier = "group.com.fusionstudios.rentory"
     public static let snapshotRelativePath = "Library/Rentory/snapshot.json"
 }
 
-public struct RentorySharedSnapshot: Codable, Equatable, Sendable {
+public nonisolated struct RentorySharedSnapshot: Codable, Equatable, Sendable {
     public static let currentVersion = 1
 
     public let version: Int
@@ -149,8 +156,16 @@ public struct RentorySharedSnapshot: Codable, Equatable, Sendable {
 /// no state. Falls back to `RentorySharedSnapshot.empty` if the file is
 /// missing, corrupt, or from a future version — so the extension never
 /// shows a crashed placeholder.
-public enum RentorySharedSnapshotStore {
-    public static func currentSnapshotURL() -> URL? {
+public nonisolated enum RentorySharedSnapshotStore {
+    // The whole store is `nonisolated` because it's pure filesystem
+    // I/O against an App Group container — no shared mutable state.
+    // AppIntents and widget timelines call `read()` from background
+    // actors, so the methods need to be callable from anywhere. We
+    // also annotate each static method with `nonisolated` explicitly:
+    // belt-and-suspenders because the enum-level modifier doesn't
+    // always propagate to static methods under Swift 6's
+    // `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
+    public nonisolated static func currentSnapshotURL() -> URL? {
         guard let container = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: RentorySharedSnapshotConstants.appGroupIdentifier
         ) else {
@@ -159,7 +174,7 @@ public enum RentorySharedSnapshotStore {
         return container.appendingPathComponent(RentorySharedSnapshotConstants.snapshotRelativePath, isDirectory: false)
     }
 
-    public static func read() -> RentorySharedSnapshot {
+    public nonisolated static func read() -> RentorySharedSnapshot {
         guard let url = currentSnapshotURL(),
               let data = try? Data(contentsOf: url, options: [.mappedIfSafe]) else {
             return .empty
@@ -174,7 +189,7 @@ public enum RentorySharedSnapshotStore {
         return decoded
     }
 
-    public static func write(_ snapshot: RentorySharedSnapshot) throws {
+    public nonisolated static func write(_ snapshot: RentorySharedSnapshot) throws {
         guard let url = currentSnapshotURL() else {
             throw RentorySharedSnapshotError.appGroupContainerUnavailable
         }

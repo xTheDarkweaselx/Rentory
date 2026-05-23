@@ -466,6 +466,62 @@ enum ReminderPriority: String, CaseIterable, Codable {
     case high = "High"
 }
 
+/// Recurrence cadence for a `Reminder`. Stored as a raw string so the
+/// schema can grow new cases without a migration. Completion logic in
+/// `ReminderDetailView` spawns a new reminder for the next occurrence
+/// (see `nextDueDate(after:)`) and marks the current one complete — so
+/// each row is a single occurrence with audit history, not a moving
+/// target. Picking `.none` means the reminder is one-off, which is the
+/// default for all existing reminders that don't carry a stored value.
+enum ReminderRecurrence: String, CaseIterable, Codable, Identifiable {
+    case none = "Does not repeat"
+    case daily = "Daily"
+    case weekly = "Weekly"
+    case fortnightly = "Every 2 weeks"
+    case monthly = "Monthly"
+    case quarterly = "Every 3 months"
+    case yearly = "Yearly"
+
+    var id: String { rawValue }
+
+    /// Short label used inside dashboard list rows where the long
+    /// "Every 2 weeks" form would push the layout. Returns nil for
+    /// `.none` so callers can decide whether to render anything.
+    var shortLabel: String? {
+        switch self {
+        case .none: return nil
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        case .fortnightly: return "2-weekly"
+        case .monthly: return "Monthly"
+        case .quarterly: return "Quarterly"
+        case .yearly: return "Yearly"
+        }
+    }
+
+    /// Given an existing due date, computes the next occurrence date
+    /// using the user's current calendar. Returns nil for `.none` so
+    /// callers can treat that as "no further occurrence".
+    func nextDueDate(after dueDate: Date, calendar: Calendar = .autoupdatingCurrent) -> Date? {
+        switch self {
+        case .none:
+            return nil
+        case .daily:
+            return calendar.date(byAdding: .day, value: 1, to: dueDate)
+        case .weekly:
+            return calendar.date(byAdding: .weekOfYear, value: 1, to: dueDate)
+        case .fortnightly:
+            return calendar.date(byAdding: .weekOfYear, value: 2, to: dueDate)
+        case .monthly:
+            return calendar.date(byAdding: .month, value: 1, to: dueDate)
+        case .quarterly:
+            return calendar.date(byAdding: .month, value: 3, to: dueDate)
+        case .yearly:
+            return calendar.date(byAdding: .year, value: 1, to: dueDate)
+        }
+    }
+}
+
 enum RentPaymentStatus: String, CaseIterable, Codable, Identifiable {
     case paid = "Paid"
     case pending = "Pending"

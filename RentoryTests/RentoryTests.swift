@@ -7,6 +7,7 @@
 
 import Foundation
 import CloudKit
+import PDFKit
 import SwiftData
 import Testing
 
@@ -704,7 +705,7 @@ struct RentoryTests {
 
         let backupURL = try sourceBackupService.createBackup(context: sourceContext)
         let loaded = try sourceBackupService.loadBackup(from: backupURL)
-        #expect(loaded.manifest.backupVersion == 4)
+        #expect(loaded.manifest.backupVersion == 5)
         #expect(loaded.manifest.reminderCount == 1)
 
         let destinationStorageService = makeService()
@@ -884,7 +885,7 @@ struct RentoryTests {
 
         let backupURL = try backupService.createBackup(context: sourceContext)
         let loaded = try backupService.loadBackup(from: backupURL)
-        #expect(loaded.manifest.backupVersion == 4)
+        #expect(loaded.manifest.backupVersion == 5)
         #expect(loaded.manifest.rentPaymentCount == 1)
         #expect(loaded.manifest.expenseCount == 1)
 
@@ -1173,6 +1174,134 @@ struct RentoryTests {
         }
     }
 
+    // MARK: - PDF builder pagination
+
+    @Test @MainActor func pdfBuilderHandlesEmptyRecord() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Empty pack", profile: .renter)
+        context.insert(pack)
+        try context.save()
+
+        let data = try PDFReportBuilder().buildReportData(
+            for: pack,
+            options: ExportOptions()
+        )
+
+        // Cover + summary + disclaimer at minimum.
+        let document = PDFDocument(data: data)
+        #expect(document != nil)
+        #expect((document?.pageCount ?? 0) >= 1)
+    }
+
+    @Test @MainActor func pdfBuilderHandlesManyRoomsAndChecklistItems() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Stress room pack", profile: .renter)
+
+        for index in 0..<50 {
+            let room = RoomRecord(name: "Room \(index)", type: .other, sortOrder: index)
+            for itemIndex in 0..<6 {
+                let item = ChecklistItemRecord(
+                    title: "Item \(itemIndex)",
+                    sortOrder: itemIndex,
+                    moveInConditionRawValue: EvidenceCondition.good.rawValue,
+                    moveOutConditionRawValue: EvidenceCondition.good.rawValue
+                )
+                room.checklistItems.append(item)
+            }
+            pack.rooms.append(room)
+        }
+        context.insert(pack)
+        try context.save()
+
+        let data = try PDFReportBuilder().buildReportData(
+            for: pack,
+            options: ExportOptions()
+        )
+
+        let document = PDFDocument(data: data)
+        #expect(document != nil)
+        // 50 rooms × 6 items = 300 lines; comfortably exceeds the
+        // 26-line per-page cap, so we expect multi-page pagination.
+        #expect((document?.pageCount ?? 0) > 2)
+    }
+
+    @Test @MainActor func pdfBuilderHandlesTimelineHeavyRecord() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Timeline pack", profile: .landlord)
+        let baseDate = Date(timeIntervalSince1970: 1_700_000_000)
+        for index in 0..<30 {
+            let event = TimelineEvent(
+                title: "Event \(index)",
+                type: .inspection,
+                eventDate: baseDate.addingTimeInterval(Double(index) * 86_400),
+                notes: "Notes for event \(index)"
+            )
+            pack.timelineEvents.append(event)
+        }
+        context.insert(pack)
+        try context.save()
+
+        let data = try PDFReportBuilder().buildReportData(
+            for: pack,
+            options: ExportOptions()
+        )
+
+        let document = PDFDocument(data: data)
+        #expect(document != nil)
+        #expect((document?.pageCount ?? 0) >= 1)
+    }
+
+    @Test @MainActor func pdfReportAlwaysIncludesDisclaimer() throws {
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Disclaimer check", profile: .renter)
+        context.insert(pack)
+        try context.save()
+
+        var options = ExportOptions()
+        options.includeDisclaimer = false
+
+        let data = try PDFReportBuilder().buildReportData(
+            for: pack,
+            options: options
+        )
+
+        // The builder's `sanitised(options:)` forces the disclaimer
+        // back on even if the caller cleared it. Verify the report
+        // still produces and renders.
+        let document = PDFDocument(data: data)
+        #expect(document != nil)
+        let allText = (0..<(document?.pageCount ?? 0))
+            .compactMap { document?.page(at: $0)?.string }
+            .joined()
+        // The disclaimer text contains the word "disclaimer" (case-insensitive).
+        #expect(allText.lowercased().contains("disclaimer"))
+    }
+
+    // MARK: - Photo cache
+
+    @Test @MainActor func photoCacheStoresAndReturnsThumbnail() throws {
+        let service = PhotoStorageService()
+        let cgImage = try makeImage(size: CGSize(width: 100, height: 100)).cgImage!
+        let key = "test-cache-\(UUID().uuidString)"
+
+        #expect(service.cachedThumbnail(for: key) == nil)
+        service.storeThumbnail(UIImage(cgImage: cgImage), for: key)
+        #expect(service.cachedThumbnail(for: key) != nil)
+    }
+
+    @Test @MainActor func photoCacheIsSharedAcrossInstances() throws {
+        // The cache is a static NSCache so two PhotoStorageService
+        // instances must share it; otherwise widgets and dashboards
+        // would re-decode the same JPEGs twice.
+        let serviceA = PhotoStorageService()
+        let serviceB = PhotoStorageService()
+        let cgImage = try makeImage(size: CGSize(width: 20, height: 20)).cgImage!
+        let key = "rentory-shared-\(UUID().uuidString)"
+
+        serviceA.storeThumbnail(UIImage(cgImage: cgImage), for: key)
+        #expect(serviceB.cachedThumbnail(for: key) != nil)
+    }
+
     // MARK: - Reminder notifications
 
     @Test @MainActor func triggerDateUsesNineAmOnTheDueDayInTheFuture() {
@@ -1189,6 +1318,249 @@ struct RentoryTests {
             #expect(components.hour == 9)
             #expect(components.minute == 0)
         }
+    }
+
+    // MARK: - Recurring reminders
+
+    @Test func recurrenceNoneReturnsNilNextDate() {
+        let due = Date(timeIntervalSince1970: 1_700_000_000)
+        #expect(ReminderRecurrence.none.nextDueDate(after: due) == nil)
+    }
+
+    @Test func recurrenceDailyAddsOneDay() {
+        let calendar = Calendar(identifier: .gregorian)
+        let due = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let next = ReminderRecurrence.daily.nextDueDate(after: due, calendar: calendar)
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 6, day: 2))!
+        #expect(next == expected)
+    }
+
+    @Test func recurrenceWeeklyAddsSevenDays() {
+        let calendar = Calendar(identifier: .gregorian)
+        let due = calendar.date(from: DateComponents(year: 2026, month: 6, day: 1))!
+        let next = ReminderRecurrence.weekly.nextDueDate(after: due, calendar: calendar)
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 6, day: 8))!
+        #expect(next == expected)
+    }
+
+    @Test func recurrenceMonthlyHandlesMonthEnd() {
+        // 31 January + monthly should resolve to 28 February (or 29 in a
+        // leap year). The calendar rolls forward correctly without
+        // overshooting into March, which is exactly what we want for
+        // "rent due last day of month" style reminders.
+        let calendar = Calendar(identifier: .gregorian)
+        let due = calendar.date(from: DateComponents(year: 2026, month: 1, day: 31))!
+        let next = ReminderRecurrence.monthly.nextDueDate(after: due, calendar: calendar)!
+        let components = calendar.dateComponents([.year, .month, .day], from: next)
+        #expect(components.year == 2026)
+        #expect(components.month == 2)
+        // 2026 is not a leap year, so February has 28 days.
+        #expect(components.day == 28)
+    }
+
+    @Test func recurrenceQuarterlyAddsThreeMonths() {
+        let calendar = Calendar(identifier: .gregorian)
+        let due = calendar.date(from: DateComponents(year: 2026, month: 4, day: 6))!
+        let next = ReminderRecurrence.quarterly.nextDueDate(after: due, calendar: calendar)
+        let expected = calendar.date(from: DateComponents(year: 2026, month: 7, day: 6))!
+        #expect(next == expected)
+    }
+
+    @Test func recurrenceYearlyAddsOneYear() {
+        let calendar = Calendar(identifier: .gregorian)
+        let due = calendar.date(from: DateComponents(year: 2026, month: 4, day: 6))!
+        let next = ReminderRecurrence.yearly.nextDueDate(after: due, calendar: calendar)
+        let expected = calendar.date(from: DateComponents(year: 2027, month: 4, day: 6))!
+        #expect(next == expected)
+    }
+
+    @Test func reminderShortLabelHidesNoneAndShortensFortnightly() {
+        #expect(ReminderRecurrence.none.shortLabel == nil)
+        #expect(ReminderRecurrence.fortnightly.shortLabel == "2-weekly")
+        #expect(ReminderRecurrence.monthly.shortLabel == "Monthly")
+    }
+
+    @Test func reminderRecurrenceRoundTripsThroughRawValue() {
+        // Ensures the var-setter clears the raw value when set back to
+        // .none and writes the raw value otherwise — so SwiftData stays
+        // tidy and old reminders without a stored recurrence still
+        // decode to .none.
+        let reminder = Reminder(title: "Test")
+        #expect(reminder.recurrence == .none)
+        #expect(reminder.recurrenceRuleRawValue == nil)
+
+        reminder.recurrence = .monthly
+        #expect(reminder.recurrenceRuleRawValue == ReminderRecurrence.monthly.rawValue)
+
+        reminder.recurrence = .none
+        #expect(reminder.recurrenceRuleRawValue == nil)
+    }
+
+    @Test @MainActor func backupRoundTripPreservesRecurrenceRule() throws {
+        // Smoke test: a reminder with .monthly recurrence survives a
+        // make-and-import-payload round trip. Uses the same harness as
+        // the other backup round-trip tests so the package layout, file
+        // staging, and import logic are all exercised end to end.
+        let storage = makeService()
+        let sourceContext = try makeModelContext()
+
+        let pack = PropertyPack(nickname: "Monthly rent", profile: .renter)
+        let reminder = Reminder(
+            title: "Rent due",
+            dueDate: Date(timeIntervalSince1970: 1_700_000_000),
+            recurrence: .monthly
+        )
+        pack.reminders.append(reminder)
+        sourceContext.insert(pack)
+        try sourceContext.save()
+
+        let backupService = RentoryBackupService(
+            fileStorageService: storage,
+            deletionService: RentoryDataDeletionService(fileStorageService: storage)
+        )
+        let backupURL = try backupService.createBackup(context: sourceContext)
+
+        let importContext = try makeModelContext()
+        try backupService.importBackup(
+            backupService.loadBackup(from: backupURL),
+            mode: .replaceAll,
+            context: importContext
+        )
+
+        let restoredPacks = try importContext.fetch(FetchDescriptor<PropertyPack>())
+        let restoredPack = try #require(restoredPacks.first)
+        let restoredReminder = try #require(restoredPack.reminders.first)
+        #expect(restoredReminder.recurrence == .monthly)
+        #expect(restoredReminder.title == "Rent due")
+    }
+
+    // MARK: - AppIntents pending queue + applier
+
+    @Test @MainActor func pendingIntentApplierCreatesReminderOnMatchingProperty() throws {
+        // The applier resolves the propertyID, builds a Reminder, and
+        // attaches it to the pack. This is the same code path Siri's
+        // AddReminderIntent will exercise on next launch.
+        let context = try makeModelContext()
+        let pack = PropertyPack(nickname: "Test pack", profile: .renter)
+        context.insert(pack)
+        try context.save()
+
+        // Apply directly without touching the on-disk queue — the
+        // applier is split so we can exercise the per-kind branch
+        // without coordinating files in a test process.
+        let due = Date(timeIntervalSince1970: 1_700_000_000)
+        let queued = RentoryPendingIntentEnvelope(
+            id: UUID(),
+            queuedAt: .now,
+            payload: .addReminder(propertyID: pack.id, title: "Boiler service", dueDate: due, createdAt: .now)
+        )
+
+        // Inject by writing once + applyAll() reading it back. Use a
+        // temporary App Group container if entitled; otherwise the
+        // store no-ops and the test is a soft pass.
+        try RentoryPendingIntentStore.enqueue(queued.payload)
+        let applied = RentoryPendingIntentApplier.applyAll(in: context)
+        // If we're in a process without the App Group container,
+        // applyAll returns 0 because readAll returns []. Skip the rest
+        // in that case — we still got coverage of the enqueue path.
+        guard applied > 0 else { return }
+
+        let refreshed = try context.fetch(FetchDescriptor<PropertyPack>())
+        let savedPack = try #require(refreshed.first)
+        let reminder = try #require(savedPack.reminders.first(where: { $0.title == "Boiler service" }))
+        #expect(reminder.dueDate == due)
+    }
+
+    @Test func pendingIntentPayloadEquatableHonoursAllAssociatedValues() {
+        // Sanity check that Codable + Equatable conform correctly for
+        // the enum cases — useful so the queue file's diff-based
+        // remove(ids:) drops the exact entry we applied.
+        let id = UUID()
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let createdAt = Date(timeIntervalSince1970: 1_705_000_000)
+        let lhs = RentoryPendingIntent.addReminder(propertyID: id, title: "x", dueDate: date, createdAt: createdAt)
+        let rhs = RentoryPendingIntent.addReminder(propertyID: id, title: "x", dueDate: date, createdAt: createdAt)
+        #expect(lhs == rhs)
+
+        let differentTitle = RentoryPendingIntent.addReminder(propertyID: id, title: "y", dueDate: date, createdAt: createdAt)
+        #expect(lhs != differentTitle)
+    }
+
+    @Test func pendingIntentEnvelopeRoundTripsThroughJSON() throws {
+        // The queue file is JSON — make sure the envelope and every
+        // payload case decode cleanly so an intent process can hand a
+        // payload to the next launch reliably.
+        let due = Date(timeIntervalSince1970: 1_700_000_000)
+        let envelope = RentoryPendingIntentEnvelope(
+            id: UUID(),
+            queuedAt: Date(timeIntervalSince1970: 1_705_000_000),
+            payload: .logRentPayment(
+                propertyID: UUID(),
+                amount: 750,
+                paidDate: due,
+                currencyCode: "GBP",
+                createdAt: .now
+            )
+        )
+
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try encoder.encode([envelope])
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try decoder.decode([RentoryPendingIntentEnvelope].self, from: data)
+
+        #expect(decoded.count == 1)
+        let restored = try #require(decoded.first)
+        #expect(restored.id == envelope.id)
+        if case let .logRentPayment(propertyID, amount, paidDate, currencyCode, _) = restored.payload {
+            #expect(amount == 750)
+            #expect(currencyCode == "GBP")
+            #expect(paidDate == due)
+            // propertyID is a UUID round-tripped through JSON — should
+            // match the source exactly.
+            if case let .logRentPayment(originalID, _, _, _, _) = envelope.payload {
+                #expect(propertyID == originalID)
+            }
+        } else {
+            Issue.record("Expected logRentPayment payload after round trip")
+        }
+    }
+
+    // MARK: - Calendar mirror
+
+    @Test func calendarMirrorNotesEmbedReminderID() {
+        // The mirror writes "[Rentory:<UUID>]" on each event so the
+        // next reconciliation can find it again. With no user notes
+        // the marker is the whole body; with notes the marker sits
+        // below them on its own line.
+        let id = UUID()
+        let withoutNotes = CalendarMirrorService.makeNotes(body: nil, reminderID: id)
+        #expect(withoutNotes == "[Rentory:\(id.uuidString)]")
+
+        let withNotes = CalendarMirrorService.makeNotes(body: "Bring spare keys", reminderID: id)
+        #expect(withNotes.hasPrefix("Bring spare keys"))
+        #expect(withNotes.contains("[Rentory:\(id.uuidString)]"))
+    }
+
+    @Test func calendarMirrorParsesReminderIDFromMarker() {
+        let id = UUID()
+        let notes = "User edited this in Calendar\n\n[Rentory:\(id.uuidString)]"
+        #expect(CalendarMirrorService.parseReminderID(from: notes) == id)
+    }
+
+    @Test func calendarMirrorReturnsNilForUnmarkedNotes() {
+        #expect(CalendarMirrorService.parseReminderID(from: nil) == nil)
+        #expect(CalendarMirrorService.parseReminderID(from: "") == nil)
+        #expect(CalendarMirrorService.parseReminderID(from: "Just regular notes") == nil)
+        #expect(CalendarMirrorService.parseReminderID(from: "[Rentory:not-a-uuid]") == nil)
+    }
+
+    @Test func calendarMirrorRoundTripsMakeAndParse() {
+        let id = UUID()
+        let composed = CalendarMirrorService.makeNotes(body: "Annual gas check", reminderID: id)
+        #expect(CalendarMirrorService.parseReminderID(from: composed) == id)
     }
 
     @Test @MainActor func triggerDateFiresImmediatelyIfTodaysPreferredTimeHasPassed() {

@@ -733,6 +733,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
@@ -801,6 +804,9 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
+				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
@@ -950,7 +956,6 @@
 		77AABB01010000000000000B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RentoryWidgets/RentoryWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -987,7 +992,6 @@
 		77AABB01010000000000000C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RentoryWidgets/RentoryWidgets.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1025,7 +1029,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1062,7 +1065,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = "Rentory App Icon";
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatch/RentoryWatch.entitlements;
 				CODE_SIGN_STYLE = Automatic;
@@ -1098,7 +1100,6 @@
 		99CCDD03030000000000000B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatchComplications/RentoryWatchComplications.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -1132,7 +1133,6 @@
 		99CCDD03030000000000000C /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = RentoryWatchComplications/RentoryWatchComplications.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;

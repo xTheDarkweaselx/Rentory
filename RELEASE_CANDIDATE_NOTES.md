@@ -14,15 +14,22 @@ Current version: 1.0 candidate
 - Compliance reminder kinds for landlords: gas safety, electrical safety (EICR), energy performance (EPC), periodic inspection, tenancy renewal
 - Local PDF reports (cover, property summary, tenancies, rooms, photos, documents, timeline, reminders, disclaimer)
 - Rent payments and property expenses (landlord profile) with current-month net summary
-- Backup export and import as `.rentorybackup` packages (v4 payload — adds rent payments + expenses + item comments + room condition overrides; decodes v1, v2 and v3)
+- Backup export and import as `.rentorybackup` packages (v5 payload — adds recurring-reminder cadence on top of v4; decodes v1–v5)
+- Recurring reminders (daily / weekly / fortnightly / monthly / quarterly / yearly) — completing a recurring reminder spawns the next occurrence automatically
+- CSV finance export for the current UK tax year (landlord profile) — per-property rent payments and expenses, shareable via the system share sheet
+- Siri Shortcuts / AppIntents app actions: Add Rentory reminder, Open next Rentory reminder, Log Rentory rent payment
+- Optional Calendar mirror (write-only) — Rentory writes upcoming reminders to a dedicated "Rentory reminders" calendar; disabling removes the calendar
+- Top-level search across reminders, rooms, documents, timeline and notes — hits inside a record show inline as a chip on the property card
+- Provisional notification fallback — after a user declines the explicit notification prompt once, Rentory silently requests `.provisional` permission on the next reminder save so they still get quiet Notification Centre delivery
 - Optional iCloud snapshot sync to the user's private CloudKit database
 - Optional App Lock (biometric / device passcode)
 - One-off lifetime unlock IAP
 - Sample data sets for both profiles (eight renter samples, six landlord samples)
 - Local reminder notifications (UNCalendarNotificationTrigger, 9 AM local time, opt-in)
-- Home Screen widgets: Next reminder, Monthly finance (landlord), Next step
-- Apple Watch companion: Reminders / Records / Quick Add tabs
-- Apple Watch face complications: Next reminder, Record progress (accessoryCircular / accessoryRectangular / accessoryInline / accessoryCorner)
+- Haptic feedback on save, delete and favourite toggles (iOS / iPadOS; macOS native + visionOS no-op)
+- Home Screen widgets: Next reminder, Monthly finance (landlord), Next step — with Smart Stack relevance hints so iOS surfaces the right tile at the right time
+- Apple Watch companion: Reminders / Records / Quick Add tabs, with iPhone confirmation handshake so the pending counter clears when reminders land
+- Apple Watch face complications: Next reminder, Record progress — tappable deep links open the right record (accessoryCircular / accessoryRectangular / accessoryInline / accessoryCorner)
 
 ## Features intentionally not included
 - Account sign-in

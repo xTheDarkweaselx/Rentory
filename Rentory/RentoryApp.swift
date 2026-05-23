@@ -22,6 +22,7 @@ struct RentoryApp: App {
     @StateObject private var watchSyncService = WatchSyncService()
     @StateObject private var deepLinkRouter = RentoryDeepLinkRouter()
     @StateObject private var notificationDelegate = RentoryNotificationDelegate()
+    @StateObject private var calendarMirrorService = CalendarMirrorService()
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
 
@@ -84,6 +85,7 @@ struct RentoryApp: App {
                     .environmentObject(reminderNotificationService)
                     .environmentObject(watchSyncService)
                     .environmentObject(deepLinkRouter)
+                    .environmentObject(calendarMirrorService)
                     .modelContainer(sharedModelContainer)
                     .onOpenURL { url in
                         deepLinkRouter.handle(url)
