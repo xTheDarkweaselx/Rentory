@@ -597,7 +597,7 @@ struct DemoDataFactory {
         let tenancyEnd = demoDate(year: 2027, month: 1, day: 14)
 
         return try makePropertyRecord(
-            nickname: "Linden Avenue house",
+            nickname: "42 Linden Avenue",
             recordType: .house,
             profile: .landlord,
             isFavourite: true,
