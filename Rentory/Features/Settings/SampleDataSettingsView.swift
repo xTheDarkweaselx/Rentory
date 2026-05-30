@@ -297,10 +297,20 @@ struct SampleDataSettingsView: View {
     }
 
     private func clearDemoData() async {
-        guard !isWorking else { return }
+        NSLog("[RentoryDiag] clearDemoData() entered, isWorking=\(isWorking)")
+        guard !isWorking else {
+            NSLog("[RentoryDiag] clearDemoData() bailing — isWorking already true")
+            return
+        }
         isWorking = true
         await Task.yield()
         defer { isWorking = false }
+
+        // Diagnostic: how many records does the @Query currently see,
+        // and how many match the demo predicate.
+        let totalPacks = propertyPacks.count
+        let demoPacks = propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+        NSLog("[RentoryDiag] @Query sees \(totalPacks) packs total, \(demoPacks) match matchesDemoRecord")
 
         do {
             // Clear across every profile rather than only the active
@@ -310,7 +320,9 @@ struct SampleDataSettingsView: View {
             // "Sample data cleared" alert even when zero records
             // matched, which read as the action silently doing
             // nothing.
+            NSLog("[RentoryDiag] calling demoDataFactory.clearDemoData(profile:nil)")
             let clearedCount = try demoDataFactory.clearDemoData(context: modelContext, profile: nil)
+            NSLog("[RentoryDiag] demoDataFactory.clearDemoData returned \(clearedCount)")
             let noun = clearedCount == 1 ? "sample record" : "sample records"
             alertContent = RRAlertContent(
                 title: clearedCount > 0 ? "Sample data cleared" : "No sample records to clear",
@@ -326,7 +338,9 @@ struct SampleDataSettingsView: View {
                 )
             }
         } catch {
+            NSLog("[RentoryDiag] clearDemoData() caught error: \(error)")
             alertContent = RRAlertContent(error: .somethingWentWrong)
         }
+        NSLog("[RentoryDiag] clearDemoData() finished, alertContent set=\(alertContent != nil)")
     }
 }
