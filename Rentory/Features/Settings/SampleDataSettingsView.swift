@@ -191,7 +191,14 @@ struct SampleDataSettingsView: View {
     private var clearDemoButton: some View {
         VStack(alignment: .leading, spacing: 6) {
             RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                isShowingClearConfirmation = true
+                // TEMP DIAG: skip the confirmation dialog and clear
+                // directly so we can verify the action path works.
+                Self.appendDiag("RRDestructiveButton tap handler entered")
+                Task {
+                    Self.appendDiag("direct-clear Task started")
+                    await clearDemoData()
+                    Self.appendDiag("direct-clear Task finished")
+                }
             }
 
             if !isWorking, !hasDemoRecord {
