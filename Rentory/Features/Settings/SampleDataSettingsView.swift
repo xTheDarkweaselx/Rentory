@@ -38,12 +38,24 @@ struct SampleDataSettingsView: View {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
     }
 
-    private var hasDemoRecord: Bool {
-        profileScopedPropertyPacks.contains(where: DemoModeSettings.matchesDemoRecord)
+    /// Demo records on the currently active profile only — used for
+    /// the "X sample records ready to use" status line.
+    private var profileScopedDemoRecordCount: Int {
+        profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
     }
 
-    private var demoRecordCount: Int {
-        profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    /// Demo records across every profile. The Clear button uses this
+    /// because users expect "Clear demo data" to remove ALL the
+    /// demo records they can see in the app, not just the ones tied
+    /// to whichever profile happens to be selected right now —
+    /// otherwise tapping it appears to silently do nothing when the
+    /// records were created on a different profile.
+    private var totalDemoRecordCount: Int {
+        propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    }
+
+    private var hasDemoRecord: Bool {
+        totalDemoRecordCount > 0
     }
 
     private var profileSampleSetSize: Int {
@@ -141,11 +153,7 @@ struct SampleDataSettingsView: View {
     private var compactView: some View {
         Form {
             Section("Sample data") {
-                Text(
-                    hasDemoRecord
-                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
-                    : "No sample records have been loaded yet."
-                )
+                Text(statusText)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
 
@@ -178,7 +186,7 @@ struct SampleDataSettingsView: View {
             }
 
             if !isWorking, !hasDemoRecord {
-                Text("No sample records on the \(currentProfile.rawValue.lowercased()) profile yet. Tap Load above first, or switch profile if your sample data is on the other one.")
+                Text("No sample records on this device yet. Tap Load above to add some.")
                     .font(RRTypography.caption)
                     .foregroundStyle(RRColours.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -187,20 +195,17 @@ struct SampleDataSettingsView: View {
     }
 
     private var statusPanel: some View {
+        // No internal "Sample data" heading here — the screen-level
+        // RRSheetHeader already provides one, and showing two
+        // identical titles back-to-back read as a layout bug. We
+        // just lead with the one-line description + status string.
         RRGlassPanel {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                Text("Sample data")
-                    .font(RRTypography.headline)
-
                 Text("Use example records to understand how Rentory works.")
                     .font(RRTypography.body)
                     .foregroundStyle(RRColours.mutedText)
 
-                Text(
-                    hasDemoRecord
-                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
-                    : "No sample records have been loaded yet."
-                )
+                Text(statusText)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
 
@@ -208,6 +213,21 @@ struct SampleDataSettingsView: View {
                     .toggleStyle(.switch)
             }
         }
+    }
+
+    /// Status line shown under the description. Reports total demo
+    /// records across all profiles when there are any, with a hint
+    /// about the active profile when records are split between
+    /// profiles. Falls back to a friendly empty-state line otherwise.
+    private var statusText: String {
+        guard totalDemoRecordCount > 0 else {
+            return "No sample records have been loaded yet."
+        }
+        let totalNoun = totalDemoRecordCount == 1 ? "sample record" : "sample records"
+        if profileScopedDemoRecordCount == totalDemoRecordCount {
+            return "\(totalDemoRecordCount) \(totalNoun) ready to use."
+        }
+        return "\(totalDemoRecordCount) \(totalNoun) on this device (\(profileScopedDemoRecordCount) on the \(currentProfile.rawValue.lowercased()) profile)."
     }
 
     private var actionsPanel: some View {
@@ -279,21 +299,32 @@ struct SampleDataSettingsView: View {
     private func clearDemoData() async {
         guard !isWorking else { return }
         isWorking = true
-        let profile = currentProfile
         await Task.yield()
         defer { isWorking = false }
 
         do {
-            try demoDataFactory.clearDemoData(context: modelContext, profile: profile)
+            // Clear across every profile rather than only the active
+            // one. The user-visible expectation is "clear all the
+            // sample records I can see in the app" — restricting to
+            // the current profile was previously firing the
+            // "Sample data cleared" alert even when zero records
+            // matched, which read as the action silently doing
+            // nothing.
+            let clearedCount = try demoDataFactory.clearDemoData(context: modelContext, profile: nil)
+            let noun = clearedCount == 1 ? "sample record" : "sample records"
             alertContent = RRAlertContent(
-                title: "Sample data cleared",
-                message: "The sample records and their files have been removed."
+                title: clearedCount > 0 ? "Sample data cleared" : "No sample records to clear",
+                message: clearedCount > 0
+                    ? "Removed \(clearedCount) \(noun) and their files."
+                    : "Rentory could not find any sample records on this device to remove."
             )
-            RentoryActivityLog.record(
-                kind: .sampleData,
-                title: "Sample data cleared",
-                message: "Removed sample \(profile.rawValue.lowercased()) records and sample files from this device."
-            )
+            if clearedCount > 0 {
+                RentoryActivityLog.record(
+                    kind: .sampleData,
+                    title: "Sample data cleared",
+                    message: "Removed \(clearedCount) sample \(noun) and the matching sample files from this device."
+                )
+            }
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)
         }
