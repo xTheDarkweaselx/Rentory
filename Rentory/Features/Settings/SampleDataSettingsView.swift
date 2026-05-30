@@ -127,23 +127,40 @@ struct SampleDataSettingsView: View {
                 await loadDemoRecord()
             }
         }
-        // NOTE: We use SwiftUI's native `.confirmationDialog` here
-        // instead of the project's `rrConfirmationDialog` because the
-        // latter wraps `.alert` with a `Button(role: .destructive,
-        // action: onConfirm)`, which — on macOS — silently drops the
-        // action closure: the dialog dismisses on tap but onConfirm
-        // never fires. `.confirmationDialog` doesn't have that bug.
+        // NOTE: Two earlier attempts at wiring this confirmation
+        // both failed on macOS: first `.alert` via
+        // `rrConfirmationDialog` with `Button(role: .destructive,
+        // action:)`, then `.confirmationDialog` with the same
+        // destructive-role pattern. In both cases the dialog
+        // dismissed on tap but the confirm closure never ran.
+        // The destructive role is the common factor.
+        //
+        // This version drops the destructive role and uses
+        // `.confirmationDialog` — NOT `.alert`. Adding a third
+        // `.alert` modifier would collide with the Load
+        // confirmation (`rrConfirmationDialog` wraps `.alert`)
+        // and the result presenter (`.alert(item: $alertContent)`);
+        // `.confirmationDialog` is a different modifier kind and
+        // stacks cleanly. The confirm closure schedules
+        // `clearDemoData()` on a Task so the SwiftData mutation +
+        // alertContent state change run on the next runloop tick
+        // after the dialog has finished tearing down — mirroring
+        // the Load flow, which uses the same pattern and works.
+        // The "destructive" cue is carried by the message text.
         .confirmationDialog(
             "Clear demo data?",
             isPresented: $isShowingClearConfirmation,
             titleVisibility: .visible
         ) {
-            Button("Clear demo data", role: .destructive) {
-                Self.appendDiag("clear confirm onConfirm fired")
-                Task {
-                    Self.appendDiag("clear confirm Task started")
-                    await clearDemoData()
-                    Self.appendDiag("clear confirm Task finished")
+            // Defer the actual clear into a Task so the modelContext
+            // mutation + alertContent state change happen on the
+            // runloop tick *after* the dialog has finished
+            // dismissing. The Load flow uses the same shape
+            // (`Task { await loadDemoRecord() }` inside its dialog
+            // confirm) and fires reliably, so we mirror it.
+            Button("Clear demo data") {
+                Task { @MainActor in
+                    clearDemoData()
                 }
             }
             Button("Cancel", role: .cancel) {}
@@ -190,24 +207,9 @@ struct SampleDataSettingsView: View {
     @ViewBuilder
     private var clearDemoButton: some View {
         VStack(alignment: .leading, spacing: 6) {
-            // TEMP DIAG: plain SwiftUI button to isolate whether the
-            // issue is RRDestructiveButton specifically.
-            Button {
-                Self.appendDiag("PLAIN Button tap fired isWorking=\(isWorking) hasDemoRecord=\(hasDemoRecord)")
-                Task {
-                    Self.appendDiag("plain Task started")
-                    await clearDemoData()
-                    Self.appendDiag("plain Task finished")
-                }
-            } label: {
-                Text("Clear demo data (diag)")
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.red.opacity(0.2))
-                    .foregroundStyle(Color.red)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                isShowingClearConfirmation = true
             }
-            .buttonStyle(.plain)
 
             if !isWorking, !hasDemoRecord {
                 Text("No sample records on this device yet. Tap Load above to add some.")
@@ -219,16 +221,16 @@ struct SampleDataSettingsView: View {
     }
 
     private var statusPanel: some View {
-        // No internal "Sample data" heading here — the screen-level
-        // RRSheetHeader already provides one, and showing two
-        // identical titles back-to-back read as a layout bug. We
-        // just lead with the one-line description + status string.
+        // No internal "Sample data" heading and no internal
+        // description line here — the screen-level container
+        // (either `destinationDetailView`'s RRGlassPanel header
+        // when navigated from Settings, or `RRSheetHeader` when
+        // shown standalone) already provides both. Showing them
+        // again inside this panel read as a duplicate "Sample
+        // data" box stacked under the header. Lead straight with
+        // the status string + toggle.
         RRGlassPanel {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                Text("Use example records to understand how Rentory works.")
-                    .font(RRTypography.body)
-                    .foregroundStyle(RRColours.mutedText)
-
                 Text(statusText)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
@@ -320,19 +322,13 @@ struct SampleDataSettingsView: View {
         }
     }
 
-    private func clearDemoData() async {
-        // Definitive diagnostic — append to a known file in /tmp so we
-        // can grep it from a terminal.
-        Self.appendDiag("clearDemoData entered, isWorking=\(isWorking) totalPacks=\(propertyPacks.count) demoMatched=\(propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count)")
-
-        guard !isWorking else {
-            Self.appendDiag("bailing — isWorking already true")
-            return
-        }
-        isWorking = true
-        await Task.yield()
-        defer { isWorking = false }
-
+    /// Synchronous because `demoDataFactory.clearDemoData` is
+    /// itself synchronous (SwiftData fetch + cascade delete) and
+    /// runs fast enough that the UI doesn't need a progress
+    /// overlay. Caller wraps the invocation in `Task { @MainActor in }`
+    /// so the actual mutation runs on the runloop tick *after* the
+    /// confirmation dialog has fully torn down.
+    private func clearDemoData() {
         do {
             // Clear across every profile rather than only the active
             // one. The user-visible expectation is "clear all the
@@ -357,28 +353,7 @@ struct SampleDataSettingsView: View {
                 )
             }
         } catch {
-            Self.appendDiag("CAUGHT error: \(error)")
             alertContent = RRAlertContent(error: .somethingWentWrong)
-        }
-        Self.appendDiag("clearDemoData finished, alertContent set=\(alertContent != nil) propertyPacks count after=\(propertyPacks.count)")
-    }
-
-    /// Robust diagnostic: append a timestamped line to /tmp/rentory-diag.log
-    /// so we can verify from a terminal whether this function is even
-    /// being entered (the NSLog approach didn't reach the unified log
-    /// for some reason). Will be removed once we've nailed the bug.
-    private static func appendDiag(_ msg: String) {
-        let path = "/tmp/rentory-diag.log"
-        let timestamp = ISO8601DateFormatter().string(from: .now)
-        let line = "\(timestamp) \(msg)\n"
-        if !FileManager.default.fileExists(atPath: path) {
-            try? "".write(toFile: path, atomically: true, encoding: .utf8)
-        }
-        if let data = line.data(using: .utf8),
-           let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            try? handle.close()
         }
     }
 }
