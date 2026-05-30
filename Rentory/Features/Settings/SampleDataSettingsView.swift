@@ -137,8 +137,12 @@ struct SampleDataSettingsView: View {
             ),
             isPresented: $isShowingClearConfirmation
         ) {
+            // Diag: confirm the alert's onConfirm closure actually fires.
+            Self.appendDiag("clear confirm dialog onConfirm fired")
             Task {
+                Self.appendDiag("clear confirm Task started")
                 await clearDemoData()
+                Self.appendDiag("clear confirm Task finished")
             }
         }
         .alert(item: $alertContent) { content in
@@ -297,20 +301,17 @@ struct SampleDataSettingsView: View {
     }
 
     private func clearDemoData() async {
-        NSLog("[RentoryDiag] clearDemoData() entered, isWorking=\(isWorking)")
+        // Definitive diagnostic — append to a known file in /tmp so we
+        // can grep it from a terminal.
+        Self.appendDiag("clearDemoData entered, isWorking=\(isWorking) totalPacks=\(propertyPacks.count) demoMatched=\(propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count)")
+
         guard !isWorking else {
-            NSLog("[RentoryDiag] clearDemoData() bailing — isWorking already true")
+            Self.appendDiag("bailing — isWorking already true")
             return
         }
         isWorking = true
         await Task.yield()
         defer { isWorking = false }
-
-        // Diagnostic: how many records does the @Query currently see,
-        // and how many match the demo predicate.
-        let totalPacks = propertyPacks.count
-        let demoPacks = propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
-        NSLog("[RentoryDiag] @Query sees \(totalPacks) packs total, \(demoPacks) match matchesDemoRecord")
 
         do {
             // Clear across every profile rather than only the active
@@ -320,9 +321,7 @@ struct SampleDataSettingsView: View {
             // "Sample data cleared" alert even when zero records
             // matched, which read as the action silently doing
             // nothing.
-            NSLog("[RentoryDiag] calling demoDataFactory.clearDemoData(profile:nil)")
             let clearedCount = try demoDataFactory.clearDemoData(context: modelContext, profile: nil)
-            NSLog("[RentoryDiag] demoDataFactory.clearDemoData returned \(clearedCount)")
             let noun = clearedCount == 1 ? "sample record" : "sample records"
             alertContent = RRAlertContent(
                 title: clearedCount > 0 ? "Sample data cleared" : "No sample records to clear",
@@ -338,9 +337,28 @@ struct SampleDataSettingsView: View {
                 )
             }
         } catch {
-            NSLog("[RentoryDiag] clearDemoData() caught error: \(error)")
+            Self.appendDiag("CAUGHT error: \(error)")
             alertContent = RRAlertContent(error: .somethingWentWrong)
         }
-        NSLog("[RentoryDiag] clearDemoData() finished, alertContent set=\(alertContent != nil)")
+        Self.appendDiag("clearDemoData finished, alertContent set=\(alertContent != nil) propertyPacks count after=\(propertyPacks.count)")
+    }
+
+    /// Robust diagnostic: append a timestamped line to /tmp/rentory-diag.log
+    /// so we can verify from a terminal whether this function is even
+    /// being entered (the NSLog approach didn't reach the unified log
+    /// for some reason). Will be removed once we've nailed the bug.
+    private static func appendDiag(_ msg: String) {
+        let path = "/tmp/rentory-diag.log"
+        let timestamp = ISO8601DateFormatter().string(from: .now)
+        let line = "\(timestamp) \(msg)\n"
+        if !FileManager.default.fileExists(atPath: path) {
+            try? "".write(toFile: path, atomically: true, encoding: .utf8)
+        }
+        if let data = line.data(using: .utf8),
+           let handle = try? FileHandle(forWritingTo: URL(fileURLWithPath: path)) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        }
     }
 }
