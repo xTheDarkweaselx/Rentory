@@ -143,7 +143,15 @@ struct DemoDataFactory {
         }
     }
 
-    func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws {
+    /// Deletes every demo record matching the saved-on-device demo
+    /// marker. When `profile` is non-nil the deletion is restricted to
+    /// records on that profile; when nil (the default) it sweeps every
+    /// profile. Returns the count of records actually deleted so the
+    /// caller can surface a real "Cleared N records" message rather
+    /// than the silent "Sample data cleared" success the old void-
+    /// returning shape allowed when zero records matched.
+    @discardableResult
+    func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws -> Int {
         let demoRecords = try fetchDemoRecords(context: context, profile: profile)
 
         for propertyPack in demoRecords {
@@ -156,6 +164,8 @@ struct DemoDataFactory {
                   demoRecords.contains(where: { $0.id == stored }) {
             DemoModeSettings.demoPropertyIdentifier = nil
         }
+
+        return demoRecords.count
     }
 
     func sampleRecordCount(for style: SampleDataStyle, profile: RentoryUserProfile) -> Int {
