@@ -190,16 +190,24 @@ struct SampleDataSettingsView: View {
     @ViewBuilder
     private var clearDemoButton: some View {
         VStack(alignment: .leading, spacing: 6) {
-            RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                // TEMP DIAG: skip the confirmation dialog and clear
-                // directly so we can verify the action path works.
-                Self.appendDiag("RRDestructiveButton tap handler entered")
+            // TEMP DIAG: plain SwiftUI button to isolate whether the
+            // issue is RRDestructiveButton specifically.
+            Button {
+                Self.appendDiag("PLAIN Button tap fired isWorking=\(isWorking) hasDemoRecord=\(hasDemoRecord)")
                 Task {
-                    Self.appendDiag("direct-clear Task started")
+                    Self.appendDiag("plain Task started")
                     await clearDemoData()
-                    Self.appendDiag("direct-clear Task finished")
+                    Self.appendDiag("plain Task finished")
                 }
+            } label: {
+                Text("Clear demo data (diag)")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.red.opacity(0.2))
+                    .foregroundStyle(Color.red)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
             }
+            .buttonStyle(.plain)
 
             if !isWorking, !hasDemoRecord {
                 Text("No sample records on this device yet. Tap Load above to add some.")
