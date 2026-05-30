@@ -127,23 +127,28 @@ struct SampleDataSettingsView: View {
                 await loadDemoRecord()
             }
         }
-        .rrConfirmationDialog(
-            RRDialogContent(
-                title: "Clear demo data?",
-                message: "This removes the sample records and their sample files.",
-                confirmTitle: "Clear demo data",
-                cancelTitle: "Cancel",
-                confirmRole: .destructive
-            ),
-            isPresented: $isShowingClearConfirmation
+        // NOTE: We use SwiftUI's native `.confirmationDialog` here
+        // instead of the project's `rrConfirmationDialog` because the
+        // latter wraps `.alert` with a `Button(role: .destructive,
+        // action: onConfirm)`, which — on macOS — silently drops the
+        // action closure: the dialog dismisses on tap but onConfirm
+        // never fires. `.confirmationDialog` doesn't have that bug.
+        .confirmationDialog(
+            "Clear demo data?",
+            isPresented: $isShowingClearConfirmation,
+            titleVisibility: .visible
         ) {
-            // Diag: confirm the alert's onConfirm closure actually fires.
-            Self.appendDiag("clear confirm dialog onConfirm fired")
-            Task {
-                Self.appendDiag("clear confirm Task started")
-                await clearDemoData()
-                Self.appendDiag("clear confirm Task finished")
+            Button("Clear demo data", role: .destructive) {
+                Self.appendDiag("clear confirm onConfirm fired")
+                Task {
+                    Self.appendDiag("clear confirm Task started")
+                    await clearDemoData()
+                    Self.appendDiag("clear confirm Task finished")
+                }
             }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the sample records and their sample files.")
         }
         .alert(item: $alertContent) { content in
             Alert(
