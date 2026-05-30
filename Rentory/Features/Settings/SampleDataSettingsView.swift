@@ -157,13 +157,33 @@ struct SampleDataSettingsView: View {
                     isShowingLoadConfirmation = true
                 }
 
-                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                    isShowingClearConfirmation = true
-                }
+                clearDemoButton
             }
         }
         .scrollContentBackground(.hidden)
         .background(RRBackgroundView())
+    }
+
+    /// The Clear demo data button plus a one-line explanation when it
+    /// would be disabled. Without the explanation a tap on the (now
+    /// visually-greyed) button looks unresponsive — the subtitle tells
+    /// the user *why* the action isn't currently available, so they
+    /// can switch profile, load sample data, or take whatever next
+    /// step makes sense.
+    @ViewBuilder
+    private var clearDemoButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                isShowingClearConfirmation = true
+            }
+
+            if !isWorking, !hasDemoRecord {
+                Text("No sample records on the \(currentProfile.rawValue.lowercased()) profile yet. Tap Load above first, or switch profile if your sample data is on the other one.")
+                    .font(RRTypography.caption)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private var statusPanel: some View {
@@ -200,9 +220,7 @@ struct SampleDataSettingsView: View {
                     isShowingLoadConfirmation = true
                 }
 
-                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                    isShowingClearConfirmation = true
-                }
+                clearDemoButton
             }
         }
     }
