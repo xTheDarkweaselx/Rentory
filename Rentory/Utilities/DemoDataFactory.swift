@@ -52,7 +52,7 @@ struct DemoDataFactory {
         if let firstRecord = records.first {
             return firstRecord
         }
-        return try makePrimaryRecord()
+        return try makeSharedHomeRecord()
     }
 
     @discardableResult
@@ -182,10 +182,9 @@ struct DemoDataFactory {
     private func sampleRecordMakers(for style: SampleDataStyle, profile: RentoryUserProfile) -> [() throws -> PropertyPack] {
         switch (profile, style) {
         case (.renter, .singleRecord):
-            return [makePrimaryRecord]
+            return [makeSharedHomeRecord]
         case (.renter, .fullSampleSet):
             return [
-                makePrimaryRecord,
                 makeSharedHomeRecord,
                 makeFamilyHouseRecord,
                 makeApartmentRecord,
@@ -211,10 +210,9 @@ struct DemoDataFactory {
     private func sampleRecordNames(for style: SampleDataStyle, profile: RentoryUserProfile) -> [String] {
         switch (profile, style) {
         case (.renter, .singleRecord):
-            return ["the main example record"]
+            return ["the shared flat example"]
         case (.renter, .fullSampleSet):
             return [
-                "the main example record",
                 "the shared flat example",
                 "the family house example",
                 "the apartment example",
@@ -235,54 +233,6 @@ struct DemoDataFactory {
                 "the previous rental example",
             ]
         }
-    }
-
-    private func makePrimaryRecord() throws -> PropertyPack {
-        try makePropertyRecord(
-            nickname: DemoModeSettings.demoRecordName,
-            recordType: .house,
-            isFavourite: true,
-            addressLine1: "14 Sample Street",
-            townCity: DemoModeSettings.demoTownCity,
-            postcode: DemoModeSettings.demoPostcode,
-            tenancyStartDate: demoDate(year: 2026, month: 1, day: 10),
-            tenancyEndDate: demoDate(year: 2026, month: 12, day: 10),
-            landlordOrAgentName: "Sample Lettings",
-            landlordOrAgentEmail: "hello@samplelettings.test",
-            depositSchemeName: "Sample Deposit Scheme",
-            depositReference: "SAMPLE-4582",
-            notes: [
-                DemoModeSettings.demoMarker,
-                DemoModeSettings.demoRecordNote,
-                "Includes rooms, photos, documents and timeline events for testing.",
-            ].joined(separator: "\n\n"),
-            roomDefinitions: [
-                ("Kitchen", .kitchen),
-                ("Living room", .livingRoom),
-                ("Bedroom", .bedroom),
-                ("Bathroom", .bathroom),
-                ("Hallway", .hallway),
-                ("Garden", .garden),
-            ],
-            documentDefinitions: [
-                ("Tenancy agreement – Jan 2026", .tenancyAgreement),
-                ("Deposit certificate", .depositCertificate),
-                ("Check-in inventory", .checkInInventory),
-                ("End-of-tenancy cleaning quote", .cleaningReceipt),
-                ("Meter readings – move-in day", .meterReading),
-                ("Boiler service correspondence", .messageScreenshot),
-            ],
-            timelineDefinitions: [
-                ("Move-in", .moveIn, "Picked up keys at 11:00. Walked through the inventory with the letting agent."),
-                ("Inventory reviewed", .inventoryReviewed, "Cross-checked inventory against the rooms. Added photos for the items I'd flagged."),
-                ("Issue noticed", .issueNoticed, "Scuff above the splashback on the left of the hob — photo added."),
-                ("Issue reported", .issueReported, "Reported the scuff to the agent via email; copy saved with the record."),
-                ("Repair requested", .repairRequested, "Agent asked for a touch-up quote before requesting the repair."),
-                ("Repair completed", .repairCompleted, "Decorator came out on a Tuesday morning. Reads as new now."),
-                ("Inspection", .inspection, "Mid-tenancy inspection — agent happy with the condition overall."),
-                ("Move-out", .moveOut, "Final clean booked and meter readings shared with the agent."),
-            ]
-        )
     }
 
     private func makeSharedHomeRecord() throws -> PropertyPack {
