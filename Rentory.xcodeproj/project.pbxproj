@@ -126,11 +126,21 @@
 			);
 			target = 99CCDD030300000000000002 /* RentoryWatchComplications */;
 		};
+		AABBCC04040000000000000E /* Exceptions for "Rentory" folder in "Rentory" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Configuration/RentoryLocalConfig.swift.example,
+			);
+			target = 6691EBCD2FA3DC04006FC53C /* Rentory */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		6691EBD02FA3DC04006FC53C /* Rentory */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				AABBCC04040000000000000E /* Exceptions for "Rentory" folder in "Rentory" target */,
+			);
 			path = Rentory;
 			sourceTree = "<group>";
 		};
