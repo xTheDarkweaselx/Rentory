@@ -79,13 +79,13 @@ private struct RRPrimaryButtonStyle: ButtonStyle {
             .foregroundStyle(Color.white)
             .background(
                 RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
-                    .fill(Color.accentColor.opacity(configuration.isPressed ? 0.82 : 0.94))
+                    .fill(RRColours.secondary.opacity(configuration.isPressed ? 0.82 : 0.94))
             )
             .overlay {
                 RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.16), lineWidth: 1)
             }
-            .shadow(color: Color.accentColor.opacity(configuration.isPressed ? 0.08 : 0.18), radius: 16, x: 0, y: 10)
+            .shadow(color: RRColours.secondary.opacity(configuration.isPressed ? 0.08 : 0.18), radius: 16, x: 0, y: 10)
             .opacity(isDisabled ? 0.45 : (configuration.isPressed ? 0.96 : 1))
             .scaleEffect(!isDisabled && configuration.isPressed ? 0.99 : 1)
     }

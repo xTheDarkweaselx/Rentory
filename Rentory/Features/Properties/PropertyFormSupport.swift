@@ -189,7 +189,7 @@ struct PropertyFormView<FilesContent: View, Footer: View, ManageSection: View>: 
                     .padding(.vertical, 10)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(selectedTab == tab ? Color.accentColor.opacity(0.94) : RRColours.cardBackground.opacity(0.55))
+                            .fill(selectedTab == tab ? RRColours.secondary.opacity(0.94) : RRColours.cardBackground.opacity(0.55))
                     )
             }
             .buttonStyle(.plain)
