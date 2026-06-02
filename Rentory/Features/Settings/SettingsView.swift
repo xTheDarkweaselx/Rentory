@@ -606,6 +606,14 @@ struct SettingsView: View {
                     .frame(maxWidth: 260)
                 }
             },
+            RRResponsiveFormGridItem {
+                settingsCard(
+                    title: "Send feedback",
+                    body: "Pass along bug reports, feature requests, or questions. Opens a draft in your default mail client."
+                ) {
+                    settingsDestinationAction("Open feedback form", destination: .feedback)
+                }
+            },
         ]
 
         return items
@@ -813,6 +821,8 @@ struct SettingsView: View {
             NotificationSettingsView()
         case .widgets:
             WidgetSettingsView()
+        case .feedback:
+            SendFeedbackView()
         }
     }
 
@@ -1097,6 +1107,7 @@ private enum SettingsDestination: Hashable, Identifiable {
     case sampleData
     case notifications
     case widgets
+    case feedback
 
     var id: String {
         switch self {
@@ -1120,6 +1131,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "notifications"
         case .widgets:
             return "widgets"
+        case .feedback:
+            return "feedback"
         }
     }
 
@@ -1145,6 +1158,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Notifications"
         case .widgets:
             return "Widgets & Watch"
+        case .feedback:
+            return "Send feedback"
         }
     }
 
@@ -1170,6 +1185,8 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Get a heads-up the morning a reminder is due."
         case .widgets:
             return "Glanceable Rentory tiles for iPhone, iPad and Apple Watch."
+        case .feedback:
+            return "Draft a feedback email in your default mail client."
         }
     }
 }
