@@ -128,11 +128,8 @@ struct SampleDataSettingsView: View {
             }
         }
         // Clear demo data uses an INLINE confirmation rendered by
-        // `clearDemoButton`, not a platform dialog — see the long
-        // comment on that view. Three platform-dialog wirings all
-        // had their confirm closure silently dropped on macOS, so
-        // we stopped using `.alert` / `.confirmationDialog` for
-        // this flow entirely.
+        // `clearDemoButton`, not a platform dialog — see the doc
+        // comment on that view for why.
         .alert(item: $alertContent) { content in
             Alert(
                 title: Text(content.title),
@@ -171,19 +168,14 @@ struct SampleDataSettingsView: View {
     /// can switch profile, load sample data, or take whatever next
     /// step makes sense.
     ///
-    /// IMPORTANT — confirmation is INLINE, not a platform dialog.
-    /// Three earlier attempts wired this through `.alert` /
-    /// `.confirmationDialog` (with and without `role: .destructive`)
-    /// and ALL of them silently dropped the confirm closure on macOS
-    /// — the dialog dismissed on tap but the closure never ran.
-    /// The platform-dialog code path is broken for this view for
-    /// reasons we couldn't pin down (suspect: multiple alert
-    /// modifiers on the same view competing). We bypass it
-    /// entirely. Tapping "Clear demo data" flips a state variable
-    /// to reveal a plain-SwiftUI two-button row (Cancel + Confirm)
-    /// in-place. Those buttons are regular `Button`s — their
-    /// actions can't be swallowed by alert/dialog teardown because
-    /// there is no alert/dialog in the chain.
+    /// Confirmation is rendered INLINE rather than through a platform
+    /// dialog. The Load flow uses a dialog and works fine, but the
+    /// inline pattern is more discoverable on the desktop layout (the
+    /// Confirm and Cancel buttons appear directly in the actions panel
+    /// next to the action they affect) and avoids the slight UX hazard
+    /// of stacking a third presentation modifier on a view that already
+    /// carries two (`rrConfirmationDialog` for Load + `.alert(item:)`
+    /// for the result message).
     @ViewBuilder
     private var clearDemoButton: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -324,12 +316,9 @@ struct SampleDataSettingsView: View {
         }
     }
 
-    /// Synchronous because `demoDataFactory.clearDemoData` is
-    /// itself synchronous (SwiftData fetch + cascade delete) and
-    /// runs fast enough that the UI doesn't need a progress
-    /// overlay. Caller wraps the invocation in `Task { @MainActor in }`
-    /// so the actual mutation runs on the runloop tick *after* the
-    /// confirmation dialog has fully torn down.
+    /// Synchronous because `demoDataFactory.clearDemoData` is itself
+    /// synchronous (SwiftData fetch + cascade delete) and runs fast
+    /// enough that the UI doesn't need a progress overlay.
     private func clearDemoData() {
         do {
             // Clear across every profile rather than only the active
