@@ -20,6 +20,11 @@ struct PropertiesSplitView: View {
     @State private var selectedPropertyID: UUID?
     @State private var detailNavigationPath = NavigationPath()
     @State private var detailResetID = UUID()
+    /// Flips to `true` for one runloop tick during property
+    /// switches to forcibly remove the NavigationStack from the
+    /// view tree (see the long comment in the body's `detail:`
+    /// closure for why). `false` everywhere else.
+    @State private var detailIsRebuilding = false
     @State private var upgradePromptContent: UpgradePromptContent?
     @State private var filterState = PropertyRecordFilterState()
 
@@ -157,39 +162,45 @@ struct PropertiesSplitView: View {
                 }
             }
         } detail: {
-            NavigationStack(path: $detailNavigationPath) {
-                if let selectedPropertyPack {
-                    PropertyDashboardView(propertyPack: selectedPropertyPack)
+            // The room / document / timeline pushes throughout this
+            // app use the legacy `NavigationLink { destination }`
+            // shape, which pushes views directly onto the
+            // NavigationStack and bypasses the `path:` binding
+            // entirely. Setting `detailNavigationPath = NavigationPath()`
+            // doesn't pop those view-based pushes, and `.id()` on the
+            // NavigationStack alone doesn't reliably destroy them
+            // on macOS — SwiftUI preserves the view-based push
+            // history across identity changes.
+            //
+            // To guarantee a clean reset on property switch, we
+            // briefly remove the NavigationStack from the view tree
+            // entirely. On the next runloop tick we put it back.
+            // SwiftUI is forced to destroy every pushed view (no
+            // parent to hold them) and re-create the stack from
+            // scratch — same outcome as a fresh sheet.
+            Group {
+                if detailIsRebuilding {
+                    Color.clear
                 } else {
-                    RRFormContainer(maxWidth: 620) {
-                        RREmptyStateView(
-                            symbolName: "rectangle.on.rectangle",
-                            title: "Choose a rental record",
-                            message: "Select a record from the sidebar, or create a new one when you are ready.",
-                            buttonTitle: "Create a record",
-                            buttonAction: showCreatePropertyOrUpgradePrompt
-                        )
+                    NavigationStack(path: $detailNavigationPath) {
+                        if let selectedPropertyPack {
+                            PropertyDashboardView(propertyPack: selectedPropertyPack)
+                        } else {
+                            RRFormContainer(maxWidth: 620) {
+                                RREmptyStateView(
+                                    symbolName: "rectangle.on.rectangle",
+                                    title: "Choose a rental record",
+                                    message: "Select a record from the sidebar, or create a new one when you are ready.",
+                                    buttonTitle: "Create a record",
+                                    buttonAction: showCreatePropertyOrUpgradePrompt
+                                )
+                            }
+                            .navigationTitle("Rentory")
+                        }
                     }
-                    .navigationTitle("Rentory")
+                    .id(CompositeNavID(propertyID: selectedPropertyID, resetID: detailResetID))
                 }
             }
-            // Composite identity: the property-id half forces the
-            // NavigationStack to rebuild whenever the user switches
-            // record (so the new property's dashboard always shows
-            // at the root, never the old property's drilled-in
-            // sub-view). The `detailResetID` half lets imperative
-            // callers force a stack reset without changing the
-            // selection — e.g. after a deep-link arrives that picks
-            // a property that's already selected.
-            //
-            // We previously used only `.id(detailResetID)`, which
-            // *should* have rebuilt the stack but in practice didn't:
-            // a fresh UUID coming through `detailResetID` alone wasn't
-            // enough to make SwiftUI tear down the stack on macOS,
-            // and the old property's room-detail view stayed put.
-            // Pinning the identity to `selectedPropertyID` makes the
-            // rebuild deterministic.
-            .id(CompositeNavID(propertyID: selectedPropertyID, resetID: detailResetID))
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
@@ -271,13 +282,49 @@ struct PropertiesSplitView: View {
 
         let nextPropertyID = propertyPack.id
         NotificationCenter.default.post(name: .rentoryPropertySelectionDidChange, object: nextPropertyID)
-        selectedPropertyID = nextPropertyID
+
+        // Two-step transition: briefly drop the selection to nil so
+        // SwiftUI tears the NavigationStack down (forcing every
+        // pushed view-based child to be destroyed), then set it to
+        // the new id on the next runloop tick so the new property's
+        // dashboard mounts fresh at the root.
+        //
+        // The previous single-step (selectedPropertyID = newID; then
+        // reset path / .id() / visibility) approaches all left the
+        // old property's drilled-in view stuck in place on macOS —
+        // legacy `NavigationLink { destination }` pushes apparently
+        // survive even .id()-driven NavigationStack rebuilds. Going
+        // through nil is the only thing that forces the whole
+        // detail tree to actually unmount.
+        selectedPropertyID = nil
         resetDetailNavigation()
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(16))
+            selectedPropertyID = nextPropertyID
+        }
     }
 
     private func resetDetailNavigation() {
         detailNavigationPath = NavigationPath()
         detailResetID = UUID()
+        // Force the NavigationStack out of the view tree for a
+        // single tick so any view-based-NavigationLink pushed
+        // children are definitively destroyed. Without this, the
+        // path reset + id change aren't enough to pop legacy
+        // `NavigationLink { destination }` pushes on macOS —
+        // SwiftUI keeps the view-based push history across
+        // identity changes.
+        //
+        // We need an actual frame between the true→false flip
+        // for SwiftUI to register the visibility change. A
+        // synchronous `DispatchQueue.main.async` gets batched
+        // into the same update and collapses to a no-op, so we
+        // sleep ~16ms (~one display frame) before restoring.
+        detailIsRebuilding = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(16))
+            detailIsRebuilding = false
+        }
     }
 
     private func toggleFavourite(for propertyPack: PropertyPack) {
