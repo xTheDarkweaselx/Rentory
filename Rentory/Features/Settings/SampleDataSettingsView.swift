@@ -127,46 +127,12 @@ struct SampleDataSettingsView: View {
                 await loadDemoRecord()
             }
         }
-        // NOTE: Two earlier attempts at wiring this confirmation
-        // both failed on macOS: first `.alert` via
-        // `rrConfirmationDialog` with `Button(role: .destructive,
-        // action:)`, then `.confirmationDialog` with the same
-        // destructive-role pattern. In both cases the dialog
-        // dismissed on tap but the confirm closure never ran.
-        // The destructive role is the common factor.
-        //
-        // This version drops the destructive role and uses
-        // `.confirmationDialog` — NOT `.alert`. Adding a third
-        // `.alert` modifier would collide with the Load
-        // confirmation (`rrConfirmationDialog` wraps `.alert`)
-        // and the result presenter (`.alert(item: $alertContent)`);
-        // `.confirmationDialog` is a different modifier kind and
-        // stacks cleanly. The confirm closure schedules
-        // `clearDemoData()` on a Task so the SwiftData mutation +
-        // alertContent state change run on the next runloop tick
-        // after the dialog has finished tearing down — mirroring
-        // the Load flow, which uses the same pattern and works.
-        // The "destructive" cue is carried by the message text.
-        .confirmationDialog(
-            "Clear demo data?",
-            isPresented: $isShowingClearConfirmation,
-            titleVisibility: .visible
-        ) {
-            // Defer the actual clear into a Task so the modelContext
-            // mutation + alertContent state change happen on the
-            // runloop tick *after* the dialog has finished
-            // dismissing. The Load flow uses the same shape
-            // (`Task { await loadDemoRecord() }` inside its dialog
-            // confirm) and fires reliably, so we mirror it.
-            Button("Clear demo data") {
-                Task { @MainActor in
-                    clearDemoData()
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This removes the sample records and their sample files.")
-        }
+        // Clear demo data uses an INLINE confirmation rendered by
+        // `clearDemoButton`, not a platform dialog — see the long
+        // comment on that view. Three platform-dialog wirings all
+        // had their confirm closure silently dropped on macOS, so
+        // we stopped using `.alert` / `.confirmationDialog` for
+        // this flow entirely.
         .alert(item: $alertContent) { content in
             Alert(
                 title: Text(content.title),
@@ -204,18 +170,54 @@ struct SampleDataSettingsView: View {
     /// the user *why* the action isn't currently available, so they
     /// can switch profile, load sample data, or take whatever next
     /// step makes sense.
+    ///
+    /// IMPORTANT — confirmation is INLINE, not a platform dialog.
+    /// Three earlier attempts wired this through `.alert` /
+    /// `.confirmationDialog` (with and without `role: .destructive`)
+    /// and ALL of them silently dropped the confirm closure on macOS
+    /// — the dialog dismissed on tap but the closure never ran.
+    /// The platform-dialog code path is broken for this view for
+    /// reasons we couldn't pin down (suspect: multiple alert
+    /// modifiers on the same view competing). We bypass it
+    /// entirely. Tapping "Clear demo data" flips a state variable
+    /// to reveal a plain-SwiftUI two-button row (Cancel + Confirm)
+    /// in-place. Those buttons are regular `Button`s — their
+    /// actions can't be swallowed by alert/dialog teardown because
+    /// there is no alert/dialog in the chain.
     @ViewBuilder
     private var clearDemoButton: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                isShowingClearConfirmation = true
-            }
+        VStack(alignment: .leading, spacing: 10) {
+            if isShowingClearConfirmation {
+                Text("Clear demo data?")
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
 
-            if !isWorking, !hasDemoRecord {
-                Text("No sample records on this device yet. Tap Load above to add some.")
-                    .font(RRTypography.caption)
+                Text("This removes the sample records and their sample files.")
+                    .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    RRSecondaryButton(title: "Cancel") {
+                        isShowingClearConfirmation = false
+                    }
+
+                    RRDestructiveButton(title: "Clear demo data") {
+                        isShowingClearConfirmation = false
+                        clearDemoData()
+                    }
+                }
+            } else {
+                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                    isShowingClearConfirmation = true
+                }
+
+                if !isWorking, !hasDemoRecord {
+                    Text("No sample records on this device yet. Tap Load above to add some.")
+                        .font(RRTypography.caption)
+                        .foregroundStyle(RRColours.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }
