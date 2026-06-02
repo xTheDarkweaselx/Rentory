@@ -248,7 +248,7 @@ struct WidgetSettingsView: View {
             }
         }
         .buttonStyle(.plain)
-        .foregroundStyle(Color.accentColor)
+        .foregroundStyle(RRColours.secondary)
         .disabled(isRefreshing)
         .accessibilityHint("Asks iOS to reload Rentory widgets and watch complications.")
     }

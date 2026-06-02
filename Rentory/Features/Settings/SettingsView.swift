@@ -95,7 +95,7 @@ struct SettingsView: View {
                         .padding(.vertical, 12)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(selectedCategory == category ? Color.accentColor.opacity(0.92) : Color.clear)
+                                .fill(selectedCategory == category ? RRColours.secondary.opacity(0.92) : Color.clear)
                         )
                     }
                     .buttonStyle(.plain)
@@ -212,7 +212,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .font(RRTypography.body.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(RRColours.secondary)
                 }
             },
             RRResponsiveFormGridItem {
@@ -363,7 +363,7 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
                         Toggle("Lock Rentory", isOn: appLockBinding)
                             .disabled(appSecurityState.isAuthenticating)
-                            .tint(Color.accentColor)
+                            .tint(RRColours.secondary)
 
                         Text(appSecurityState.isAppLockEnabled ? "App Lock is on." : "App Lock is off.")
                             .font(RRTypography.footnote)
@@ -478,7 +478,7 @@ struct SettingsView: View {
                     }
                     .buttonStyle(.plain)
                     .font(RRTypography.body.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(RRColours.secondary)
                 }
             },
         ]
@@ -630,7 +630,7 @@ struct SettingsView: View {
                 Toggle("Lock Rentory", isOn: appLockBinding)
                     .toggleStyle(.switch)
                     .disabled(appSecurityState.isAuthenticating)
-                    .tint(Color.accentColor)
+                    .tint(RRColours.secondary)
             } header: {
                 Text("Privacy & Security")
             } footer: {
@@ -779,14 +779,14 @@ struct SettingsView: View {
         if PlatformLayout.isPhone && horizontalSizeClass != .regular {
             NavigationLink(title, value: destination)
                 .font(RRTypography.body.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(RRColours.secondary)
         } else {
             Button(title) {
                 selectedDestination = destination
             }
             .buttonStyle(.plain)
             .font(RRTypography.body.weight(.semibold))
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(RRColours.secondary)
         }
     }
 
@@ -827,7 +827,7 @@ struct SettingsView: View {
                             .font(RRTypography.body.weight(.semibold))
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
+                    .foregroundStyle(RRColours.secondary)
 
                     Text(destination.title)
                         .font(RRTypography.title)
