@@ -7,6 +7,15 @@
 
 import SwiftUI
 
+/// Value pushed onto the detail NavigationStack when the user taps a
+/// room row. Carries the room itself + the tenancy stage the dashboard
+/// was on at the time of the push, so RoomDetailView can render
+/// correctly. Hashable so it can sit inside `NavigationPath`.
+struct RoomDestination: Hashable {
+    let room: RoomRecord
+    let stage: TenancyStage?
+}
+
 struct RoomsListSection: View {
     let rooms: [RoomRecord]
     var stage: TenancyStage? = nil
@@ -31,9 +40,17 @@ struct RoomsListSection: View {
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(sortedRooms) { room in
-                        NavigationLink {
-                            RoomDetailView(room: room, stage: stage)
-                        } label: {
+                        // Value-based navigation: pushes a
+                        // `RoomDestination` into the outer
+                        // NavigationStack's path. PropertiesSplitView
+                        // registers `.navigationDestination(for:
+                        // RoomDestination.self)` to actually build
+                        // the RoomDetailView. This means
+                        // `detailNavigationPath = NavigationPath()`
+                        // will pop the room view — view-based
+                        // `NavigationLink { destination }` pushes
+                        // would survive that reset.
+                        NavigationLink(value: RoomDestination(room: room, stage: stage)) {
                             RoomRowView(room: room)
                         }
                         .buttonStyle(.plain)
