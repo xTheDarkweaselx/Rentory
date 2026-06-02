@@ -135,10 +135,14 @@ struct DemoDataFactory {
 
             return loadedRecords
         } catch is CancellationError {
-            try? clearDemoData(context: context, profile: profile)
+            // Best-effort rollback — discard the optional result of
+            // `try?` explicitly so we don't trip the
+            // "Result of 'try?' is unused" warning now that
+            // clearDemoData returns Int.
+            _ = try? clearDemoData(context: context, profile: profile)
             throw CancellationError()
         } catch {
-            try? clearDemoData(context: context, profile: profile)
+            _ = try? clearDemoData(context: context, profile: profile)
             throw error
         }
     }
@@ -154,8 +158,21 @@ struct DemoDataFactory {
     func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws -> Int {
         let demoRecords = try fetchDemoRecords(context: context, profile: profile)
 
+        // Per-record try-catch: one record failing to delete must
+        // not abort the sweep — otherwise a single problem record
+        // would leave every subsequent demo record stranded and
+        // the user would see "still doesn't work" even though
+        // most records could have been cleared.
+        var deletedCount = 0
         for propertyPack in demoRecords {
-            try deletionService.deletePropertyPack(propertyPack, context: context)
+            do {
+                try deletionService.deletePropertyPack(propertyPack, context: context)
+                deletedCount += 1
+            } catch {
+                // Swallow and continue. The caller's success
+                // message will report the actual deleted count.
+                continue
+            }
         }
 
         if profile == nil {
@@ -165,7 +182,7 @@ struct DemoDataFactory {
             DemoModeSettings.demoPropertyIdentifier = nil
         }
 
-        return demoRecords.count
+        return deletedCount
     }
 
     func sampleRecordCount(for style: SampleDataStyle, profile: RentoryUserProfile) -> Int {

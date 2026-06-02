@@ -33,19 +33,20 @@ struct RentoryDataDeletionService {
     }
 
     func deletePropertyPack(_ propertyPack: PropertyPack, context: ModelContext) throws {
+        // File cleanup is BEST-EFFORT and runs first so a file
+        // that's still on disk gets removed. But a failure here
+        // must NOT block the SwiftData record deletion — orphan
+        // files on disk are a far better outcome than records
+        // the user asked to delete refusing to go away. Previous
+        // versions of this method propagated FileStorageError out
+        // of `deleteLinkedFiles`, which short-circuited the
+        // record removal entirely; that was the actual cause of
+        // "Clear demo data does nothing".
+        deleteLinkedFilesBestEffort(for: propertyPack)
+
         do {
-            try deleteLinkedFiles(for: propertyPack)
             context.delete(propertyPack)
             try context.save()
-        } catch let error as FileStorageError {
-            switch error {
-            case .invalidFileName, .unableToDeleteFile:
-                throw RentoryDataDeletionError.someFilesCouldNotBeRemoved
-            default:
-                throw RentoryDataDeletionError.recordDeletionFailed
-            }
-        } catch let error as RentoryDataDeletionError {
-            throw error
         } catch {
             throw RentoryDataDeletionError.recordDeletionFailed
         }
@@ -83,17 +84,21 @@ struct RentoryDataDeletionService {
         }
     }
 
-    private func deleteLinkedFiles(for propertyPack: PropertyPack) throws {
+    /// Best-effort cleanup of photo + document files referenced by
+    /// the pack. Per-file errors are swallowed by design — the
+    /// caller proceeds with the SwiftData record deletion either
+    /// way. See `deletePropertyPack` for the rationale.
+    private func deleteLinkedFilesBestEffort(for propertyPack: PropertyPack) {
         for room in propertyPack.rooms {
             for checklistItem in room.checklistItems {
                 for photo in checklistItem.photos {
-                    try fileStorageService.deleteEvidencePhoto(fileName: photo.localFileName)
+                    try? fileStorageService.deleteEvidencePhoto(fileName: photo.localFileName)
                 }
             }
         }
 
         for document in propertyPack.documents {
-            try fileStorageService.deleteDocument(fileName: document.localFileName)
+            try? fileStorageService.deleteDocument(fileName: document.localFileName)
         }
     }
 }
