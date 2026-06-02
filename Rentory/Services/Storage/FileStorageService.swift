@@ -221,6 +221,22 @@ struct FileStorageService {
     private func deleteFile(for kind: StoredFileKind, fileName: String) throws {
         let fileURL = try fileURL(for: kind, fileName: fileName)
 
+        // Idempotent: if the file isn't on disk, the desired
+        // post-condition (file gone) is already true. Returning
+        // here previously cost us several debugging hours — demo
+        // records reference photo/document file names that may
+        // never have been written to disk (e.g., when the seed
+        // path failed partway, or when the EvidencePhoto row was
+        // created without persisting the underlying file). With
+        // the old behaviour, calling `removeItem` on a missing
+        // file threw `unableToDeleteFile`, which propagated up
+        // through `deletePropertyPack` and prevented the SwiftData
+        // record from being deleted at all — so "Clear demo data"
+        // silently did nothing.
+        guard fileManager.fileExists(atPath: fileURL.path) else {
+            return
+        }
+
         do {
             try fileManager.removeItem(at: fileURL)
         } catch {
