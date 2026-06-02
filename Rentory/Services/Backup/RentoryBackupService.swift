@@ -404,7 +404,7 @@ struct RentoryBackupService {
             backupVersion: Self.backupVersion,
             appName: "Rentory",
             createdAt: .now,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+            appVersion: AppBundleInfo.shortVersion,
             propertyCount: payload.properties.count,
             roomCount: payload.rooms.count,
             photoCount: payload.photos.count,
