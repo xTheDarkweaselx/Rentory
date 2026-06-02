@@ -291,8 +291,8 @@ struct SendFeedbackView: View {
             }
         }
 
-        if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
-            let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?"
+        if let version = AppBundleInfo.shortVersion {
+            let build = AppBundleInfo.buildNumber ?? "?"
             sections.append("— Sent from Rentory \(version) (build \(build))")
         }
 

@@ -48,3 +48,7 @@ Rentory/Configuration/RentoryLocalConfig.swift
 # Crash logs and Instruments traces
 *.crash
 *.trace
+
+# Session handover notes (distilled context between Claude sessions —
+# regenerated on demand, never meant for the public repo).
+HANDOVER.md

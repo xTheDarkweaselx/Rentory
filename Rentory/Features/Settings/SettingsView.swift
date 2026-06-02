@@ -2,56 +2,69 @@
 //  SettingsView.swift
 //  Rentory
 //
-//  Created by Adam Ibrahim on 30/04/2026.
+//  Top-level Settings surface. The IA collapses what used to be 11
+//  scattered categories (each fronted by a "Open X settings" stub)
+//  into 6 category pages, each rendering its real controls inline.
+//  Deeper leaf views (Privacy & Data, Backups, Notifications, etc.)
+//  are drill-ins from inside the matching category page — never
+//  shortcuts in unrelated categories.
+//
+//  Same 6 categories appear in compact (iPhone) layout via Form rows,
+//  so iPhone and Mac/iPad share one mental model.
 //
 
 import SwiftData
 import SwiftUI
 
 struct SettingsView: View {
+    // MARK: - Persisted preferences
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage(AppAppearance.storageKey) private var appAppearanceRawValue = AppAppearance.deviceDefault.rawValue
     @AppStorage(AppColourTheme.storageKey) private var appColourThemeRawValue = AppColourTheme.defaultLook.rawValue
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
+
+    // MARK: - Environment
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Query private var propertyPacks: [PropertyPack]
     @EnvironmentObject private var appSecurityState: AppSecurityState
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
 
-    @State private var selectedCategory: SettingsCategory = .privacySecurity
-    @State private var selectedDestination: SettingsDestination?
+    // SwiftData only invalidates this view when an archived pack
+    // changes — we never need to scan the full collection just to
+    // count archived ones.
+    @Query(filter: #Predicate<PropertyPack> { $0.isArchived })
+    private var archivedPacks: [PropertyPack]
+
+    // MARK: - Local UI state
+    @State private var selectedCategory: SettingsCategory = .general
+    @State private var selectedDetail: SettingsDetail?
     @State private var upgradePromptContent: UpgradePromptContent?
+
+    private var isCompact: Bool {
+        PlatformLayout.isPhone && horizontalSizeClass != .regular
+    }
 
     var body: some View {
         NavigationStack {
             Group {
-                if PlatformLayout.isPhone && horizontalSizeClass != .regular {
-                    compactSettingsView
+                if isCompact {
+                    compactRoot
                 } else {
-                    RRAdaptiveModalContainer(
-                        preferredWidth: PlatformLayout.preferredSettingsDialogWidth,
-                        preferredHeight: 760,
-                        minWidth: 980,
-                        minHeight: 640,
-                        outerPadding: 0
-                    ) {
-                        RRSheetHeader(
-                            title: "Settings",
-                            subtitle: "Manage privacy, sync, backups and Rentory unlock.",
-                            systemImage: "gearshape",
-                            showsCloseButton: true,
-                            closeLabel: "Close settings",
-                            closeAction: { dismiss() }
-                        )
-                    } content: {
-                        settingsBody
-                    }
+                    wideRoot
                 }
             }
-            .navigationDestination(for: SettingsDestination.self) { destination in
-                destinationView(for: destination)
+            .navigationDestination(for: SettingsCategory.self) { category in
+                ScrollView {
+                    categoryContent(for: category)
+                        .padding(RRTheme.screenPadding)
+                }
+                .background(RRBackgroundView())
+                .navigationTitle(category.title)
+                .rrInlineNavigationTitle()
+            }
+            .navigationDestination(for: SettingsDetail.self) { detail in
+                detailView(for: detail)
             }
             .alert(item: $appSecurityState.alertContent) { content in
                 Alert(
@@ -63,10 +76,101 @@ struct SettingsView: View {
             .sheet(item: $upgradePromptContent) { content in
                 LimitReachedView(title: content.title, message: content.message)
             }
-#if os(macOS)
+            #if os(macOS)
             .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
             .toolbar(removing: .title)
-#endif
+            #endif
+        }
+    }
+
+    // MARK: - Root layouts
+
+    /// iPhone root: a Form whose only job is to drill into one of the
+    /// 6 category pages. Same 6 categories Mac/iPad sees in its
+    /// sidebar — one IA, two presentations.
+    private var compactRoot: some View {
+        Form {
+            Section {
+                RRSheetHeader(
+                    title: "Settings",
+                    subtitle: "Manage privacy, sync, backups and Rentory unlock.",
+                    systemImage: "gearshape",
+                    showsCloseButton: true,
+                    closeLabel: "Close settings",
+                    closeAction: { dismiss() }
+                )
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+            }
+
+            Section {
+                ForEach(SettingsCategory.allCases) { category in
+                    NavigationLink(value: category) {
+                        categoryRow(for: category)
+                    }
+                }
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(RRBackgroundView())
+    }
+
+    private func categoryRow(for category: SettingsCategory) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: category.systemImage)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(RRColours.secondary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(category.title)
+                    .font(RRTypography.body.weight(.semibold))
+                    .foregroundStyle(RRColours.primary)
+                Text(category.subtitle)
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    /// Mac/iPad root: sidebar + detail. Sidebar shows the 6
+    /// categories; detail shows either the active category or a
+    /// drilled-in leaf with a "Back to …" header.
+    private var wideRoot: some View {
+        RRAdaptiveModalContainer(
+            preferredWidth: PlatformLayout.preferredSettingsDialogWidth,
+            preferredHeight: 760,
+            minWidth: 980,
+            minHeight: 640,
+            outerPadding: 0
+        ) {
+            RRSheetHeader(
+                title: "Settings",
+                subtitle: "Manage privacy, sync, backups and Rentory unlock.",
+                systemImage: "gearshape",
+                showsCloseButton: true,
+                closeLabel: "Close settings",
+                closeAction: { dismiss() }
+            )
+        } content: {
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 24) {
+                    categorySidebar
+                        .frame(width: 280)
+
+                    wideDetailColumn
+                        .frame(minWidth: 650, maxWidth: .infinity, alignment: .topLeading)
+                        .layoutPriority(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+                VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                    categorySidebar
+                    wideDetailColumn
+                }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
         }
     }
 
@@ -74,239 +178,400 @@ struct SettingsView: View {
         RRGlassPanel {
             VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
                 ForEach(SettingsCategory.allCases) { category in
-                    Button {
-                        selectedCategory = category
-                        selectedDestination = nil
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: category.systemImage)
-                                .frame(width: 18)
-                                .foregroundStyle(selectedCategory == category ? Color.white : RRColours.primary)
-
-                            Text(category.title)
-                                .font(RRTypography.body.weight(.semibold))
-                                .foregroundStyle(selectedCategory == category ? Color.white : RRColours.primary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-
-                            Spacer(minLength: 8)
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(selectedCategory == category ? RRColours.secondary.opacity(0.92) : Color.clear)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(category.title)
+                    sidebarRow(for: category)
                 }
             }
         }
     }
 
-    private var settingsBody: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(alignment: .top, spacing: 24) {
-                categorySidebar
-                    .frame(width: 280)
+    private func sidebarRow(for category: SettingsCategory) -> some View {
+        let isActive = selectedCategory == category
+        return Button {
+            selectedCategory = category
+            selectedDetail = nil
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: category.systemImage)
+                    .frame(width: 18)
+                    .foregroundStyle(isActive ? Color.white : RRColours.primary)
 
-                selectedDetailView
-                    .frame(minWidth: 650, maxWidth: .infinity, alignment: .topLeading)
-                    .layoutPriority(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-
-            VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
-                categorySidebar
-                selectedDetailView
-            }
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-        }
-    }
-
-    private var selectedDetailView: some View {
-        VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
-            if let selectedDestination {
-                destinationDetailView(for: selectedDestination)
-            } else {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
-                        Text(selectedCategory.title)
-                            .font(RRTypography.title)
-                            .foregroundStyle(RRColours.primary)
-                            .layoutPriority(1)
-
-                        Text(selectedCategory.subtitle)
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .layoutPriority(1)
-                    }
-                }
-
-                switch selectedCategory {
-                case .privacySecurity:
-                    settingsDetailGrid(items: privacySecurityItems)
-                case .profile:
-                    settingsDetailGrid(items: profileItems)
-                case .appLock:
-                    settingsDetailGrid(items: appLockItems)
-                case .appearance:
-                    settingsDetailGrid(items: appearanceItems)
-                case .notifications:
-                    settingsDetailGrid(items: notificationsItems)
-                case .widgets:
-                    settingsDetailGrid(items: widgetsItems)
-                case .iCloudSync:
-                    settingsDetailGrid(items: iCloudItems)
-                case .backups:
-                    settingsDetailGrid(items: backupsItems)
-                case .rentoryUnlock:
-                    settingsDetailGrid(items: unlockItems)
-                case .dataOnDevice:
-                    settingsDetailGrid(items: dataItems)
-                case .about:
-                    settingsDetailGrid(items: aboutItems)
-                }
-            }
-        }
-    }
-
-    private func settingsDetailGrid(items: [RRResponsiveFormGridItem]) -> some View {
-        RRResponsiveFormGrid(items: items, spacing: RRTheme.cardSpacing)
-    }
-
-    private var appLockBinding: Binding<Bool> {
-        Binding(
-            get: { appSecurityState.isAppLockEnabled },
-            set: { newValue in
-                handleAppLockChange(to: newValue)
-            }
-        )
-    }
-
-    private var appLockDescription: String {
-        #if os(macOS)
-        "Use Touch ID to help keep your rental records private on this Mac. Rentory will ask you to confirm it is you before turning App Lock on."
-        #else
-        "Use Face ID or Touch ID to help keep your rental records private. Rentory will ask you to confirm it is you before turning App Lock on."
-        #endif
-    }
-
-    private var privacySecurityItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Private by default",
-                    body: "Your records stay on your device unless you choose to export a backup or share a report."
-                )
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "App Lock",
-                    body: appLockDescription
-                ) {
-                    Button("Open App Lock settings") {
-                        selectedCategory = .appLock
-                    }
-                    .buttonStyle(.plain)
+                Text(category.title)
                     .font(RRTypography.body.weight(.semibold))
-                    .foregroundStyle(RRColours.secondary)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Privacy & Data",
-                    body: "Review temporary reports, storage details and deletion options on this device."
-                ) {
-                    settingsDestinationAction("Open Privacy & Data", destination: .privacyAndData)
-                }
-            },
-        ]
-    }
+                    .foregroundStyle(isActive ? Color.white : RRColours.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-    private var currentProfile: RentoryUserProfile {
-        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
-    }
-
-    private var profileBinding: Binding<RentoryUserProfile> {
-        Binding(
-            get: { currentProfile },
-            set: { newValue in
-                handleProfileChange(to: newValue)
+                Spacer(minLength: 8)
             }
-        )
-    }
-
-    private func handleProfileChange(to newProfile: RentoryUserProfile) {
-        guard newProfile != currentProfile else { return }
-
-        if newProfile == .landlord, !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked) {
-            upgradePromptContent = FeatureAccessService.landlordProfilePrompt
-            return
+            .padding(.horizontal, 14)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(isActive ? RRColours.secondary.opacity(0.92) : Color.clear)
+            )
         }
-
-        profileRawValue = newProfile.rawValue
+        .buttonStyle(.plain)
+        .accessibilityLabel(category.title)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
     }
 
-    private var profileItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Your profile",
-                    body: "Pick the profile that fits how you use Rentory. You can switch any time — your records aren’t tied to a profile."
-                ) {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        VStack(spacing: 10) {
-                            ForEach(RentoryUserProfile.allCases) { profile in
-                                regularProfileRow(for: profile)
+    private var wideDetailColumn: some View {
+        VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+            if let detail = selectedDetail {
+                wideDetailHeader(detail: detail)
+                detailView(for: detail)
+                    .rrUsesEmbeddedNavigationLayout()
+            } else {
+                wideCategoryHeader(for: selectedCategory)
+                categoryContent(for: selectedCategory)
+            }
+        }
+    }
+
+    private func wideCategoryHeader(for category: SettingsCategory) -> some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                Text(category.title)
+                    .font(RRTypography.title)
+                    .foregroundStyle(RRColours.primary)
+
+                Text(category.subtitle)
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func wideDetailHeader(detail: SettingsDetail) -> some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
+                Button {
+                    selectedDetail = nil
+                } label: {
+                    Label("Back to \(selectedCategory.title)", systemImage: "chevron.left")
+                        .font(RRTypography.body.weight(.semibold))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(RRColours.secondary)
+
+                Text(detail.title)
+                    .font(RRTypography.title)
+                    .foregroundStyle(RRColours.primary)
+
+                Text(detail.subtitle)
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - Category content (lands directly on real controls)
+
+    @ViewBuilder
+    private func categoryContent(for category: SettingsCategory) -> some View {
+        switch category {
+        case .general:
+            generalCategory
+        case .privacySecurity:
+            privacySecurityCategory
+        case .syncBackups:
+            syncBackupsCategory
+        case .notificationsWidgets:
+            notificationsWidgetsCategory
+        case .data:
+            dataCategory
+        case .about:
+            aboutCategory
+        }
+    }
+
+    private var generalCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem(span: .fullWidth) {
+                    settingsCard(
+                        title: "Profile",
+                        body: "Pick the profile that fits how you use Rentory. You can switch any time — your records aren’t tied to a profile."
+                    ) {
+                        profileChooser
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "App appearance",
+                        body: "Choose how Rentory looks on this device."
+                    ) {
+                        Picker("App appearance", selection: $appAppearanceRawValue) {
+                            ForEach(AppAppearance.allCases) { appearance in
+                                Text(appearance.title).tag(appearance.rawValue)
                             }
                         }
+                        .pickerStyle(.segmented)
 
-                        Text(currentProfile.detailedSummary)
+                        Text(selectedAppearance.description)
                             .font(RRTypography.footnote)
                             .foregroundStyle(RRColours.mutedText)
-                            .fixedSize(horizontal: false, vertical: true)
-
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(currentProfile.featureHighlights, id: \.self) { highlight in
-                                HStack(alignment: .top, spacing: 8) {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(RRColours.success)
-                                        .padding(.top, 2)
-                                    Text(highlight)
-                                        .font(RRTypography.footnote)
-                                        .foregroundStyle(RRColours.primary)
-                                        .multilineTextAlignment(.leading)
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Colour theme",
+                        body: "Choose the colour style Rentory uses for highlights, panels and buttons."
+                    ) {
+                        Picker("Colour theme", selection: $appColourThemeRawValue) {
+                            ForEach(AppColourTheme.allCases) { theme in
+                                Text(theme.title).tag(theme.rawValue)
                             }
                         }
-                        .padding(.top, 4)
+                        .pickerStyle(.segmented)
 
-                        if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
-                            Text("Landlord mode is part of the lifetime unlock.")
-                                .font(RRTypography.caption.weight(.semibold))
-                                .foregroundStyle(RRColours.warning)
+                        Text(selectedColourTheme.description)
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.mutedText)
+                    }
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    private var privacySecurityCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "App Lock",
+                        body: Self.appLockDescription
+                    ) {
+                        VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                            Toggle("Lock Rentory", isOn: appLockBinding)
+                                .disabled(appSecurityState.isAuthenticating)
+                                .tint(RRColours.secondary)
+
+                            Text(appSecurityState.isAppLockEnabled ? "App Lock is on." : "App Lock is off.")
+                                .font(RRTypography.footnote)
+                                .foregroundStyle(RRColours.mutedText)
                         }
                     }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Private by default",
+                        body: "Your records stay on your device unless you choose to export a backup or share a report. Storage and deletion details live under Data."
+                    )
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    private var syncBackupsCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "iCloud sync",
+                        body: "Keep records available across your devices using your private iCloud account."
+                    ) {
+                        statusRow(label: "Current status", value: iCloudSettingsValue)
+                        settingsDestinationAction("Open iCloud sync settings", destination: .iCloudSync)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Backups",
+                        body: "Export or import a Rentory backup when you want to keep a copy. Backups work whether iCloud sync is on or not."
+                    ) {
+                        settingsDestinationAction("Open backup options", destination: .backups)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "What a backup includes",
+                        body: "Backups include your records, photos and documents. You choose where to save them."
+                    )
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    private var notificationsWidgetsCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Reminder notifications",
+                        body: "Get a notification at 9 am on the day a reminder is due. Notifications are scheduled locally — Rentory never sends them through a server."
+                    ) {
+                        settingsDestinationAction("Open notification settings", destination: .notifications)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Widgets & Watch",
+                        body: "Glanceable Rentory tiles for the Home Screen and Apple Watch — added from the system, not from inside the app."
+                    ) {
+                        settingsDestinationAction("Open widget overview", destination: .widgets)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "How they stay current",
+                        body: "Both surfaces read a snapshot Rentory writes to its shared container whenever you open the app, change profile or come back from the background. No network calls."
+                    )
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    private var dataCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Storage and deletion",
+                        body: "Review storage details, clear temporary reports or remove records from this device."
+                    ) {
+                        settingsDestinationAction("Open storage details", destination: .privacyAndData)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Archived records",
+                        body: archivedRecordsBody
+                    ) {
+                        settingsDestinationAction("Open archived records", destination: .archivedRecords)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Activity history",
+                        body: "Review recent backups, imports, reports, sync attempts and record changes on this device."
+                    ) {
+                        settingsDestinationAction("Open activity history", destination: .activityHistory)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Sample data",
+                        body: "Load example records to explore Rentory, or remove them when you are done."
+                    ) {
+                        settingsDestinationAction("Open sample data", destination: .sampleData)
+                    }
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    private var aboutCategory: some View {
+        RRResponsiveFormGrid(
+            items: [
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "About Rentory",
+                        body: "Rentory helps you organise your own rental records."
+                    ) {
+                        if let appVersion = AppBundleInfo.displayString {
+                            Text(appVersion)
+                                .font(RRTypography.footnote)
+                                .foregroundStyle(RRColours.mutedText)
+                        }
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Rentory Unlock",
+                        body: "Manage your lifetime unlock or restore your purchase."
+                    ) {
+                        statusRow(
+                            label: "Status",
+                            value: entitlementManager.isUnlocked ? "Lifetime unlock active" : "Free version"
+                        )
+                        settingsDestinationAction("Open unlock settings", destination: .purchases)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Send feedback",
+                        body: "Pass along bug reports, feature requests, or questions. Opens a draft in your default mail client."
+                    ) {
+                        settingsDestinationAction("Open feedback form", destination: .feedback)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Welcome guide",
+                        body: "Open the welcome guide again if you want a quick reminder of the basics."
+                    ) {
+                        RRSecondaryButton(title: "Show welcome guide again") {
+                            hasCompletedOnboarding = false
+                            dismiss()
+                        }
+                        .frame(maxWidth: 260)
+                    }
+                },
+                RRResponsiveFormGridItem {
+                    settingsCard(
+                        title: "Privacy note",
+                        body: "Rentory keeps your records on this device by default and does not give legal, financial or tenancy advice."
+                    )
+                },
+            ],
+            spacing: RRTheme.cardSpacing
+        )
+    }
+
+    // MARK: - Profile chooser (used inside General → Profile card)
+
+    @ViewBuilder
+    private var profileChooser: some View {
+        VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+            VStack(spacing: 10) {
+                ForEach(RentoryUserProfile.allCases) { profile in
+                    profileRow(for: profile)
                 }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "What changes",
-                    body: "Switching profile only changes the suggested action kinds, document types and timeline event types you see when adding new entries. Existing records keep all their data."
-                )
-            },
-        ]
+            }
+
+            Text(currentProfile.detailedSummary)
+                .font(RRTypography.footnote)
+                .foregroundStyle(RRColours.mutedText)
+                .fixedSize(horizontal: false, vertical: true)
+
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(currentProfile.featureHighlights, id: \.self) { highlight in
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(RRColours.success)
+                            .padding(.top, 2)
+                        Text(highlight)
+                            .font(RRTypography.footnote)
+                            .foregroundStyle(RRColours.primary)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            .padding(.top, 4)
+
+            if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
+                Text("Landlord mode is part of the lifetime unlock.")
+                    .font(RRTypography.caption.weight(.semibold))
+                    .foregroundStyle(RRColours.warning)
+            }
+        }
     }
 
     @ViewBuilder
-    private func regularProfileRow(for profile: RentoryUserProfile) -> some View {
+    private func profileRow(for profile: RentoryUserProfile) -> some View {
         let isCurrent = profile == currentProfile
-        let isLocked = profile == .landlord && !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked)
+        let isLocked = profile == .landlord
+            && !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked)
 
         Button {
             handleProfileChange(to: profile)
@@ -353,394 +618,35 @@ struct SettingsView: View {
         .accessibilityHint(isCurrent ? "" : isLocked ? "Shows the lifetime unlock prompt." : "Selects \(profile.rawValue) mode.")
     }
 
-    private var appLockItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "App Lock",
-                    body: appLockDescription
-                ) {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Toggle("Lock Rentory", isOn: appLockBinding)
-                            .disabled(appSecurityState.isAuthenticating)
-                            .tint(RRColours.secondary)
-
-                        Text(appSecurityState.isAppLockEnabled ? "App Lock is on." : "App Lock is off.")
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
-                    }
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "How it works",
-                    body: "When App Lock is on, Rentory asks you to unlock before showing your rental records."
-                )
-            },
-        ]
-    }
-
-    private var appearanceItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "App appearance",
-                    body: "Choose how Rentory looks on this device."
-                ) {
-                    Picker("App appearance", selection: $appAppearanceRawValue) {
-                        ForEach(AppAppearance.allCases) { appearance in
-                            Text(appearance.title).tag(appearance.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Text(selectedAppearance.description)
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Colour theme",
-                    body: "Choose the colour style Rentory uses for highlights, panels and buttons."
-                ) {
-                    Picker("Colour theme", selection: $appColourThemeRawValue) {
-                        ForEach(AppColourTheme.allCases) { theme in
-                            Text(theme.title).tag(theme.rawValue)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-
-                    Text(selectedColourTheme.description)
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-            },
-        ]
-    }
-
-    private var notificationsItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Reminder notifications",
-                    body: "Get a notification at 9 am on the day a reminder is due. Notifications are scheduled locally — Rentory never sends them through a server."
-                ) {
-                    settingsDestinationAction("Open notifications settings", destination: .notifications)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "iOS-level permission",
-                    body: "Rentory respects the system notification permission. If you change your mind later, you can adjust it in the iOS Settings app for Rentory."
-                )
-            },
-        ]
-    }
-
-    private var widgetsItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Widgets and watch surfaces",
-                    body: "Glanceable Rentory tiles for the Home Screen and Apple Watch — added from the system, not from inside the app."
-                ) {
-                    settingsDestinationAction("Open widget overview", destination: .widgets)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "How they stay current",
-                    body: "Widgets read a snapshot Rentory writes to its shared container whenever you open the app, change profile or come back from the background. No network calls."
-                )
-            },
-        ]
-    }
-
-    private var iCloudItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "iCloud sync",
-                    body: "Keep records available across your devices using your private iCloud account."
-                ) {
-                    statusRow(label: "Current status", value: iCloudSettingsValue)
-                    settingsDestinationAction("Open iCloud sync settings", destination: .iCloudSync)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Backups",
-                    body: "Backups still work whether iCloud sync is available or not."
-                ) {
-                    Button("Open backup options") {
-                        selectedCategory = .backups
-                    }
-                    .buttonStyle(.plain)
-                    .font(RRTypography.body.weight(.semibold))
-                    .foregroundStyle(RRColours.secondary)
-                }
-            },
-        ]
-    }
-
-    private var backupsItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Backups",
-                    body: "Export or import a Rentory backup when you want to keep a copy."
-                ) {
-                    settingsDestinationAction("Open backup settings", destination: .backups)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "What a backup includes",
-                    body: "Backups include your records, photos and documents. You choose where to save them."
-                )
-            },
-        ]
-    }
-
-    private var unlockItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Rentory Unlock",
-                    body: "Manage your lifetime unlock or restore your purchase."
-                ) {
-                    statusRow(label: "Status", value: entitlementManager.isUnlocked ? "Lifetime unlock active" : "Free version")
-                    settingsDestinationAction("Open unlock settings", destination: .purchases)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Included with the lifetime unlock",
-                    body: "Create more records, add more rooms and photos, export full reports and use App Lock."
-                )
-            },
-        ]
-    }
-
-    private var dataItems: [RRResponsiveFormGridItem] {
-        [
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Storage and deletion",
-                    body: "Review storage details, clear temporary reports or remove records from this device."
-                ) {
-                    settingsDestinationAction("Open Privacy & Data", destination: .privacyAndData)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Archived records",
-                    body: archivedRecordsCount == 0
-                        ? "Records you archive will appear here, away from your active list."
-                        : "\(archivedRecordsCount) archived record\(archivedRecordsCount == 1 ? "" : "s") can be restored or permanently deleted."
-                ) {
-                    settingsDestinationAction("Open archived records", destination: .archivedRecords)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Activity history",
-                    body: "Review recent backups, imports, reports, sync attempts and record changes on this device."
-                ) {
-                    settingsDestinationAction("Open activity history", destination: .activityHistory)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Sample data",
-                    body: "Load example records to explore Rentory, or remove them when you are done."
-                ) {
-                    settingsDestinationAction("Open sample data", destination: .sampleData)
-                }
-            },
-        ]
-    }
-
-    private var aboutItems: [RRResponsiveFormGridItem] {
-        let items: [RRResponsiveFormGridItem] = [
-            RRResponsiveFormGridItem(span: .fullWidth) {
-                settingsSubsection(
-                    title: "App information",
-                    subtitle: "Version details and what Rentory is designed to do."
-                )
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "About Rentory",
-                    body: "Rentory helps you organise your own rental records."
-                ) {
-                    if let appVersion {
-                        Text(appVersion)
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
-                    }
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Privacy note",
-                    body: "Rentory keeps your records on this device by default and does not give legal, financial or tenancy advice."
-                )
-            },
-            RRResponsiveFormGridItem(span: .fullWidth) {
-                settingsSubsection(
-                    title: "Help and setup",
-                    subtitle: "Revisit the welcome guide when you want a quick refresher."
-                )
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Welcome guide",
-                    body: "Open the welcome guide again if you want a quick reminder of the basics."
-                ) {
-                    RRSecondaryButton(title: "Show welcome guide again") {
-                        hasCompletedOnboarding = false
-                        dismiss()
-                    }
-                    .frame(maxWidth: 260)
-                }
-            },
-            RRResponsiveFormGridItem {
-                settingsCard(
-                    title: "Send feedback",
-                    body: "Pass along bug reports, feature requests, or questions. Opens a draft in your default mail client."
-                ) {
-                    settingsDestinationAction("Open feedback form", destination: .feedback)
-                }
-            },
-        ]
-
-        return items
-    }
-
-    private var compactSettingsView: some View {
-        Form {
-            Section {
-                RRSheetHeader(
-                    title: "Settings",
-                    subtitle: "Manage privacy, sync, backups and Rentory unlock.",
-                    systemImage: "gearshape",
-                    showsCloseButton: true,
-                    closeLabel: "Close settings",
-                    closeAction: { dismiss() }
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowBackground(Color.clear)
-            }
-
-            Section {
-                Toggle("Lock Rentory", isOn: appLockBinding)
-                    .toggleStyle(.switch)
-                    .disabled(appSecurityState.isAuthenticating)
-                    .tint(RRColours.secondary)
-            } header: {
-                Text("Privacy & Security")
-            } footer: {
-                Text("Your records stay on your device by default.")
-            }
-
-            Section {
-                ForEach(RentoryUserProfile.allCases) { profile in
-                    compactProfileRow(for: profile)
-                }
-
-                Text(currentProfile.detailedSummary)
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-            } header: {
-                Text("Profile")
-            } footer: {
-                if !entitlementManager.isUnlocked && FreePlanLimits.landlordProfileRequiresUnlock {
-                    Text("Landlord mode is part of the lifetime unlock.")
-                        .foregroundStyle(RRColours.warning)
-                }
-            }
-
-            Section("Appearance") {
-                Picker("App appearance", selection: $appAppearanceRawValue) {
-                    ForEach(AppAppearance.allCases) { appearance in
-                        Text(appearance.title).tag(appearance.rawValue)
-                    }
-                }
-
-                Picker("Colour theme", selection: $appColourThemeRawValue) {
-                    ForEach(AppColourTheme.allCases) { theme in
-                        Text(theme.title).tag(theme.rawValue)
-                    }
-                }
-            }
-
-            Section("Sync & Backups") {
-                NavigationLink("iCloud sync", value: SettingsDestination.iCloudSync)
-                NavigationLink("Backups", value: SettingsDestination.backups)
-            }
-
-            Section("Reminders") {
-                NavigationLink("Notifications", value: SettingsDestination.notifications)
-            }
-
-            Section("Widgets") {
-                NavigationLink("Widgets and watch", value: SettingsDestination.widgets)
-            }
-
-            Section("Records and data") {
-                NavigationLink("Data on this device", value: SettingsDestination.privacyAndData)
-                NavigationLink("Archived records", value: SettingsDestination.archivedRecords)
-                NavigationLink("Activity history", value: SettingsDestination.activityHistory)
-                NavigationLink("Sample data", value: SettingsDestination.sampleData)
-            }
-
-            Section("Info") {
-                NavigationLink("Rentory unlock", value: SettingsDestination.purchases)
-                NavigationLink("About, privacy notes and welcome guide", value: SettingsDestination.info)
-            }
-        }
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
-    }
+    // MARK: - Leaf destinations
 
     @ViewBuilder
-    private func compactProfileRow(for profile: RentoryUserProfile) -> some View {
-        let isCurrent = profile == currentProfile
-        let isLocked = profile == .landlord && !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked)
-
-        Button {
-            handleProfileChange(to: profile)
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: profile.systemImage)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(RRColours.secondary)
-                    .frame(width: 24)
-
-                Text(profile.rawValue)
-                    .font(RRTypography.body)
-                    .foregroundStyle(RRColours.primary)
-
-                Spacer(minLength: 8)
-
-                if isCurrent {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(RRColours.secondary)
-                } else if isLocked {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(RRColours.warning)
-                }
-            }
-            .contentShape(Rectangle())
+    private func detailView(for destination: SettingsDetail) -> some View {
+        switch destination {
+        case .privacyAndData:
+            PrivacyAndDataSettingsView()
+        case .archivedRecords:
+            ArchivedRecordsSettingsView()
+        case .iCloudSync:
+            ICloudSyncSettingsView()
+        case .backups:
+            BackupsSettingsView()
+        case .purchases:
+            PurchaseSettingsView()
+        case .activityHistory:
+            ActivityHistorySettingsView()
+        case .sampleData:
+            SampleDataSettingsView()
+        case .notifications:
+            NotificationSettingsView()
+        case .widgets:
+            WidgetSettingsView()
+        case .feedback:
+            SendFeedbackView()
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(profile.rawValue) profile\(isCurrent ? ", selected" : isLocked ? ", locked" : "")")
-        .accessibilityHint(isCurrent ? "" : isLocked ? "Shows the lifetime unlock prompt." : "Selects \(profile.rawValue) mode.")
     }
+
+    // MARK: - Card / row helpers
 
     private func settingsCard<Content: View>(
         title: String,
@@ -763,34 +669,24 @@ struct SettingsView: View {
         }
     }
 
-    private func settingsSubsection(title: String, subtitle: String) -> some View {
-        VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
-            Text(title)
-                .font(RRTypography.headline)
-                .foregroundStyle(RRColours.primary)
-
-            Text(subtitle)
-                .font(RRTypography.footnote)
-                .foregroundStyle(RRColours.mutedText)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.top, RRTheme.smallSpacing)
-    }
-
     private func statusRow(label: String, value: String) -> some View {
         LabeledContent(label, value: value)
             .font(RRTypography.body)
     }
 
+    /// On compact (iPhone) this is a NavigationLink so it joins the
+    /// outer NavigationStack and gets a chevron / push transition.
+    /// On wide (Mac/iPad) it's a Button that flips `selectedDetail`
+    /// so the detail column swaps without leaving the modal.
     @ViewBuilder
-    private func settingsDestinationAction(_ title: String, destination: SettingsDestination) -> some View {
-        if PlatformLayout.isPhone && horizontalSizeClass != .regular {
+    private func settingsDestinationAction(_ title: String, destination: SettingsDetail) -> some View {
+        if isCompact {
             NavigationLink(title, value: destination)
                 .font(RRTypography.body.weight(.semibold))
                 .foregroundStyle(RRColours.secondary)
         } else {
             Button(title) {
-                selectedDestination = destination
+                selectedDetail = destination
             }
             .buttonStyle(.plain)
             .font(RRTypography.body.weight(.semibold))
@@ -798,67 +694,46 @@ struct SettingsView: View {
         }
     }
 
-    @ViewBuilder
-    private func destinationView(for destination: SettingsDestination) -> some View {
-        switch destination {
-        case .privacyAndData:
-            PrivacyAndDataSettingsView()
-        case .archivedRecords:
-            ArchivedRecordsSettingsView()
-        case .iCloudSync:
-            ICloudSyncSettingsView()
-        case .backups:
-            BackupsSettingsView()
-        case .purchases:
-            PurchaseSettingsView()
-        case .info:
-            InfoSettingsView()
-        case .activityHistory:
-            ActivityHistorySettingsView()
-        case .sampleData:
-            SampleDataSettingsView()
-        case .notifications:
-            NotificationSettingsView()
-        case .widgets:
-            WidgetSettingsView()
-        case .feedback:
-            SendFeedbackView()
-        }
+    // MARK: - Profile binding/handler
+
+    private var currentProfile: RentoryUserProfile {
+        RentoryUserProfile(rawValue: profileRawValue) ?? .defaultProfile
     }
 
-    private func destinationDetailView(for destination: SettingsDestination) -> some View {
-        VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
-            RRGlassPanel {
-                VStack(alignment: .leading, spacing: RRTheme.smallSpacing) {
-                    Button {
-                        selectedDestination = nil
-                    } label: {
-                        Label("Back", systemImage: "chevron.left")
-                            .font(RRTypography.body.weight(.semibold))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(RRColours.secondary)
+    private func handleProfileChange(to newProfile: RentoryUserProfile) {
+        guard newProfile != currentProfile else { return }
 
-                    Text(destination.title)
-                        .font(RRTypography.title)
-                        .foregroundStyle(RRColours.primary)
-
-                    Text(destination.subtitle)
-                        .font(RRTypography.body)
-                        .foregroundStyle(RRColours.mutedText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-
-            destinationView(for: destination)
-                .rrUsesEmbeddedNavigationLayout()
-        }
-    }
-
-    private func handleAppLockChange(to newValue: Bool) {
-        guard newValue != appSecurityState.isAppLockEnabled else {
+        if newProfile == .landlord,
+           !FeatureAccessService.canSwitchToLandlordProfile(isUnlocked: entitlementManager.isUnlocked) {
+            upgradePromptContent = FeatureAccessService.landlordProfilePrompt
             return
         }
+
+        profileRawValue = newProfile.rawValue
+    }
+
+    // MARK: - App Lock binding/handler
+
+    private var appLockBinding: Binding<Bool> {
+        Binding(
+            get: { appSecurityState.isAppLockEnabled },
+            set: { handleAppLockChange(to: $0) }
+        )
+    }
+
+    // Constant per platform — compile-time #if resolves before
+    // module init, so a static let avoids re-allocating the literal
+    // on every body eval.
+    private static let appLockDescription: String = {
+        #if os(macOS)
+        "Use Touch ID to help keep your rental records private on this Mac. Rentory will ask you to confirm it is you before turning App Lock on."
+        #else
+        "Use Face ID or Touch ID to help keep your rental records private. Rentory will ask you to confirm it is you before turning App Lock on."
+        #endif
+    }()
+
+    private func handleAppLockChange(to newValue: Bool) {
+        guard newValue != appSecurityState.isAppLockEnabled else { return }
 
         guard !(newValue && !FeatureAccessService.canUseAppLock(isUnlocked: entitlementManager.isUnlocked)) else {
             upgradePromptContent = FeatureAccessService.appLockLimitPrompt
@@ -870,16 +745,14 @@ struct SettingsView: View {
         }
     }
 
+    // MARK: - Derived values
+
     private var iCloudSettingsValue: String {
         switch iCloudSyncService.syncStatus {
-        case .available:
-            return iCloudSyncService.isSyncEnabled ? "On" : "Off"
-        case .unavailable:
-            return "Unavailable"
-        case .checking:
-            return "Checking"
-        case .unknown:
-            return "Unknown"
+        case .available: return iCloudSyncService.isSyncEnabled ? "On" : "Off"
+        case .unavailable: return "Unavailable"
+        case .checking: return "Checking"
+        case .unknown: return "Unknown"
         }
     }
 
@@ -891,275 +764,95 @@ struct SettingsView: View {
         AppColourTheme(rawValue: appColourThemeRawValue) ?? .defaultLook
     }
 
-    private var archivedRecordsCount: Int {
-        propertyPacks.filter { $0.isArchived && $0.profileRawValue == profileRawValue }.count
+    /// SwiftData's filtered query already only contains archived
+    /// packs — we just need the count for the active profile scope.
+    /// Filtering in Swift here is cheap because the query has
+    /// already pruned everything else.
+    private var archivedRecordsCountForProfile: Int {
+        archivedPacks.filter { $0.profileRawValue == profileRawValue }.count
     }
 
-    private var appVersion: String? {
-        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-            return nil
+    private var archivedRecordsBody: String {
+        let count = archivedRecordsCountForProfile
+        if count == 0 {
+            return "Records you archive will appear here, away from your active list."
         }
-
-        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
-            return "Version \(version) (\(build))"
-        }
-
-        return "Version \(version)"
-    }
-}
-
-private struct InfoSettingsView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-
-    var body: some View {
-        Group {
-            if PlatformLayout.isPhone && horizontalSizeClass != .regular {
-                compactView
-            } else {
-                RRFormContainer(maxWidth: 760) {
-                    RRResponsiveFormGrid(items: infoItems)
-                }
-            }
-        }
-        .navigationTitle("Info")
-        .rrInlineNavigationTitle()
-    }
-
-    private var compactView: some View {
-        Form {
-            Section("About Rentory") {
-                Text("Rentory helps you organise your own rental records.")
-
-                if let appVersion {
-                    Text(appVersion)
-                        .font(RRTypography.footnote)
-                        .foregroundStyle(RRColours.mutedText)
-                }
-            }
-
-            Section("Privacy") {
-                Text("Your records stay on your device by default.")
-                Text("Rentory does not give legal, financial or tenancy advice.")
-                    .font(RRTypography.footnote)
-                    .foregroundStyle(RRColours.mutedText)
-            }
-
-            Section("Welcome guide") {
-                Button("Show welcome guide again") {
-                    hasCompletedOnboarding = false
-                    dismiss()
-                }
-            }
-
-        }
-        .scrollContentBackground(.hidden)
-        .background(RRBackgroundView())
-    }
-
-    private var infoItems: [RRResponsiveFormGridItem] {
-        let items: [RRResponsiveFormGridItem] = [
-            RRResponsiveFormGridItem {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Text("About Rentory")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Text("Rentory helps you organise your own rental records.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-
-                        if let appVersion {
-                            Text(appVersion)
-                                .font(RRTypography.footnote)
-                                .foregroundStyle(RRColours.mutedText)
-                        }
-                    }
-                }
-            },
-            RRResponsiveFormGridItem {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Text("Privacy")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Text("Your records stay on your device by default.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-
-                        Text("Rentory does not give legal, financial or tenancy advice.")
-                            .font(RRTypography.footnote)
-                            .foregroundStyle(RRColours.mutedText)
-                    }
-                }
-            },
-            RRResponsiveFormGridItem {
-                RRGlassPanel {
-                    VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                        Text("Welcome guide")
-                            .font(RRTypography.headline)
-                            .foregroundStyle(RRColours.primary)
-
-                        Text("Open the welcome guide again if you want a quick reminder of the basics.")
-                            .font(RRTypography.body)
-                            .foregroundStyle(RRColours.mutedText)
-
-                        RRSecondaryButton(title: "Show welcome guide again") {
-                            hasCompletedOnboarding = false
-                            dismiss()
-                        }
-                    }
-                }
-            },
-        ]
-
-        return items
-    }
-
-    private var appVersion: String? {
-        guard let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String else {
-            return nil
-        }
-
-        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String {
-            return "Version \(version) (\(build))"
-        }
-
-        return "Version \(version)"
+        return "\(count) archived record\(count == 1 ? "" : "s") can be restored or permanently deleted."
     }
 }
 
-private enum SettingsCategory: String, CaseIterable, Identifiable {
+// MARK: - IA enums
+
+private enum SettingsCategory: String, CaseIterable, Hashable, Identifiable {
+    case general
     case privacySecurity
-    case profile
-    case appLock
-    case appearance
-    case notifications
-    case widgets
-    case iCloudSync
-    case backups
-    case rentoryUnlock
-    case dataOnDevice
+    case syncBackups
+    case notificationsWidgets
+    case data
     case about
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .general: "General"
         case .privacySecurity: "Privacy & Security"
-        case .profile: "Profile"
-        case .appLock: "App Lock"
-        case .appearance: "Appearance"
-        case .notifications: "Notifications"
-        case .widgets: "Widgets & Watch"
-        case .iCloudSync: "iCloud Sync"
-        case .backups: "Backups"
-        case .rentoryUnlock: "Rentory Unlock"
-        case .dataOnDevice: "Data on this device"
+        case .syncBackups: "Sync & Backups"
+        case .notificationsWidgets: "Notifications & Widgets"
+        case .data: "Data"
         case .about: "About"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .privacySecurity: "See how Rentory keeps your records private and where to manage data controls."
-        case .profile: "Choose whether Rentory tailors prompts for a renter or a landlord."
-        case .appLock: "Choose whether Rentory should ask you to unlock before showing your records."
-        case .appearance: "Choose light, dark or this device’s default appearance."
-        case .notifications: "Get a heads-up the morning a reminder is due."
-        case .widgets: "Glanceable Rentory tiles for iPhone, iPad and Apple Watch."
-        case .iCloudSync: "Check whether iCloud sync is available on this device."
-        case .backups: "Keep a copy of your records when you want one."
-        case .rentoryUnlock: "View your unlock status and restore earlier purchases."
-        case .dataOnDevice: "Review storage details and deletion options."
-        case .about: "A quick overview of Rentory and this version of the app."
+        case .general: "Profile, appearance and colour theme."
+        case .privacySecurity: "App Lock and how Rentory keeps your records private."
+        case .syncBackups: "iCloud sync status and backup export / import."
+        case .notificationsWidgets: "Reminder notifications and home-screen surfaces."
+        case .data: "Storage, archived records, sample data and activity history."
+        case .about: "Version info, Rentory Unlock, feedback and the welcome guide."
         }
     }
 
     var systemImage: String {
         switch self {
-        case .privacySecurity: "hand.raised.fill"
-        case .profile: "person.crop.circle"
-        case .appLock: "lock.shield.fill"
-        case .appearance: "circle.lefthalf.filled"
-        case .notifications: "bell.badge"
-        case .widgets: "square.grid.2x2"
-        case .iCloudSync: "icloud"
-        case .backups: "externaldrive"
-        case .rentoryUnlock: "sparkles"
-        case .dataOnDevice: "internaldrive"
+        case .general: "person.crop.circle"
+        case .privacySecurity: "lock.shield.fill"
+        case .syncBackups: "icloud.and.arrow.up"
+        case .notificationsWidgets: "bell.badge"
+        case .data: "internaldrive"
         case .about: "info.circle.fill"
         }
     }
 }
 
-private enum SettingsDestination: Hashable, Identifiable {
+private enum SettingsDetail: String, Hashable, Identifiable {
     case privacyAndData
     case archivedRecords
     case iCloudSync
     case backups
     case purchases
-    case info
     case activityHistory
     case sampleData
     case notifications
     case widgets
     case feedback
 
-    var id: String {
-        switch self {
-        case .privacyAndData:
-            return "privacyAndData"
-        case .archivedRecords:
-            return "archivedRecords"
-        case .iCloudSync:
-            return "iCloudSync"
-        case .backups:
-            return "backups"
-        case .purchases:
-            return "purchases"
-        case .info:
-            return "info"
-        case .activityHistory:
-            return "activityHistory"
-        case .sampleData:
-            return "sampleData"
-        case .notifications:
-            return "notifications"
-        case .widgets:
-            return "widgets"
-        case .feedback:
-            return "feedback"
-        }
-    }
+    var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .privacyAndData:
-            return "Privacy & Data"
-        case .archivedRecords:
-            return "Archived records"
-        case .iCloudSync:
-            return "iCloud Sync"
-        case .backups:
-            return "Backups"
-        case .purchases:
-            return "Rentory Unlock"
-        case .info:
-            return "Info"
-        case .activityHistory:
-            return "Activity history"
-        case .sampleData:
-            return "Sample data"
-        case .notifications:
-            return "Notifications"
-        case .widgets:
-            return "Widgets & Watch"
-        case .feedback:
-            return "Send feedback"
+        case .privacyAndData: "Storage details"
+        case .archivedRecords: "Archived records"
+        case .iCloudSync: "iCloud sync"
+        case .backups: "Backups"
+        case .purchases: "Rentory Unlock"
+        case .activityHistory: "Activity history"
+        case .sampleData: "Sample data"
+        case .notifications: "Notifications"
+        case .widgets: "Widgets & Watch"
+        case .feedback: "Send feedback"
         }
     }
 
@@ -1175,8 +868,6 @@ private enum SettingsDestination: Hashable, Identifiable {
             return "Export or import a Rentory backup when you want to keep a copy."
         case .purchases:
             return "Manage your lifetime unlock and restore earlier purchases."
-        case .info:
-            return "About Rentory, privacy notes and the welcome guide."
         case .activityHistory:
             return "Recent backups, imports, reports, sync attempts and record changes on this device."
         case .sampleData:
