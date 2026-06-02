@@ -47,15 +47,6 @@ struct DemoDataFactory {
     }
 
     @discardableResult
-    func loadDemoRecord(context: ModelContext, profile: RentoryUserProfile = .renter) throws -> PropertyPack {
-        let records = try loadSampleData(context: context, profile: profile, style: .singleRecord)
-        if let firstRecord = records.first {
-            return firstRecord
-        }
-        return try makeSharedHomeRecord()
-    }
-
-    @discardableResult
     func loadSampleData(
         context: ModelContext,
         profile: RentoryUserProfile = .renter,
