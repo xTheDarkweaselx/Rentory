@@ -1281,11 +1281,15 @@ struct RentoryTests {
 
     @Test @MainActor func photoCacheStoresAndReturnsThumbnail() throws {
         let service = PhotoStorageService()
-        let cgImage = try makeImage(size: CGSize(width: 100, height: 100)).cgImage!
+        // `.rrCGImage` is the cross-platform accessor defined in
+        // `ImageResizer.swift` — on iOS it forwards to UIImage's
+        // built-in `.cgImage`, on macOS it bridges NSImage (which
+        // has no `cgImage` property of the same shape).
+        let cgImage = try makeImage(size: CGSize(width: 100, height: 100)).rrCGImage!
         let key = "test-cache-\(UUID().uuidString)"
 
         #expect(service.cachedThumbnail(for: key) == nil)
-        service.storeThumbnail(UIImage(cgImage: cgImage), for: key)
+        service.storeThumbnail(UIImage.rrImage(from: cgImage, size: CGSize(width: 100, height: 100)), for: key)
         #expect(service.cachedThumbnail(for: key) != nil)
     }
 
@@ -1295,10 +1299,10 @@ struct RentoryTests {
         // would re-decode the same JPEGs twice.
         let serviceA = PhotoStorageService()
         let serviceB = PhotoStorageService()
-        let cgImage = try makeImage(size: CGSize(width: 20, height: 20)).cgImage!
+        let cgImage = try makeImage(size: CGSize(width: 20, height: 20)).rrCGImage!
         let key = "rentory-shared-\(UUID().uuidString)"
 
-        serviceA.storeThumbnail(UIImage(cgImage: cgImage), for: key)
+        serviceA.storeThumbnail(UIImage.rrImage(from: cgImage, size: CGSize(width: 20, height: 20)), for: key)
         #expect(serviceB.cachedThumbnail(for: key) != nil)
     }
 
