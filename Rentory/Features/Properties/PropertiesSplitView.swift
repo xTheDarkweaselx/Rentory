@@ -160,7 +160,6 @@ struct PropertiesSplitView: View {
             NavigationStack(path: $detailNavigationPath) {
                 if let selectedPropertyPack {
                     PropertyDashboardView(propertyPack: selectedPropertyPack)
-                        .id(selectedPropertyPack.id)
                 } else {
                     RRFormContainer(maxWidth: 620) {
                         RREmptyStateView(
@@ -174,7 +173,23 @@ struct PropertiesSplitView: View {
                     .navigationTitle("Rentory")
                 }
             }
-            .id(detailResetID)
+            // Composite identity: the property-id half forces the
+            // NavigationStack to rebuild whenever the user switches
+            // record (so the new property's dashboard always shows
+            // at the root, never the old property's drilled-in
+            // sub-view). The `detailResetID` half lets imperative
+            // callers force a stack reset without changing the
+            // selection — e.g. after a deep-link arrives that picks
+            // a property that's already selected.
+            //
+            // We previously used only `.id(detailResetID)`, which
+            // *should* have rebuilt the stack but in practice didn't:
+            // a fresh UUID coming through `detailResetID` alone wasn't
+            // enough to make SwiftUI tear down the stack on macOS,
+            // and the old property's room-detail view stayed put.
+            // Pinning the identity to `selectedPropertyID` makes the
+            // rebuild deterministic.
+            .id(CompositeNavID(propertyID: selectedPropertyID, resetID: detailResetID))
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
@@ -192,6 +207,20 @@ struct PropertiesSplitView: View {
                 resetDetailNavigation()
                 self.selectedPropertyID = nil
             }
+        }
+        // Catch-all: ANY change to the selected property — sidebar
+        // tap, deep link, programmatic switch, profile-scoped record
+        // dropping out, restore from archive — must reset the
+        // detail-column nav stack. Without this, switching from
+        // Property A while drilled into one of its rooms (or a
+        // document / timeline event) left the detail column
+        // stranded on the old sub-view, ignoring the property
+        // switch that just happened. `selectProperty(_:)` and the
+        // deep-link handler already call `resetDetailNavigation()`
+        // explicitly, but this `.onChange` covers every other
+        // entry point in one place.
+        .onChange(of: selectedPropertyID) { _, _ in
+            resetDetailNavigation()
         }
         .onReceive(deepLinkRouter.$pendingPropertyID) { newID in
             // A widget or notification tap asks us to focus a property.
@@ -442,4 +471,13 @@ private struct PropertySidebarRow: View {
             return !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }) ?? nil
     }
+}
+
+/// Composite identity for the detail-column NavigationStack. Both
+/// halves change independently — the propertyID flips on every
+/// sidebar selection, the resetID flips on imperative resets — so
+/// either path forces the stack to rebuild from its root.
+private struct CompositeNavID: Hashable {
+    let propertyID: UUID?
+    let resetID: UUID
 }
