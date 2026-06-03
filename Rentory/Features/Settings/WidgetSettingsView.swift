@@ -53,8 +53,7 @@ struct WidgetSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Widgets")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Widgets")
         .task {
             await loadSnapshotMetadata()
         }

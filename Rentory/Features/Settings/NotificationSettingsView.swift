@@ -57,8 +57,7 @@ struct NotificationSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Notifications")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Notifications")
         .task {
             await notificationService.refreshAuthorizationStatus()
         }

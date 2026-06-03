@@ -42,8 +42,7 @@ struct PurchaseSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Rentory unlock")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Rentory unlock")
         .sheet(isPresented: $isShowingPaywall) {
             PaywallView()
                 .environmentObject(entitlementManager)

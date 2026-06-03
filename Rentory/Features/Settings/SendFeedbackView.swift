@@ -15,6 +15,7 @@ struct SendFeedbackView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
 
     @State private var category: FeedbackCategory = .bug
     @State private var subject: String = "Rentory feedback"
@@ -27,6 +28,18 @@ struct SendFeedbackView: View {
         Group {
             if PlatformLayout.isPhone && horizontalSizeClass != .regular {
                 compactView
+            } else if usesEmbeddedNavigationLayout {
+                // Embedded inside the wide Settings panel, which already
+                // shows the title + description via its own in-panel
+                // header. Drop the RRSheetHeader here so the page doesn't
+                // stack a second "Send feedback" header on top of it.
+                RRFormContainer(maxWidth: 720) {
+                    VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                        messagePanel
+                        attachmentsPanel
+                        actionButtons
+                    }
+                }
             } else {
                 RRMacSheetContainer(maxWidth: 720, minHeight: PlatformLayout.isMac ? 640 : nil) {
                     VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
@@ -43,8 +56,7 @@ struct SendFeedbackView: View {
                 }
             }
         }
-        .navigationTitle("Send feedback")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Send feedback")
         .alert(item: $alertContent) { content in
             Alert(
                 title: Text(content.title),

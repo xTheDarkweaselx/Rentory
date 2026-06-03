@@ -34,8 +34,7 @@ struct ArchivedRecordsSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Archived records")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Archived records")
         .overlay {
             if isWorking {
                 ZStack {

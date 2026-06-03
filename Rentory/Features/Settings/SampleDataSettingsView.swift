@@ -98,8 +98,7 @@ struct SampleDataSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Sample data")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Sample data")
         .overlay {
             if isWorking {
                 RRProgressDialog(
