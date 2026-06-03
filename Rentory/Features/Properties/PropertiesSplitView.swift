@@ -19,7 +19,6 @@ struct PropertiesSplitView: View {
     @State private var isShowingSettings = false
     @State private var selectedPropertyID: UUID?
     @State private var detailNavigationPath = NavigationPath()
-    @State private var detailResetID = UUID()
     @State private var upgradePromptContent: UpgradePromptContent?
     @State private var filterState = PropertyRecordFilterState()
 
@@ -158,32 +157,40 @@ struct PropertiesSplitView: View {
             }
         } detail: {
             NavigationStack(path: $detailNavigationPath) {
-                if let selectedPropertyPack {
-                    PropertyDashboardView(propertyPack: selectedPropertyPack)
-                } else {
-                    RRFormContainer(maxWidth: 620) {
-                        RREmptyStateView(
-                            symbolName: "rectangle.on.rectangle",
-                            title: "Choose a rental record",
-                            message: "Select a record from the sidebar, or create a new one when you are ready.",
-                            buttonTitle: "Create a record",
-                            buttonAction: showCreatePropertyOrUpgradePrompt
-                        )
+                Group {
+                    if let selectedPropertyPack {
+                        PropertyDashboardView(propertyPack: selectedPropertyPack)
+                    } else {
+                        RRFormContainer(maxWidth: 620) {
+                            RREmptyStateView(
+                                symbolName: "rectangle.on.rectangle",
+                                title: "Choose a rental record",
+                                message: "Select a record from the sidebar, or create a new one when you are ready.",
+                                buttonTitle: "Create a record",
+                                buttonAction: showCreatePropertyOrUpgradePrompt
+                            )
+                        }
+                        .navigationTitle("Rentory")
                     }
-                    .navigationTitle("Rentory")
                 }
-            }
-            // Value-based navigation destinations. Rooms are pushed
-            // via `NavigationLink(value: RoomDestination(...))` in
-            // `RoomsListSection`, which adds the destination to
-            // `detailNavigationPath`. Clearing the path
-            // (`detailNavigationPath = NavigationPath()`) then
-            // reliably pops the pushed view because the path IS
-            // the source of truth — unlike the legacy
-            // `NavigationLink { destination }` shape, which pushed
-            // directly and survived path resets on macOS.
-            .navigationDestination(for: RoomDestination.self) { destination in
-                RoomDetailView(room: destination.room, stage: destination.stage)
+                // Value-based destination for room rows. Rooms are pushed
+                // via `NavigationLink(value: RoomDestination(...))` in
+                // `RoomsListSection`, which appends to `detailNavigationPath`.
+                //
+                // CRITICAL: this modifier must live INSIDE the
+                // NavigationStack's content (here, on the Group) — NOT as a
+                // modifier on the `NavigationStack` itself. A NavigationStack
+                // only registers destinations declared within its content
+                // subtree; one attached to the stack node sits *above* the
+                // stack and is silently ignored, so the value-based pushes do
+                // nothing. iOS tolerated that misplacement; macOS did not —
+                // which is why room rows wouldn't open on the Mac. The
+                // dashboard's own `.navigationDestination(isPresented:/item:)`
+                // drill-ins already sit inside the stack, which is why they
+                // worked while rooms didn't.
+                .navigationDestination(for: RoomDestination.self) { destination in
+                    RoomDetailView(room: destination.room, stage: destination.stage)
+                }
             }
         }
         .sheet(isPresented: $isShowingSettings) {
@@ -275,7 +282,6 @@ struct PropertiesSplitView: View {
 
     private func resetDetailNavigation() {
         detailNavigationPath = NavigationPath()
-        detailResetID = UUID()
     }
 
     private func toggleFavourite(for propertyPack: PropertyPack) {
