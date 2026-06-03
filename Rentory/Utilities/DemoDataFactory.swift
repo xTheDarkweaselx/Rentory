@@ -1280,6 +1280,7 @@ struct DemoDataFactory {
                 phase: sample.phase,
                 caption: sample.caption,
                 capturedAt: demoDate(year: 2026, month: 1, day: 10 + index),
+                captureDateIsConfirmed: true,
                 sortOrder: index
             )
         }

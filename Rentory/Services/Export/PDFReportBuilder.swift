@@ -256,7 +256,12 @@ struct PDFReportBuilder {
                     if let caption = trimmed(photo.caption) {
                         details.append(caption)
                     }
-                    details.append(dateFormatter.string(from: photo.capturedAt))
+                    // Only present the date as a capture date when it is one.
+                    // Unconfirmed photos (no readable capture date, defaulted
+                    // to import time) are labelled "Added" so the report never
+                    // implies an invented capture date.
+                    let dateLabel = photo.captureDateIsConfirmed ? "Taken" : "Added"
+                    details.append("\(dateLabel) \(dateFormatter.string(from: photo.capturedAt))")
 
                     let image = try? thumbnailImage(for: photo.localFileName)
                     photos.append(PDFReportPhotoEntry(image: image, details: details))

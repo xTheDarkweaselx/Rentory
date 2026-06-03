@@ -120,7 +120,9 @@ struct AddPhotoFlowView: View {
             CameraCaptureView(
                 onImageCaptured: { image in
                     isShowingCamera = false
-                    handleSelectedImage(image)
+                    // A freshly captured photo is, by definition, taken now —
+                    // so "now" is a genuine capture date, not a guess.
+                    handleSelectedImage(image, capturedAt: nil, dateIsConfirmed: true)
                 },
                 onCancel: {
                     isShowingCamera = false
@@ -145,7 +147,14 @@ struct AddPhotoFlowView: View {
                     throw ImageProcessingError.unableToReadImage
                 }
 
-                handleSelectedImage(image)
+                // Date the evidence to when the shutter actually fired
+                // (from the photo's EXIF metadata), not when it was
+                // imported. When the image carries no capture date we fall
+                // back to "now" but mark it UNCONFIRMED, so the UI and
+                // report prompt the user to set the real date instead of
+                // silently presenting the import time as a capture date.
+                let exifCaptureDate = PhotoCaptureDate.captureDate(fromImageData: imageData)
+                handleSelectedImage(image, capturedAt: exifCaptureDate, dateIsConfirmed: exifCaptureDate != nil)
             } catch {
                 userFacingError = .photoCouldNotBeAdded
             }
@@ -165,7 +174,7 @@ struct AddPhotoFlowView: View {
         }
     }
 
-    private func handleSelectedImage(_ image: UIImage) {
+    private func handleSelectedImage(_ image: UIImage, capturedAt: Date?, dateIsConfirmed: Bool) {
         guard let selectedPhase else {
             userFacingError = .photoCouldNotBeAdded
             return
@@ -191,6 +200,8 @@ struct AddPhotoFlowView: View {
             let photo = EvidencePhoto(
                 localFileName: storedFileName,
                 phase: selectedPhase,
+                capturedAt: capturedAt ?? .now,
+                captureDateIsConfirmed: dateIsConfirmed,
                 sortOrder: nextSortOrder
             )
 
