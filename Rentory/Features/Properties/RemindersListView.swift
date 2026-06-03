@@ -165,14 +165,24 @@ struct RemindersListView: View {
 
     @ViewBuilder
     private func rowSubtitle(reminder: Reminder, urgency: ReminderUrgency) -> some View {
+        // Compose the subtitle so recurring reminders advertise their
+        // cadence inline (e.g. "Due 3 Jun · Monthly"). Recurrence label
+        // only shows when there's actually a due date, since recurrence
+        // is meaningless without one.
         if reminder.isCompleted, let completedAt = reminder.completedAt {
             Text("Completed \(formattedDate(completedAt))")
                 .font(RRTypography.footnote)
                 .foregroundStyle(RRColours.success)
         } else if let dueDate = reminder.dueDate {
-            Text("Due \(formattedDate(dueDate))")
-                .font(RRTypography.footnote)
-                .foregroundStyle(tint(for: urgency))
+            if let recurrenceLabel = reminder.recurrence.shortLabel {
+                Text("Due \(formattedDate(dueDate)) · \(recurrenceLabel)")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(tint(for: urgency))
+            } else {
+                Text("Due \(formattedDate(dueDate))")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(tint(for: urgency))
+            }
         } else {
             Text(reminder.kind.rawValue)
                 .font(RRTypography.footnote)

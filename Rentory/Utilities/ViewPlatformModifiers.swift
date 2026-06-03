@@ -63,6 +63,33 @@ extension View {
         toolbar(.hidden, for: .navigationBar)
 #endif
     }
+
+    /// Sets a Settings sub-page's navigation title — but only when the
+    /// page is shown standalone (a compact push on iOS, or its own
+    /// sheet). When the page is embedded inside the wide Settings panel
+    /// the title is omitted: the panel already shows it via an in-panel
+    /// header, and a bubbled `navigationTitle` would otherwise resurface
+    /// as a redundant macOS window-titlebar strip floating above the
+    /// whole sheet.
+    func rrSettingsLeafNavigationTitle(_ title: String) -> some View {
+        modifier(RRSettingsLeafNavigationTitle(title: title))
+    }
+}
+
+private struct RRSettingsLeafNavigationTitle: ViewModifier {
+    let title: String
+    @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if usesEmbeddedNavigationLayout {
+            content
+        } else {
+            content
+                .navigationTitle(title)
+                .rrInlineNavigationTitle()
+        }
+    }
 }
 
 extension ToolbarItemPlacement {

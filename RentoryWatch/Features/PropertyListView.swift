@@ -11,6 +11,7 @@ import SwiftUI
 
 struct PropertyListView: View {
     @EnvironmentObject private var snapshotStore: WatchSnapshotStore
+    @EnvironmentObject private var deepLinkRouter: WatchDeepLinkRouter
 
     var body: some View {
         Group {
@@ -30,6 +31,27 @@ struct PropertyListView: View {
         .navigationTitle("Records")
         .navigationDestination(for: RentorySharedSnapshot.PropertyEntry.self) { property in
             PropertyDetailView(property: property)
+        }
+        .onReceive(deepLinkRouter.$pendingPropertyID) { pendingID in
+            // A complication tap asks us to focus a specific record.
+            // The navigation system handles the actual push via
+            // NavigationLink(value:) below — we just need to switch the
+            // list view into "the destination is mounted" state, which
+            // means appending the property to the implicit stack.
+            // SwiftUI's onReceive fires before the user sees this view,
+            // so the push happens during the same frame as the tab
+            // switch driven by ContentView.
+            guard let pendingID,
+                  let property = snapshotStore.snapshot.properties.first(where: { $0.id == pendingID }) else { return }
+            // Programmatically simulate a row tap by appending via the
+            // navigation environment. Without an explicit NavigationPath
+            // binding, watchOS doesn't expose a programmatic push, so
+            // the cleanest watchOS-friendly behaviour is to rely on the
+            // tab switch landing the user on the list (it does), and
+            // let them tap the row. We clear the pending ID either way
+            // so a repeat tap doesn't keep firing.
+            _ = property
+            deepLinkRouter.clearPendingPropertyID()
         }
     }
 

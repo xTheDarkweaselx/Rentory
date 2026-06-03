@@ -173,6 +173,8 @@ struct DocumentDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
         }
@@ -183,6 +185,8 @@ struct DocumentDetailView: View {
             try fileStorageService.deleteDocument(fileName: document.localFileName)
             modelContext.delete(document)
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             alertContent = RRAlertContent(error: .documentCouldNotBeDeleted)

@@ -38,12 +38,24 @@ struct SampleDataSettingsView: View {
         propertyPacks.filter { $0.profileRawValue == profileRawValue }
     }
 
-    private var hasDemoRecord: Bool {
-        profileScopedPropertyPacks.contains(where: DemoModeSettings.matchesDemoRecord)
+    /// Demo records on the currently active profile only — used for
+    /// the "X sample records ready to use" status line.
+    private var profileScopedDemoRecordCount: Int {
+        profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
     }
 
-    private var demoRecordCount: Int {
-        profileScopedPropertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    /// Demo records across every profile. The Clear button uses this
+    /// because users expect "Clear demo data" to remove ALL the
+    /// demo records they can see in the app, not just the ones tied
+    /// to whichever profile happens to be selected right now —
+    /// otherwise tapping it appears to silently do nothing when the
+    /// records were created on a different profile.
+    private var totalDemoRecordCount: Int {
+        propertyPacks.filter(DemoModeSettings.matchesDemoRecord).count
+    }
+
+    private var hasDemoRecord: Bool {
+        totalDemoRecordCount > 0
     }
 
     private var profileSampleSetSize: Int {
@@ -86,8 +98,7 @@ struct SampleDataSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Sample data")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Sample data")
         .overlay {
             if isWorking {
                 RRProgressDialog(
@@ -115,20 +126,9 @@ struct SampleDataSettingsView: View {
                 await loadDemoRecord()
             }
         }
-        .rrConfirmationDialog(
-            RRDialogContent(
-                title: "Clear demo data?",
-                message: "This removes the sample records and their sample files.",
-                confirmTitle: "Clear demo data",
-                cancelTitle: "Cancel",
-                confirmRole: .destructive
-            ),
-            isPresented: $isShowingClearConfirmation
-        ) {
-            Task {
-                await clearDemoData()
-            }
-        }
+        // Clear demo data uses an INLINE confirmation rendered by
+        // `clearDemoButton`, not a platform dialog — see the doc
+        // comment on that view for why.
         .alert(item: $alertContent) { content in
             Alert(
                 title: Text(content.title),
@@ -141,11 +141,7 @@ struct SampleDataSettingsView: View {
     private var compactView: some View {
         Form {
             Section("Sample data") {
-                Text(
-                    hasDemoRecord
-                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
-                    : "No sample records have been loaded yet."
-                )
+                Text(statusText)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
 
@@ -157,30 +153,78 @@ struct SampleDataSettingsView: View {
                     isShowingLoadConfirmation = true
                 }
 
-                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                    isShowingClearConfirmation = true
-                }
+                clearDemoButton
             }
         }
         .scrollContentBackground(.hidden)
         .background(RRBackgroundView())
     }
 
+    /// The Clear demo data button plus a one-line explanation when it
+    /// would be disabled. Without the explanation a tap on the (now
+    /// visually-greyed) button looks unresponsive — the subtitle tells
+    /// the user *why* the action isn't currently available, so they
+    /// can switch profile, load sample data, or take whatever next
+    /// step makes sense.
+    ///
+    /// Confirmation is rendered INLINE rather than through a platform
+    /// dialog. The Load flow uses a dialog and works fine, but the
+    /// inline pattern is more discoverable on the desktop layout (the
+    /// Confirm and Cancel buttons appear directly in the actions panel
+    /// next to the action they affect) and avoids the slight UX hazard
+    /// of stacking a third presentation modifier on a view that already
+    /// carries two (`rrConfirmationDialog` for Load + `.alert(item:)`
+    /// for the result message).
+    @ViewBuilder
+    private var clearDemoButton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if isShowingClearConfirmation {
+                Text("Clear demo data?")
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
+
+                Text("This removes the sample records and their sample files.")
+                    .font(RRTypography.footnote)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    RRSecondaryButton(title: "Cancel") {
+                        isShowingClearConfirmation = false
+                    }
+
+                    RRDestructiveButton(title: "Clear demo data") {
+                        isShowingClearConfirmation = false
+                        clearDemoData()
+                    }
+                }
+            } else {
+                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
+                    isShowingClearConfirmation = true
+                }
+
+                if !isWorking, !hasDemoRecord {
+                    Text("No sample records on this device yet. Tap Load above to add some.")
+                        .font(RRTypography.caption)
+                        .foregroundStyle(RRColours.mutedText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+
     private var statusPanel: some View {
+        // No internal "Sample data" heading and no internal
+        // description line here — the screen-level container
+        // (either `destinationDetailView`'s RRGlassPanel header
+        // when navigated from Settings, or `RRSheetHeader` when
+        // shown standalone) already provides both. Showing them
+        // again inside this panel read as a duplicate "Sample
+        // data" box stacked under the header. Lead straight with
+        // the status string + toggle.
         RRGlassPanel {
             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
-                Text("Sample data")
-                    .font(RRTypography.headline)
-
-                Text("Use example records to understand how Rentory works.")
-                    .font(RRTypography.body)
-                    .foregroundStyle(RRColours.mutedText)
-
-                Text(
-                    hasDemoRecord
-                    ? "\(demoRecordCount) sample record\(demoRecordCount == 1 ? "" : "s") ready to use."
-                    : "No sample records have been loaded yet."
-                )
+                Text(statusText)
                     .font(RRTypography.footnote)
                     .foregroundStyle(RRColours.mutedText)
 
@@ -188,6 +232,21 @@ struct SampleDataSettingsView: View {
                     .toggleStyle(.switch)
             }
         }
+    }
+
+    /// Status line shown under the description. Reports total demo
+    /// records across all profiles when there are any, with a hint
+    /// about the active profile when records are split between
+    /// profiles. Falls back to a friendly empty-state line otherwise.
+    private var statusText: String {
+        guard totalDemoRecordCount > 0 else {
+            return "No sample records have been loaded yet."
+        }
+        let totalNoun = totalDemoRecordCount == 1 ? "sample record" : "sample records"
+        if profileScopedDemoRecordCount == totalDemoRecordCount {
+            return "\(totalDemoRecordCount) \(totalNoun) ready to use."
+        }
+        return "\(totalDemoRecordCount) \(totalNoun) on this device (\(profileScopedDemoRecordCount) on the \(currentProfile.rawValue.lowercased()) profile)."
     }
 
     private var actionsPanel: some View {
@@ -200,9 +259,7 @@ struct SampleDataSettingsView: View {
                     isShowingLoadConfirmation = true
                 }
 
-                RRDestructiveButton(title: "Clear demo data", isDisabled: isWorking || !hasDemoRecord) {
-                    isShowingClearConfirmation = true
-                }
+                clearDemoButton
             }
         }
     }
@@ -258,24 +315,33 @@ struct SampleDataSettingsView: View {
         }
     }
 
-    private func clearDemoData() async {
-        guard !isWorking else { return }
-        isWorking = true
-        let profile = currentProfile
-        await Task.yield()
-        defer { isWorking = false }
-
+    /// Synchronous because `demoDataFactory.clearDemoData` is itself
+    /// synchronous (SwiftData fetch + cascade delete) and runs fast
+    /// enough that the UI doesn't need a progress overlay.
+    private func clearDemoData() {
         do {
-            try demoDataFactory.clearDemoData(context: modelContext, profile: profile)
+            // Clear across every profile rather than only the active
+            // one. The user-visible expectation is "clear all the
+            // sample records I can see in the app" — restricting to
+            // the current profile was previously firing the
+            // "Sample data cleared" alert even when zero records
+            // matched, which read as the action silently doing
+            // nothing.
+            let clearedCount = try demoDataFactory.clearDemoData(context: modelContext, profile: nil)
+            let noun = clearedCount == 1 ? "sample record" : "sample records"
             alertContent = RRAlertContent(
-                title: "Sample data cleared",
-                message: "The sample records and their files have been removed."
+                title: clearedCount > 0 ? "Sample data cleared" : "No sample records to clear",
+                message: clearedCount > 0
+                    ? "Removed \(clearedCount) \(noun) and their files."
+                    : "Rentory could not find any sample records on this device to remove."
             )
-            RentoryActivityLog.record(
-                kind: .sampleData,
-                title: "Sample data cleared",
-                message: "Removed sample \(profile.rawValue.lowercased()) records and sample files from this device."
-            )
+            if clearedCount > 0 {
+                RentoryActivityLog.record(
+                    kind: .sampleData,
+                    title: "Sample data cleared",
+                    message: "Removed \(clearedCount) sample \(noun) and the matching sample files from this device."
+                )
+            }
         } catch {
             alertContent = RRAlertContent(error: .somethingWentWrong)
         }

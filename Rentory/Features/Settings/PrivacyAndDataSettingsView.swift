@@ -49,8 +49,7 @@ struct PrivacyAndDataSettingsView: View {
                 }
             }
         }
-        .navigationTitle("Privacy & Data")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Privacy & Data")
         .overlay {
             if isWorking {
                 ZStack {

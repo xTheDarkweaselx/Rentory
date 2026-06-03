@@ -12,17 +12,35 @@
 		<key>RentoryWatch.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>2</integer>
+			<integer>3</integer>
 		</dict>
 		<key>RentoryWatchComplications.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>3</integer>
+			<integer>1</integer>
 		</dict>
 		<key>RentoryWidgets.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>1</integer>
+			<integer>2</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>6691EBCD2FA3DC04006FC53C</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>6691EBDC2FA3DC06006FC53C</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>6691EBE62FA3DC06006FC53C</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

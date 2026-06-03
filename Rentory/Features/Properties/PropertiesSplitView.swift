@@ -12,6 +12,7 @@ struct PropertiesSplitView: View {
     @Query(sort: [SortDescriptor(\PropertyPack.updatedAt, order: .reverse)]) private var propertyPacks: [PropertyPack]
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var entitlementManager: EntitlementManager
+    @EnvironmentObject private var deepLinkRouter: RentoryDeepLinkRouter
     @AppStorage(RentoryUserProfile.storageKey) private var profileRawValue = RentoryUserProfile.defaultProfile.rawValue
 
     @State private var isShowingCreateProperty = false
@@ -159,7 +160,6 @@ struct PropertiesSplitView: View {
             NavigationStack(path: $detailNavigationPath) {
                 if let selectedPropertyPack {
                     PropertyDashboardView(propertyPack: selectedPropertyPack)
-                        .id(selectedPropertyPack.id)
                 } else {
                     RRFormContainer(maxWidth: 620) {
                         RREmptyStateView(
@@ -173,7 +173,18 @@ struct PropertiesSplitView: View {
                     .navigationTitle("Rentory")
                 }
             }
-            .id(detailResetID)
+            // Value-based navigation destinations. Rooms are pushed
+            // via `NavigationLink(value: RoomDestination(...))` in
+            // `RoomsListSection`, which adds the destination to
+            // `detailNavigationPath`. Clearing the path
+            // (`detailNavigationPath = NavigationPath()`) then
+            // reliably pops the pushed view because the path IS
+            // the source of truth — unlike the legacy
+            // `NavigationLink { destination }` shape, which pushed
+            // directly and survived path resets on macOS.
+            .navigationDestination(for: RoomDestination.self) { destination in
+                RoomDetailView(room: destination.room, stage: destination.stage)
+            }
         }
         .sheet(isPresented: $isShowingSettings) {
             SettingsView()
@@ -191,6 +202,30 @@ struct PropertiesSplitView: View {
                 resetDetailNavigation()
                 self.selectedPropertyID = nil
             }
+        }
+        // Catch-all: ANY change to the selected property — sidebar
+        // tap, deep link, programmatic switch, profile-scoped record
+        // dropping out, restore from archive — must reset the
+        // detail-column nav stack. Without this, switching from
+        // Property A while drilled into one of its rooms (or a
+        // document / timeline event) left the detail column
+        // stranded on the old sub-view, ignoring the property
+        // switch that just happened. `selectProperty(_:)` and the
+        // deep-link handler already call `resetDetailNavigation()`
+        // explicitly, but this `.onChange` covers every other
+        // entry point in one place.
+        .onChange(of: selectedPropertyID) { _, _ in
+            resetDetailNavigation()
+        }
+        .onReceive(deepLinkRouter.$pendingPropertyID) { newID in
+            // A widget or notification tap asks us to focus a property.
+            // Silently no-op if the target isn't in the current profile's
+            // scoped list — auto-switching profile would be surprising.
+            guard let newID,
+                  profileScopedPropertyPacks.contains(where: { $0.id == newID }) else { return }
+            selectedPropertyID = newID
+            resetDetailNavigation()
+            deepLinkRouter.clearPending()
         }
     }
 
@@ -232,6 +267,9 @@ struct PropertiesSplitView: View {
         let nextPropertyID = propertyPack.id
         NotificationCenter.default.post(name: .rentoryPropertySelectionDidChange, object: nextPropertyID)
         selectedPropertyID = nextPropertyID
+        // Now that room pushes go through `NavigationLink(value:)`
+        // and live in `detailNavigationPath`, clearing the path is
+        // enough to pop them — no nil-then-set transition needed.
         resetDetailNavigation()
     }
 
@@ -245,6 +283,8 @@ struct PropertiesSplitView: View {
             propertyPack.isFavourite.toggle()
             propertyPack.updatedAt = .now
             try? modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.selection()
         }
     }
 
@@ -430,3 +470,4 @@ private struct PropertySidebarRow: View {
         }) ?? nil
     }
 }
+

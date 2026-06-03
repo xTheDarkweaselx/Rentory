@@ -253,6 +253,8 @@ struct AddDocumentView: View {
             propertyPack.documents.append(document)
             propertyPack.updatedAt = .now
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             dismiss()
         } catch {
             userFacingError = .documentCouldNotBeAdded

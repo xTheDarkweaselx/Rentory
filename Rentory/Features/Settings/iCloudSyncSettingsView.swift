@@ -39,8 +39,7 @@ struct ICloudSyncSettingsView: View {
                 }
             }
         }
-        .navigationTitle("iCloud Sync")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("iCloud Sync")
         .sheet(isPresented: $isShowingExportBackup) {
             ExportBackupView()
                 .rrUsesEmbeddedNavigationLayout(false)

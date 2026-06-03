@@ -20,7 +20,7 @@ struct RRPrimaryButton: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
         }
-        .buttonStyle(RRPrimaryButtonStyle())
+        .buttonStyle(RRPrimaryButtonStyle(isDisabled: isDisabled))
             .disabled(isDisabled)
     }
 }
@@ -38,7 +38,7 @@ struct RRSecondaryButton: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
         }
-        .buttonStyle(RRSecondaryButtonStyle())
+        .buttonStyle(RRSecondaryButtonStyle(isDisabled: isDisabled))
             .disabled(isDisabled)
     }
 }
@@ -56,30 +56,44 @@ struct RRDestructiveButton: View {
                 .padding(.horizontal, 18)
                 .padding(.vertical, 14)
         }
-        .buttonStyle(RRDestructiveButtonStyle())
+        .buttonStyle(RRDestructiveButtonStyle(isDisabled: isDisabled))
             .disabled(isDisabled)
     }
 }
 
+// Each style takes `isDisabled` as a plain stored property and drops
+// the control's opacity + suppresses the press feedback when it's set
+// — without this, a disabled `RRDestructiveButton` looked identical to
+// an enabled one and silently swallowed taps. We pass `isDisabled`
+// through explicitly instead of reading `@Environment(\.isEnabled)`
+// from inside a nested view because the project's
+// SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor + the ButtonStyle
+// protocol's nonisolated requirement made the nested-view pattern
+// finicky to declare cleanly.
+
 private struct RRPrimaryButtonStyle: ButtonStyle {
+    var isDisabled = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(Color.white)
             .background(
                 RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
-                    .fill(Color.accentColor.opacity(configuration.isPressed ? 0.82 : 0.94))
+                    .fill(RRColours.secondary.opacity(configuration.isPressed ? 0.82 : 0.94))
             )
             .overlay {
                 RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.16), lineWidth: 1)
             }
-            .shadow(color: Color.accentColor.opacity(configuration.isPressed ? 0.08 : 0.18), radius: 16, x: 0, y: 10)
-            .opacity(configuration.isPressed ? 0.96 : 1)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1)
+            .shadow(color: RRColours.secondary.opacity(configuration.isPressed ? 0.08 : 0.18), radius: 16, x: 0, y: 10)
+            .opacity(isDisabled ? 0.45 : (configuration.isPressed ? 0.96 : 1))
+            .scaleEffect(!isDisabled && configuration.isPressed ? 0.99 : 1)
     }
 }
 
 private struct RRSecondaryButtonStyle: ButtonStyle {
+    var isDisabled = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(RRColours.primary)
@@ -92,12 +106,14 @@ private struct RRSecondaryButtonStyle: ButtonStyle {
                     .stroke(RRColours.border.opacity(0.24), lineWidth: 1)
             }
             .shadow(color: Color.black.opacity(configuration.isPressed ? 0.04 : 0.08), radius: 14, x: 0, y: 8)
-            .opacity(configuration.isPressed ? 0.94 : 1)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1)
+            .opacity(isDisabled ? 0.45 : (configuration.isPressed ? 0.94 : 1))
+            .scaleEffect(!isDisabled && configuration.isPressed ? 0.99 : 1)
     }
 }
 
 private struct RRDestructiveButtonStyle: ButtonStyle {
+    var isDisabled = false
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .foregroundStyle(RRColours.danger)
@@ -109,7 +125,7 @@ private struct RRDestructiveButtonStyle: ButtonStyle {
                 RoundedRectangle(cornerRadius: RRTheme.buttonRadius, style: .continuous)
                     .stroke(RRColours.danger.opacity(0.18), lineWidth: 1)
             }
-            .opacity(configuration.isPressed ? 0.9 : 1)
-            .scaleEffect(configuration.isPressed ? 0.99 : 1)
+            .opacity(isDisabled ? 0.45 : (configuration.isPressed ? 0.9 : 1))
+            .scaleEffect(!isDisabled && configuration.isPressed ? 0.99 : 1)
     }
 }

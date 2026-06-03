@@ -59,6 +59,25 @@ final class ReminderNotificationService: ObservableObject {
         }
     }
 
+    /// Requests `.provisional` authorisation. iOS grants it silently —
+    /// no system dialog — and notifications deliver quietly to
+    /// Notification Center only (no banner, no sound). The user can
+    /// later flip to full permissions from iOS Settings if they want
+    /// banners. Used as a soft fallback after the user declines the
+    /// in-app "Get notified" prompt so they can still benefit from
+    /// reminders without another permission popup.
+    @discardableResult
+    func requestProvisionalAuthorization() async -> Bool {
+        do {
+            let granted = try await center.requestAuthorization(options: [.provisional])
+            await refreshAuthorizationStatus()
+            return granted
+        } catch {
+            await refreshAuthorizationStatus()
+            return false
+        }
+    }
+
     /// Cancels every previously scheduled Rentory reminder notification and
     /// schedules a new one for each uncompleted reminder with a future due
     /// date. Cheap to call — it's the same operation as a targeted update
@@ -96,10 +115,14 @@ final class ReminderNotificationService: ObservableObject {
         center.removePendingNotificationRequests(withIdentifiers: [identifier(for: reminderID)])
     }
 
-    /// Computes the trigger date for a reminder: 9 AM on the due date, in the
-    /// user's current calendar. Reminders whose due date is in the past are
-    /// not scheduled (a notification firing immediately for a past date would
-    /// be confusing).
+    /// Computes the trigger date for a reminder.
+    ///
+    /// Preferred firing time is 9 AM on the due date in the user's current
+    /// calendar. If the user creates a reminder due today after 9 AM has
+    /// already passed, we still schedule it — one minute from now — so the
+    /// user doesn't silently lose today's notification. Reminders whose due
+    /// date is genuinely in the past (yesterday or earlier) are not
+    /// scheduled (a notification for a past date would be confusing).
     func triggerDate(for reminder: Reminder) -> Date? {
         guard let dueDate = reminder.dueDate else { return nil }
 
@@ -108,10 +131,19 @@ final class ReminderNotificationService: ObservableObject {
         components.minute = 0
         components.second = 0
 
-        guard let firingDate = calendar.date(from: components), firingDate > .now else {
-            return nil
+        guard let preferredFiringDate = calendar.date(from: components) else { return nil }
+
+        if preferredFiringDate > .now {
+            return preferredFiringDate
         }
-        return firingDate
+
+        let todayStart = calendar.startOfDay(for: .now)
+        let dueDateStart = calendar.startOfDay(for: dueDate)
+        if dueDateStart >= todayStart {
+            return Date.now.addingTimeInterval(60)
+        }
+
+        return nil
     }
 
     private func schedule(_ reminder: Reminder) async {

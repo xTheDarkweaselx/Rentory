@@ -119,17 +119,23 @@ struct TenanciesCard: View {
     }
 
     private func countPill(value: Int, label: String, colour: Color) -> some View {
+        // Use a tinted background with saturated foreground rather than
+        // white-on-fill: the original treatment landed at ~3.5:1 contrast
+        // on warning (orange) and even worse on mutedText (system grey),
+        // both below WCAG AA. The tinted form lifts every variant clear
+        // of AA and matches the modern iOS pill convention
+        // (Notes tags, Reminders priority pills).
         HStack(spacing: 6) {
             Text("\(value)")
                 .font(RRTypography.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(colour)
             Text(label)
                 .font(RRTypography.footnote.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(colour)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
-        .background(colour, in: Capsule())
+        .background(colour.opacity(0.18), in: Capsule())
     }
 
     private func tenancySummary(for tenancy: Tenancy) -> some View {

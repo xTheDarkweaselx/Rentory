@@ -10,6 +10,7 @@
 //  Falls back to a friendly empty state when the user has no records yet.
 //
 
+import AppIntents
 import SwiftUI
 import WidgetKit
 
@@ -17,12 +18,16 @@ struct PropertyActionWidget: Widget {
     let kind = "RentoryPropertyActionWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: PropertyActionTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: RentoryPropertyConfigurationIntent.self,
+            provider: PropertyActionTimelineProvider()
+        ) { entry in
             PropertyActionWidgetEntryView(entry: entry)
                 .containerBackground(.fill.tertiary, for: .widget)
         }
         .configurationDisplayName("Next step")
-        .description("Your top record's next suggested action and how complete it is.")
+        .description("Pick a record (long-press to edit) and the widget shows its next suggested action and completion progress.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -31,6 +36,23 @@ struct PropertyActionEntry: TimelineEntry {
     let date: Date
     let primary: Item?
     let supporting: [Item]
+
+    /// Smart Stack relevance. Records with low completion + a defined
+    /// next action are the most worth nudging — that's when the widget
+    /// genuinely helps the user move forward. Records already near
+    /// 100% get less air time.
+    var relevance: TimelineEntryRelevance? {
+        guard let primary else {
+            return TimelineEntryRelevance(score: 0)
+        }
+        let hasAction = primary.nextActionTitle != nil
+        switch primary.completionPercent {
+        case ..<26: return TimelineEntryRelevance(score: hasAction ? 70 : 50)
+        case 26...60: return TimelineEntryRelevance(score: hasAction ? 50 : 35)
+        case 61...89: return TimelineEntryRelevance(score: 30)
+        default: return TimelineEntryRelevance(score: 15)
+        }
+    }
 
     struct Item: Identifiable, Hashable {
         let id: UUID
@@ -74,22 +96,22 @@ struct PropertyActionEntry: TimelineEntry {
     static let emptySample = PropertyActionEntry(date: Date(), primary: nil, supporting: [])
 }
 
-struct PropertyActionTimelineProvider: TimelineProvider {
+struct PropertyActionTimelineProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PropertyActionEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (PropertyActionEntry) -> Void) {
-        completion(makeEntry(forContext: context))
+    func snapshot(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> PropertyActionEntry {
+        makeEntry(configuration: configuration, context: context)
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<PropertyActionEntry>) -> Void) {
-        let entry = makeEntry(forContext: context)
+    func timeline(for configuration: RentoryPropertyConfigurationIntent, in context: Context) async -> Timeline<PropertyActionEntry> {
+        let entry = makeEntry(configuration: configuration, context: context)
         let nextRefresh = Date().addingTimeInterval(60 * 60 * 4)
-        completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
+        return Timeline(entries: [entry], policy: .after(nextRefresh))
     }
 
-    private func makeEntry(forContext context: Context) -> PropertyActionEntry {
+    private func makeEntry(configuration: RentoryPropertyConfigurationIntent, context: Context) -> PropertyActionEntry {
         if context.isPreview {
             return .placeholder
         }
@@ -106,8 +128,19 @@ struct PropertyActionTimelineProvider: TimelineProvider {
             )
         }
 
-        let primary = items.first
-        let supporting = Array(items.dropFirst().prefix(2))
+        // Honour the user's configured property first; fall back to the
+        // top-of-list item (favourite + most-recently-updated) so the
+        // widget still surfaces something useful on a brand-new install
+        // before the user has edited it.
+        let primary: PropertyActionEntry.Item?
+        if let configuredID = configuration.property?.id,
+           let match = items.first(where: { $0.id == configuredID }) {
+            primary = match
+        } else {
+            primary = items.first
+        }
+
+        let supporting = Array(items.filter { $0.id != primary?.id }.prefix(2))
         return PropertyActionEntry(date: Date(), primary: primary, supporting: supporting)
     }
 }
@@ -118,12 +151,21 @@ struct PropertyActionWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
 
     var body: some View {
-        switch family {
-        case .systemSmall:
-            smallLayout
-        default:
-            mediumLayout
+        Group {
+            switch family {
+            case .systemSmall:
+                smallLayout
+            default:
+                mediumLayout
+            }
         }
+        .widgetURL(deepLinkURL)
+    }
+
+    /// Tapping the widget focuses the primary (top-of-list) property.
+    private var deepLinkURL: URL? {
+        guard let primary = entry.primary else { return nil }
+        return URL(string: "rentory://property/\(primary.id.uuidString)")
     }
 
     private var smallLayout: some View {

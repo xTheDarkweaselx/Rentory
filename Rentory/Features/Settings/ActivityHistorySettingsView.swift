@@ -36,8 +36,7 @@ struct ActivityHistorySettingsView: View {
                 }
             }
         }
-        .navigationTitle("Activity history")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Activity history")
         .onAppear(perform: refreshEntries)
         .rrConfirmationDialog(
             RRDialogContent(

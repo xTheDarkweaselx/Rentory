@@ -13,13 +13,19 @@ import SwiftData
 import SwiftUI
 import UserNotifications
 
+#if canImport(AppKit)
+import AppKit
+#endif
+
 @MainActor
 struct NotificationSettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
     @EnvironmentObject private var notificationService: ReminderNotificationService
+    @EnvironmentObject private var calendarMirrorService: CalendarMirrorService
     @AppStorage(ReminderNotificationService.isEnabledStorageKey) private var isEnabled = false
+    @AppStorage(CalendarMirrorService.isEnabledStorageKey) private var isCalendarMirrorEnabled = false
 
     var body: some View {
         Group {
@@ -30,6 +36,7 @@ struct NotificationSettingsView: View {
                     RRResponsiveFormGrid(items: [
                         RRResponsiveFormGridItem { primaryCard },
                         RRResponsiveFormGridItem { permissionStatusCard },
+                        RRResponsiveFormGridItem { calendarMirrorCard },
                     ])
                 }
             } else {
@@ -44,13 +51,13 @@ struct NotificationSettingsView: View {
                         RRResponsiveFormGrid(items: [
                             RRResponsiveFormGridItem { primaryCard },
                             RRResponsiveFormGridItem { permissionStatusCard },
+                            RRResponsiveFormGridItem { calendarMirrorCard },
                         ])
                     }
                 }
             }
         }
-        .navigationTitle("Notifications")
-        .rrInlineNavigationTitle()
+        .rrSettingsLeafNavigationTitle("Notifications")
         .task {
             await notificationService.refreshAuthorizationStatus()
         }
@@ -72,6 +79,15 @@ struct NotificationSettingsView: View {
                 permissionStatusContent
             } header: {
                 Text("System permission")
+            }
+
+            Section {
+                Toggle("Mirror reminders to Calendar", isOn: calendarMirrorBinding)
+                    .toggleStyle(.switch)
+            } header: {
+                Text("Calendar mirror")
+            } footer: {
+                Text(calendarMirrorFooterText)
             }
         }
         .scrollContentBackground(.hidden)
@@ -116,6 +132,24 @@ struct NotificationSettingsView: View {
         }
     }
 
+    private var calendarMirrorCard: some View {
+        RRGlassPanel {
+            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                Text("Mirror to Calendar")
+                    .font(RRTypography.headline)
+                    .foregroundStyle(RRColours.primary)
+
+                Text("Rentory can also write upcoming reminders to a dedicated “Rentory reminders” calendar so they show on your iPhone Calendar, watch face, and CarPlay. It only writes — Rentory never reads other events — and the calendar lives locally with your other Calendar data.")
+                    .font(RRTypography.body)
+                    .foregroundStyle(RRColours.mutedText)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                Toggle("Mirror reminders to Calendar", isOn: calendarMirrorBinding)
+                    .toggleStyle(.switch)
+            }
+        }
+    }
+
     @ViewBuilder
     private var permissionStatusContent: some View {
         HStack(spacing: 10) {
@@ -136,6 +170,16 @@ struct NotificationSettingsView: View {
             if let url = URL(string: UIApplication.openSettingsURLString) {
                 RRSecondaryButton(title: "Open Settings") {
                     UIApplication.shared.open(url)
+                }
+            }
+            #elseif os(macOS)
+            // macOS has no app-scoped Settings deep link; the Notifications
+            // pane is the closest equivalent so the user can flip the
+            // Allow toggle there. URL guarded against a future scheme
+            // change so we silently no-op rather than crash.
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                RRSecondaryButton(title: "Open System Settings") {
+                    NSWorkspace.shared.open(url)
                 }
             }
             #endif
@@ -170,6 +214,44 @@ struct NotificationSettingsView: View {
                 }
             }
         )
+    }
+
+    private var calendarMirrorBinding: Binding<Bool> {
+        Binding(
+            get: { isCalendarMirrorEnabled },
+            set: { newValue in
+                Task {
+                    if newValue {
+                        // Ask for write-only access the first time the
+                        // toggle goes on. If the user declines we leave
+                        // the toggle off — there's no point persisting
+                        // an opt-in we can't honour.
+                        let granted = await calendarMirrorService.requestWriteOnlyAccess()
+                        if granted {
+                            calendarMirrorService.isEnabledByUser = true
+                            isCalendarMirrorEnabled = true
+                            await calendarMirrorService.mirror(context: modelContext)
+                        } else {
+                            calendarMirrorService.isEnabledByUser = false
+                            isCalendarMirrorEnabled = false
+                        }
+                    } else {
+                        // Toggling off removes the dedicated calendar
+                        // and clears the persisted id so a re-enable
+                        // starts from a clean slate.
+                        calendarMirrorService.disableAndCleanup()
+                        isCalendarMirrorEnabled = false
+                    }
+                }
+            }
+        )
+    }
+
+    private var calendarMirrorFooterText: String {
+        if isCalendarMirrorEnabled {
+            return "Reminders show in your Calendar under “Rentory reminders”. Disabling removes that calendar from your device."
+        }
+        return "Rentory will ask for write-only Calendar access the first time you enable this."
     }
 
     private var toggleFooterText: String {

@@ -46,6 +46,20 @@ final class RentorySnapshotPublisher {
     /// coupling the publisher to WatchConnectivity directly.
     var onPublish: ((RentorySharedSnapshot) -> Void)?
 
+    /// NotificationCenter name posted by feature views after any
+    /// `try modelContext.save()` that mutates data the widgets, watch
+    /// surfaces or upcoming-reminder snapshot care about. RootView
+    /// listens and republishes using the current model context and
+    /// active profile.
+    static let snapshotShouldRepublish = Notification.Name("rentorySnapshotShouldRepublish")
+
+    /// Post the republish notification. Call this after a save that
+    /// changes records visible to widgets / watch. Cheap — the publisher
+    /// debounces by virtue of being idempotent.
+    static func requestRepublish() {
+        NotificationCenter.default.post(name: snapshotShouldRepublish, object: nil)
+    }
+
     /// Pure builder, separated so tests can drive it without filesystem
     /// side effects.
     func makeSnapshot(
@@ -55,8 +69,11 @@ final class RentorySnapshotPublisher {
     ) -> RentorySharedSnapshot {
         let propertyPacks = (try? context.fetch(FetchDescriptor<PropertyPack>())) ?? []
         let scopedPropertyPacks = propertyPacks.filter { $0.profileRawValue == activeProfile.rawValue }
-        let reminderEntries = upcomingReminderEntries(from: propertyPacks, now: now)
-        let totalReminderCount = propertyPacks
+        // Reminders + counts are scoped to the active profile so widgets,
+        // watch surfaces and the upcoming-reminder list never reference
+        // a property the user can't see in their current profile.
+        let reminderEntries = upcomingReminderEntries(from: scopedPropertyPacks, now: now)
+        let totalReminderCount = scopedPropertyPacks
             .flatMap(\.reminders)
             .filter { $0.completedAt == nil }
             .count

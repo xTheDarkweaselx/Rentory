@@ -18,6 +18,11 @@ final class Reminder {
     var kindRawValue: String = ReminderKind.custom.rawValue
     var priorityRawValue: String = ReminderPriority.normal.rawValue
     var createdAt: Date = Date.now
+    /// Raw string for `ReminderRecurrence`. Optional so existing
+    /// SwiftData stores from before recurrence shipped read back as
+    /// `nil` (treated as `.none` via the computed property). New
+    /// reminders default to `.none.rawValue`.
+    var recurrenceRuleRawValue: String?
     var linkedRoomID: UUID?
     var linkedChecklistItemID: UUID?
     var linkedDocumentID: UUID?
@@ -31,6 +36,7 @@ final class Reminder {
         completedAt: Date? = nil,
         kind: ReminderKind = .custom,
         priority: ReminderPriority = .normal,
+        recurrence: ReminderRecurrence = .none,
         createdAt: Date = .now,
         linkedRoomID: UUID? = nil,
         linkedChecklistItemID: UUID? = nil,
@@ -44,6 +50,7 @@ final class Reminder {
         self.completedAt = completedAt
         self.kindRawValue = kind.rawValue
         self.priorityRawValue = priority.rawValue
+        self.recurrenceRuleRawValue = recurrence == .none ? nil : recurrence.rawValue
         self.createdAt = createdAt
         self.linkedRoomID = linkedRoomID
         self.linkedChecklistItemID = linkedChecklistItemID
@@ -63,7 +70,24 @@ extension Reminder {
         set { priorityRawValue = newValue.rawValue }
     }
 
+    /// Recurrence cadence. Reads `.none` when nothing is stored (old
+    /// reminders or new one-offs), and clears the raw field when set
+    /// back to `.none` to keep the persisted state tidy.
+    var recurrence: ReminderRecurrence {
+        get {
+            guard let raw = recurrenceRuleRawValue else { return .none }
+            return ReminderRecurrence(rawValue: raw) ?? .none
+        }
+        set {
+            recurrenceRuleRawValue = newValue == .none ? nil : newValue.rawValue
+        }
+    }
+
     var isCompleted: Bool {
         completedAt != nil
+    }
+
+    var isRecurring: Bool {
+        recurrence != .none
     }
 }

@@ -15,14 +15,22 @@ import SwiftUI
 
 @main
 struct RentoryWatchApp: App {
-    @StateObject private var snapshotStore = WatchSnapshotStore.shared
-    @StateObject private var session = WatchSessionCoordinator.shared
+    // The store + session coordinator are app-lifetime singletons that own
+    // themselves (see WatchSnapshotStore.shared / WatchSessionCoordinator.shared).
+    // Injecting `.shared` directly into the environment lets every view
+    // observe them through @EnvironmentObject without the @StateObject /
+    // singleton double-retention anti-pattern.
+    @StateObject private var deepLinkRouter = WatchDeepLinkRouter()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(snapshotStore)
-                .environmentObject(session)
+                .environmentObject(WatchSnapshotStore.shared)
+                .environmentObject(WatchSessionCoordinator.shared)
+                .environmentObject(deepLinkRouter)
+                .onOpenURL { url in
+                    deepLinkRouter.handle(url)
+                }
         }
     }
 }

@@ -24,8 +24,8 @@ enum BackupImportMode: String, CaseIterable, Identifiable {
 }
 
 struct RentoryBackupService {
-    static let backupVersion = 4
-    static let supportedBackupVersions: ClosedRange<Int> = 1...4
+    static let backupVersion = 5
+    static let supportedBackupVersions: ClosedRange<Int> = 1...5
     static let backupContentType = UTType(exportedAs: "com.fusionstudios.rentory.backup", conformingTo: .package)
 
     private let fileManager: FileManager
@@ -302,7 +302,8 @@ struct RentoryBackupService {
                         linkedRoomID: reminder.linkedRoomID,
                         linkedChecklistItemID: reminder.linkedChecklistItemID,
                         linkedDocumentID: reminder.linkedDocumentID,
-                        linkedTimelineEventID: reminder.linkedTimelineEventID
+                        linkedTimelineEventID: reminder.linkedTimelineEventID,
+                        recurrenceRuleRawValue: reminder.recurrenceRuleRawValue
                     )
                 )
             }
@@ -403,7 +404,7 @@ struct RentoryBackupService {
             backupVersion: Self.backupVersion,
             appName: "Rentory",
             createdAt: .now,
-            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+            appVersion: AppBundleInfo.shortVersion,
             propertyCount: payload.properties.count,
             roomCount: payload.rooms.count,
             photoCount: payload.photos.count,
@@ -686,6 +687,12 @@ struct RentoryBackupService {
         }
 
         for reminder in payload.reminderList {
+            let recurrence: ReminderRecurrence
+            if let raw = reminder.recurrenceRuleRawValue {
+                recurrence = ReminderRecurrence(rawValue: raw) ?? .none
+            } else {
+                recurrence = .none
+            }
             let importedReminder = Reminder(
                 title: reminder.title,
                 notes: reminder.notes,
@@ -693,6 +700,7 @@ struct RentoryBackupService {
                 completedAt: reminder.completedAt,
                 kind: ReminderKind(rawValue: reminder.kindRawValue) ?? .custom,
                 priority: ReminderPriority(rawValue: reminder.priorityRawValue) ?? .normal,
+                recurrence: recurrence,
                 createdAt: reminder.createdAt,
                 linkedRoomID: reminder.linkedRoomID,
                 linkedChecklistItemID: reminder.linkedChecklistItemID,
@@ -944,6 +952,10 @@ private struct BackupReminder: Codable {
     let linkedChecklistItemID: UUID?
     let linkedDocumentID: UUID?
     let linkedTimelineEventID: UUID?
+    /// Raw value for `ReminderRecurrence`. Optional + nil for one-off
+    /// reminders. Absent in backups taken before recurrence shipped —
+    /// Codable decodes it to nil automatically.
+    let recurrenceRuleRawValue: String?
 }
 
 private struct BackupRentPayment: Codable {

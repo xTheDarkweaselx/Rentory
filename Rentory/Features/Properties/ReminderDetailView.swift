@@ -27,6 +27,7 @@ struct ReminderDetailView: View {
     @State private var priority: ReminderPriority
     @State private var hasDueDate: Bool
     @State private var dueDate: Date
+    @State private var recurrence: ReminderRecurrence
     @State private var isCompleted: Bool
     @State private var alertContent: RRAlertContent?
     @State private var isShowingDeleteConfirmation = false
@@ -40,6 +41,7 @@ struct ReminderDetailView: View {
         _priority = State(initialValue: reminder.priority)
         _hasDueDate = State(initialValue: reminder.dueDate != nil)
         _dueDate = State(initialValue: reminder.dueDate ?? .now)
+        _recurrence = State(initialValue: reminder.recurrence)
         _isCompleted = State(initialValue: reminder.isCompleted)
     }
 
@@ -77,6 +79,12 @@ struct ReminderDetailView: View {
 
                 if hasDueDate {
                     DatePicker("Due", selection: $dueDate, displayedComponents: .date)
+
+                    Picker("Repeat", selection: $recurrence) {
+                        ForEach(ReminderRecurrence.allCases) { rule in
+                            Text(rule.rawValue).tag(rule)
+                        }
+                    }
                 }
             }
 
@@ -143,10 +151,40 @@ struct ReminderDetailView: View {
         reminder.kind = kind
         reminder.priority = priority
         reminder.dueDate = hasDueDate ? dueDate : nil
+        // Recurrence is only meaningful with a due date. Clearing the
+        // toggle wipes any stored cadence so a re-toggle starts fresh.
+        reminder.recurrence = hasDueDate ? recurrence : .none
 
         let now = Date.now
-        if isCompleted && reminder.completedAt == nil {
+        let wasCompletedBefore = reminder.completedAt != nil
+        let isBeingCompletedNow = isCompleted && !wasCompletedBefore
+
+        if isBeingCompletedNow {
             reminder.completedAt = now
+            // If the user marked a recurring reminder complete, spawn
+            // the next occurrence on the same record. The completed
+            // reminder stays as an audit row; the new one becomes the
+            // live action for the next cycle. We branch on dueDate
+            // existing rather than recurrence != .none because the
+            // recurrence picker is hidden without a due date — but
+            // defend in depth in case the picker state is preserved.
+            if reminder.isRecurring,
+               let currentDue = reminder.dueDate,
+               let nextDue = reminder.recurrence.nextDueDate(after: currentDue) {
+                let nextOccurrence = Reminder(
+                    title: trimmedTitle,
+                    notes: optionalText(notes),
+                    dueDate: nextDue,
+                    kind: kind,
+                    priority: priority,
+                    recurrence: reminder.recurrence,
+                    linkedRoomID: reminder.linkedRoomID,
+                    linkedChecklistItemID: reminder.linkedChecklistItemID,
+                    linkedDocumentID: reminder.linkedDocumentID,
+                    linkedTimelineEventID: reminder.linkedTimelineEventID
+                )
+                propertyPack.reminders.append(nextOccurrence)
+            }
         } else if !isCompleted {
             reminder.completedAt = nil
         }
@@ -155,6 +193,8 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             Task { await reminderNotificationService.reschedule(context: modelContext) }
         } catch {
             alertContent = RRAlertContent(error: .recordCouldNotBeSaved)
@@ -168,6 +208,8 @@ struct ReminderDetailView: View {
 
         do {
             try modelContext.save()
+            RentorySnapshotPublisher.requestRepublish()
+            RRHaptics.success()
             reminderNotificationService.cancel(reminderID: reminderID)
             Task { await reminderNotificationService.reschedule(context: modelContext) }
             dismiss()

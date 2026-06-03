@@ -15,12 +15,16 @@
 
 import Foundation
 
-enum WatchSharedSnapshotConstants {
+// Same `nonisolated` story as the iPhone target — keep these pure
+// data types reachable from background actors so widget/complication
+// timelines and WatchConnectivity callbacks can decode without an
+// actor hop. No behaviour change.
+nonisolated enum WatchSharedSnapshotConstants {
     static let appGroupIdentifier = "group.com.fusionstudios.rentory"
     static let snapshotRelativePath = "Library/Rentory/watch-snapshot.json"
 }
 
-struct RentorySharedSnapshot: Codable, Equatable {
+nonisolated struct RentorySharedSnapshot: Codable, Equatable {
     static let currentVersion = 1
 
     let version: Int

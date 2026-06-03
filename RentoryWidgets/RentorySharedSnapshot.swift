@@ -15,12 +15,17 @@
 
 import Foundation
 
-enum RentorySharedSnapshotConstants {
+// The whole snapshot family is `nonisolated` because the target sets
+// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`. Widget timelines and
+// AppIntent queries call into these types from background actors, so
+// the Codable conformance has to be reachable from anywhere. Pure
+// data only — no UI, no behaviour change.
+nonisolated enum RentorySharedSnapshotConstants {
     static let appGroupIdentifier = "group.com.fusionstudios.rentory"
     static let snapshotRelativePath = "Library/Rentory/snapshot.json"
 }
 
-struct RentorySharedSnapshot: Codable, Equatable {
+nonisolated struct RentorySharedSnapshot: Codable, Equatable {
     static let currentVersion = 1
 
     let version: Int
@@ -69,8 +74,13 @@ struct RentorySharedSnapshot: Codable, Equatable {
     }
 }
 
-enum RentorySharedSnapshotStore {
-    static func read() -> RentorySharedSnapshot {
+nonisolated enum RentorySharedSnapshotStore {
+    // Explicit `nonisolated` on the method as well as the enum. Belt-
+    // and-suspenders: in some Swift 6 build configurations (depending
+    // on how `SWIFT_DEFAULT_ACTOR_ISOLATION` interacts with type
+    // inference) the enum-level `nonisolated` doesn't always propagate
+    // to a `static func`, so we declare it twice to be safe.
+    nonisolated static func read() -> RentorySharedSnapshot {
         guard let container = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: RentorySharedSnapshotConstants.appGroupIdentifier
         ) else {

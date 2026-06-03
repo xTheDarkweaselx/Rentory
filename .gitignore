@@ -21,3 +21,34 @@ Carthage/Build/
 
 # Claude Code workspace (worktrees, plans, memory)
 .claude/
+
+# Local-only configuration (per-developer secrets / personal contact
+# info that shouldn't ship to the public repo). The repo includes a
+# `*.example.swift` template alongside each one so a fresh clone
+# knows the expected shape — copy the template, drop the
+# `.example` from the name, and fill in real values.
+Rentory/Configuration/RentoryLocalConfig.swift
+
+# Environment / dotenv-style files (none in use today, blocking
+# defensively so a future commit doesn't accidentally include one).
+.env
+.env.*
+*.env.local
+
+# Editor-specific local artifacts that aren't covered above.
+.vscode/
+.idea/
+
+# macOS extras
+*.swp
+*~
+.AppleDouble
+.LSOverride
+
+# Crash logs and Instruments traces
+*.crash
+*.trace
+
+# Session handover notes (distilled context between Claude sessions —
+# regenerated on demand, never meant for the public repo).
+HANDOVER.md

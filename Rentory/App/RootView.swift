@@ -20,8 +20,9 @@ struct RootView: View {
     @EnvironmentObject private var entitlementManager: EntitlementManager
     @EnvironmentObject private var iCloudSyncService: ICloudSyncService
     @EnvironmentObject private var reminderNotificationService: ReminderNotificationService
+    @EnvironmentObject private var watchSyncService: WatchSyncService
+    @EnvironmentObject private var calendarMirrorService: CalendarMirrorService
 
-    @StateObject private var watchSyncService = WatchSyncService()
     @State private var didWireWatchBridge = false
 
     @State private var isShowingExampleRecordsPrompt = false
@@ -100,8 +101,19 @@ struct RootView: View {
                     await entitlementManager.refreshEntitlements()
                     await iCloudSyncService.refreshStatus()
                     await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
+                    // Drain any AppIntent-queued payloads first so the
+                    // reminder reschedule below picks up brand-new
+                    // reminders created via Siri/Shortcuts while the
+                    // app was suspended.
+                    RentoryPendingIntentApplier.applyAll(in: modelContext)
                     await reminderNotificationService.reschedule(context: modelContext)
                     snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
+                    // Best-effort calendar mirror. Silently no-ops when
+                    // the user hasn't enabled it; when enabled it keeps
+                    // the dedicated calendar in lockstep with the
+                    // current reminders. Runs after reschedule so any
+                    // intent-applied reminders are included.
+                    await calendarMirrorService.mirror(context: modelContext)
                 case .background:
                     await iCloudSyncService.syncBeforeBackground(context: modelContext)
                 case .inactive:
@@ -118,7 +130,19 @@ struct RootView: View {
             await entitlementManager.refreshEntitlements()
             await iCloudSyncService.refreshStatus()
             await iCloudSyncService.syncIfNeededForSceneActive(context: modelContext)
+            // Same applier call as the scene-active branch above, run
+            // here too so cold launches catch intent payloads queued
+            // since the process last terminated.
+            RentoryPendingIntentApplier.applyAll(in: modelContext)
             await reminderNotificationService.reschedule(context: modelContext)
+            snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
+            await calendarMirrorService.mirror(context: modelContext)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: RentorySnapshotPublisher.snapshotShouldRepublish)) { _ in
+            // Any feature view that mutates snapshot-visible data
+            // (reminders, tenancies, rent payments, expenses, completion-
+            // affecting fields) posts this. Republishing is idempotent so
+            // multiple posts in quick succession are safe.
             snapshotPublisher.publish(context: modelContext, activeProfile: currentProfile)
         }
         .alert(exampleRecordsPromptTitle, isPresented: $isShowingExampleRecordsPrompt) {
@@ -314,4 +338,6 @@ struct RootView: View {
         .environmentObject(AppSecurityState())
         .environmentObject(EntitlementManager())
         .environmentObject(ICloudSyncService())
+        .environmentObject(ReminderNotificationService())
+        .environmentObject(WatchSyncService())
 }

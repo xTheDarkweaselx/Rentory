@@ -47,15 +47,6 @@ struct DemoDataFactory {
     }
 
     @discardableResult
-    func loadDemoRecord(context: ModelContext, profile: RentoryUserProfile = .renter) throws -> PropertyPack {
-        let records = try loadSampleData(context: context, profile: profile, style: .singleRecord)
-        if let firstRecord = records.first {
-            return firstRecord
-        }
-        return try makePrimaryRecord()
-    }
-
-    @discardableResult
     func loadSampleData(
         context: ModelContext,
         profile: RentoryUserProfile = .renter,
@@ -135,19 +126,44 @@ struct DemoDataFactory {
 
             return loadedRecords
         } catch is CancellationError {
-            try? clearDemoData(context: context, profile: profile)
+            // Best-effort rollback — discard the optional result of
+            // `try?` explicitly so we don't trip the
+            // "Result of 'try?' is unused" warning now that
+            // clearDemoData returns Int.
+            _ = try? clearDemoData(context: context, profile: profile)
             throw CancellationError()
         } catch {
-            try? clearDemoData(context: context, profile: profile)
+            _ = try? clearDemoData(context: context, profile: profile)
             throw error
         }
     }
 
-    func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws {
+    /// Deletes every demo record matching the saved-on-device demo
+    /// marker. When `profile` is non-nil the deletion is restricted to
+    /// records on that profile; when nil (the default) it sweeps every
+    /// profile. Returns the count of records actually deleted so the
+    /// caller can surface a real "Cleared N records" message rather
+    /// than the silent "Sample data cleared" success the old void-
+    /// returning shape allowed when zero records matched.
+    @discardableResult
+    func clearDemoData(context: ModelContext, profile: RentoryUserProfile? = nil) throws -> Int {
         let demoRecords = try fetchDemoRecords(context: context, profile: profile)
 
+        // Per-record try-catch: one record failing to delete must
+        // not abort the sweep — otherwise a single problem record
+        // would leave every subsequent demo record stranded and
+        // the user would see "still doesn't work" even though
+        // most records could have been cleared.
+        var deletedCount = 0
         for propertyPack in demoRecords {
-            try deletionService.deletePropertyPack(propertyPack, context: context)
+            do {
+                try deletionService.deletePropertyPack(propertyPack, context: context)
+                deletedCount += 1
+            } catch {
+                // Swallow and continue. The caller's success
+                // message will report the actual deleted count.
+                continue
+            }
         }
 
         if profile == nil {
@@ -156,6 +172,8 @@ struct DemoDataFactory {
                   demoRecords.contains(where: { $0.id == stored }) {
             DemoModeSettings.demoPropertyIdentifier = nil
         }
+
+        return deletedCount
     }
 
     func sampleRecordCount(for style: SampleDataStyle, profile: RentoryUserProfile) -> Int {
@@ -172,10 +190,9 @@ struct DemoDataFactory {
     private func sampleRecordMakers(for style: SampleDataStyle, profile: RentoryUserProfile) -> [() throws -> PropertyPack] {
         switch (profile, style) {
         case (.renter, .singleRecord):
-            return [makePrimaryRecord]
+            return [makeSharedHomeRecord]
         case (.renter, .fullSampleSet):
             return [
-                makePrimaryRecord,
                 makeSharedHomeRecord,
                 makeFamilyHouseRecord,
                 makeApartmentRecord,
@@ -201,10 +218,9 @@ struct DemoDataFactory {
     private func sampleRecordNames(for style: SampleDataStyle, profile: RentoryUserProfile) -> [String] {
         switch (profile, style) {
         case (.renter, .singleRecord):
-            return ["the main example record"]
+            return ["the shared flat example"]
         case (.renter, .fullSampleSet):
             return [
-                "the main example record",
                 "the shared flat example",
                 "the family house example",
                 "the apartment example",
@@ -225,54 +241,6 @@ struct DemoDataFactory {
                 "the previous rental example",
             ]
         }
-    }
-
-    private func makePrimaryRecord() throws -> PropertyPack {
-        try makePropertyRecord(
-            nickname: DemoModeSettings.demoRecordName,
-            recordType: .house,
-            isFavourite: true,
-            addressLine1: "14 Sample Street",
-            townCity: DemoModeSettings.demoTownCity,
-            postcode: DemoModeSettings.demoPostcode,
-            tenancyStartDate: demoDate(year: 2026, month: 1, day: 10),
-            tenancyEndDate: demoDate(year: 2026, month: 12, day: 10),
-            landlordOrAgentName: "Sample Lettings",
-            landlordOrAgentEmail: "hello@samplelettings.test",
-            depositSchemeName: "Sample Deposit Scheme",
-            depositReference: "SAMPLE-4582",
-            notes: [
-                DemoModeSettings.demoMarker,
-                DemoModeSettings.demoRecordNote,
-                "Includes rooms, photos, documents and timeline events for testing.",
-            ].joined(separator: "\n\n"),
-            roomDefinitions: [
-                ("Kitchen", .kitchen),
-                ("Living room", .livingRoom),
-                ("Bedroom", .bedroom),
-                ("Bathroom", .bathroom),
-                ("Hallway", .hallway),
-                ("Garden", .garden),
-            ],
-            documentDefinitions: [
-                ("Sample tenancy agreement", .tenancyAgreement),
-                ("Sample deposit certificate", .depositCertificate),
-                ("Sample check-in inventory", .checkInInventory),
-                ("Sample cleaning receipt", .cleaningReceipt),
-                ("Sample meter reading", .meterReading),
-                ("Sample message screenshot", .messageScreenshot),
-            ],
-            timelineDefinitions: [
-                ("Move-in", .moveIn, "Move-in date added for the sample record."),
-                ("Inventory reviewed", .inventoryReviewed, "Inventory checked against the sample record."),
-                ("Issue noticed", .issueNoticed, "A small mark was noted in the kitchen for reference."),
-                ("Issue reported", .issueReported, "The issue was reported to the letting agent."),
-                ("Repair requested", .repairRequested, "A repair request was logged as part of the sample timeline."),
-                ("Repair completed", .repairCompleted, "The repair was marked as completed."),
-                ("Inspection", .inspection, "A mid-tenancy inspection was noted for reference."),
-                ("Move-out", .moveOut, "Move-out date added for the sample record."),
-            ]
-        )
     }
 
     private func makeSharedHomeRecord() throws -> PropertyPack {
@@ -597,7 +565,7 @@ struct DemoDataFactory {
         let tenancyEnd = demoDate(year: 2027, month: 1, day: 14)
 
         return try makePropertyRecord(
-            nickname: "Main rental house sample",
+            nickname: "42 Linden Avenue",
             recordType: .house,
             profile: .landlord,
             isFavourite: true,
@@ -606,24 +574,24 @@ struct DemoDataFactory {
             postcode: "AB1 2CD",
             tenancyStartDate: tenancyStart,
             tenancyEndDate: tenancyEnd,
-            landlordOrAgentName: "Me (sample landlord)",
+            landlordOrAgentName: "Self-managed",
             landlordOrAgentEmail: "me@samplelandlord.test",
-            depositSchemeName: "MyDeposits sample scheme",
+            depositSchemeName: "MyDeposits",
             depositReference: "MYD-7341",
             notes: [
                 DemoModeSettings.demoMarker,
-                "Flagship landlord sample. Shows an active tenancy with two tenants, full compliance reminders and the documents you would normally keep on file.",
+                "Three-bed semi let to a joint tenancy. Compliance, deposit and rent tracked here.",
             ].joined(separator: "\n\n"),
             roomDefinitions: [
                 ("Living room", .livingRoom),
                 ("Kitchen", .kitchen),
-                ("Bedroom 1", .bedroom),
-                ("Bedroom 2", .bedroom),
+                ("Main bedroom", .bedroom),
+                ("Second bedroom", .bedroom),
                 ("Bathroom", .bathroom),
                 ("Garden", .garden),
             ],
             documentDefinitions: [
-                ("Tenancy agreement", .tenancyAgreement),
+                ("Tenancy agreement – Jan 2026", .tenancyAgreement),
                 ("Gas safety certificate", .other),
                 ("Electrical safety report (EICR)", .other),
                 ("Energy performance certificate (EPC)", .other),
@@ -631,10 +599,10 @@ struct DemoDataFactory {
                 ("Inventory and condition report", .checkInInventory),
             ],
             timelineDefinitions: [
-                ("Tenancy signed", .moveIn, "Tenancy paperwork signed for the main rental sample."),
-                ("Inventory reviewed", .inventoryReviewed, "Inventory walkthrough completed with the tenants."),
-                ("Gas safety check", .inspection, "Annual gas safety inspection passed."),
-                ("Mid-tenancy inspection booked", .inspection, "Inspection visit booked for the rolling 6-month check."),
+                ("Tenancy signed", .moveIn, "Joint AST signed and counter-signed. Keys handed over at 14:00."),
+                ("Inventory walkthrough", .inventoryReviewed, "Walked the property with both tenants. Carpets, walls and appliances logged with photos."),
+                ("Gas safety check", .inspection, "Annual gas safety inspection passed. Certificate filed."),
+                ("Mid-tenancy inspection booked", .inspection, "Booked the rolling 6-month visit for July."),
             ],
             tenancyDefinitions: [
                 TenancyDefinition(
@@ -643,15 +611,15 @@ struct DemoDataFactory {
                     status: .active,
                     tenancyType: .assuredShorthold,
                     depositAmount: 1500,
-                    depositSchemeName: "MyDeposits sample scheme",
+                    depositSchemeName: "MyDeposits",
                     depositReference: "MYD-7341",
                     rentAmount: 1200,
                     rentFrequency: .monthly,
-                    notes: "Sample active tenancy with two named tenants.",
+                    notes: "12-month AST, joint tenancy. Rent due 1st of the month.",
                     mode: .comprehensive,
                     tenants: [
-                        ("Sample Tenant A", "tenant-a@example.test", "07000 000001"),
-                        ("Sample Tenant B", "tenant-b@example.test", "07000 000002"),
+                        ("Aisha N.", "aisha.n@example.test", "07000 000001"),
+                        ("James P.", "james.p@example.test", "07000 000002"),
                     ]
                 ),
             ],
@@ -661,35 +629,35 @@ struct DemoDataFactory {
                     kind: .gasSafety,
                     dueDate: demoDate(year: 2026, month: 11, day: 10),
                     priority: .normal,
-                    notes: "Annual gas safety check renewal."
+                    notes: "Book the annual check before the current certificate lapses."
                 ),
                 ReminderDefinition(
                     title: "EICR renewal",
                     kind: .electricalSafety,
                     dueDate: demoDate(year: 2029, month: 6, day: 1),
                     priority: .low,
-                    notes: "Electrical Installation Condition Report due every 5 years."
+                    notes: "Electrical Installation Condition Report — every 5 years."
                 ),
                 ReminderDefinition(
                     title: "EPC renewal",
                     kind: .energyPerformance,
                     dueDate: demoDate(year: 2028, month: 4, day: 1),
                     priority: .low,
-                    notes: "Energy Performance Certificate valid for 10 years."
+                    notes: "EPC is valid for 10 years; renew before the next listing."
                 ),
                 ReminderDefinition(
                     title: "Mid-tenancy inspection",
                     kind: .periodicInspection,
                     dueDate: demoDate(year: 2026, month: 7, day: 15),
                     priority: .normal,
-                    notes: "Periodic inspection visit booked in two months."
+                    notes: "Visit booked. Give 24h written notice to tenants beforehand."
                 ),
                 ReminderDefinition(
-                    title: "Tenancy renewal review",
+                    title: "Tenancy renewal conversation",
                     kind: .tenancyRenewal,
                     dueDate: demoDate(year: 2026, month: 11, day: 15),
                     priority: .high,
-                    notes: "Renewal conversation due 2 months before end date."
+                    notes: "Speak to both tenants about renewal two months before the end date."
                 ),
             ]
         )
@@ -1230,12 +1198,15 @@ struct DemoDataFactory {
     }
 
     private func makeRooms(roomDefinitions: [(String, RoomType)]) throws -> [RoomRecord] {
+        // Short, specific notes rotated across rooms so screenshots
+        // read like real notes a tenant would jot down on the day,
+        // rather than placeholder copy. Kept conversational on purpose.
         let roomNotes = [
-            "Condition checked during move-in.",
-            "Small mark noted on the wall.",
-            "Photo added for reference.",
-            "No further notes added.",
-            "Small mark noted on the wall.",
+            "Walked through with the agent on move-in day.",
+            "Faint scuff above the skirting — photo added.",
+            "All sockets working; tested with phone charger.",
+            "Carpet edge slightly lifted near the doorway.",
+            "Window catch a little stiff but functional.",
         ]
 
         return try roomDefinitions.enumerated().map { index, roomDefinition in
@@ -1258,11 +1229,13 @@ struct DemoDataFactory {
     private func makeChecklistItems(for roomType: RoomType, roomName: String, roomIndex: Int) throws -> [ChecklistItemRecord] {
         let titles = RoomTemplateService.defaultChecklistTitles(for: roomType)
         let moveInConditions: [EvidenceCondition] = [.good, .fair, .notChecked, .damaged, .notApplicable]
+        // Specific, believable notes that vary by item. Reads like a
+        // person genuinely walking through the property at check-in.
         let sampleNotes = [
-            "Condition checked during move-in.",
-            "Small mark noted on the wall.",
-            "Photo added for reference.",
-            "No further notes added.",
+            "Looked over on move-in day — happy with this one.",
+            "Small chip on the corner, photographed for the record.",
+            "Hairline crack in the grout — not urgent, noted.",
+            "Hinge a little loose. Tightened by hand for now.",
         ]
 
         return try titles.enumerated().map { itemIndex, title in
@@ -1278,32 +1251,55 @@ struct DemoDataFactory {
             )
 
             if itemIndex < 2 {
-                item.photos = try makeSamplePhotos(for: roomName)
+                item.photos = try makeSamplePhotos(for: roomName, roomType: roomType)
             }
 
             return item
         }
     }
 
-    private func makeSamplePhotos(for roomName: String) throws -> [EvidencePhoto] {
-        let samples: [(EvidencePhase, String, DemoPhotoColour)] = [
-            (.moveIn, "\(roomName) sample photo", .softBlue),
-            (.duringTenancy, "\(roomName) follow-up photo", .softGreen),
-            (.moveOut, "\(roomName) move-out photo", .softSand),
+    /// Builds three demo photos per checklist item — move-in, during,
+    /// move-out — preferring marketing-quality bundled photos via
+    /// `DemoPhotoLibrary` and falling back to the synthetic colour-
+    /// block placeholder when no bundled asset exists yet for the
+    /// derived slot. This lets the codebase ship even when only some
+    /// (or none) of the demo photos have been curated.
+    private func makeSamplePhotos(for roomName: String, roomType: RoomType) throws -> [EvidencePhoto] {
+        let phases: [(phase: EvidencePhase, caption: String, fallback: DemoPhotoColour)] = [
+            (.moveIn, "\(roomName) move-in", .softBlue),
+            (.duringTenancy, "\(roomName) during tenancy", .softGreen),
+            (.moveOut, "\(roomName) move-out", .softSand),
         ]
 
-        return try samples.enumerated().map { index, sample in
-            let image = makeSampleImage(title: sample.1, subtitle: sample.0.rawValue, colour: sample.2)
+        return try phases.enumerated().map { index, sample in
+            let image = resolveDemoImage(roomType: roomType, phase: sample.phase, caption: sample.caption, fallback: sample.fallback)
             let fileName = try photoStorageService.savePhoto(image)
 
             return EvidencePhoto(
                 localFileName: fileName,
-                phase: sample.0,
-                caption: sample.1,
+                phase: sample.phase,
+                caption: sample.caption,
                 capturedAt: demoDate(year: 2026, month: 1, day: 10 + index),
                 sortOrder: index
             )
         }
+    }
+
+    /// Resolves the platform image to persist for a given demo slot.
+    /// Looks up a bundled asset via `DemoPhotoLibrary`; if nothing is
+    /// installed for that (room, phase) pair, falls through to the
+    /// existing synthetic placeholder so the factory keeps working.
+    private func resolveDemoImage(
+        roomType: RoomType,
+        phase: EvidencePhase,
+        caption: String,
+        fallback: DemoPhotoColour
+    ) -> DemoPlatformImage {
+        if let slot = DemoPhotoSlot.slot(for: roomType, phase: phase),
+           let bundled = DemoPhotoLibrary.image(for: slot) {
+            return bundled
+        }
+        return makeSampleImage(title: caption, subtitle: phase.rawValue, colour: fallback)
     }
 
     private func makeDocuments(definitions: [(String, DocumentType)]) throws -> [DocumentRecord] {

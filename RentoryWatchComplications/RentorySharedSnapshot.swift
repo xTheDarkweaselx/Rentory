@@ -15,12 +15,15 @@
 
 import Foundation
 
-enum WatchComplicationSnapshotConstants {
+// Same `nonisolated` story as the iPhone target — keep these pure
+// data types reachable from background actors so complication
+// timelines can decode without an actor hop. No behaviour change.
+nonisolated enum WatchComplicationSnapshotConstants {
     static let appGroupIdentifier = "group.com.fusionstudios.rentory"
     static let snapshotRelativePath = "Library/Rentory/watch-snapshot.json"
 }
 
-struct RentorySharedSnapshot: Codable, Equatable {
+nonisolated struct RentorySharedSnapshot: Codable, Equatable {
     static let currentVersion = 1
 
     let version: Int
@@ -69,8 +72,11 @@ struct RentorySharedSnapshot: Codable, Equatable {
     }
 }
 
-enum WatchComplicationSnapshotReader {
-    static func read() -> RentorySharedSnapshot {
+nonisolated enum WatchComplicationSnapshotReader {
+    // Belt-and-suspenders: explicit `nonisolated` on the method too,
+    // so Swift 6's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` can't
+    // re-isolate the static func away from the enum's declaration.
+    nonisolated static func read() -> RentorySharedSnapshot {
         guard let container = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: WatchComplicationSnapshotConstants.appGroupIdentifier
         ) else {

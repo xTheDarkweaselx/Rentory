@@ -44,6 +44,10 @@ final class WatchSyncService: NSObject, ObservableObject {
     private var pendingReminderHandler: ((PendingReminderPayload) -> Void)?
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder
+    /// Last snapshot we tried (or were unable) to send. Used to retry
+    /// once the session activates if `send(_:)` was called during the
+    /// cold-launch window before WCSession finished activating.
+    private var pendingSnapshot: RentorySharedSnapshot?
 
     override init() {
         if WCSession.isSupported() {
@@ -70,7 +74,13 @@ final class WatchSyncService: NSObject, ObservableObject {
     /// Push the latest snapshot to the watch. Idempotent and cheap;
     /// safe to call from every snapshot publish.
     func send(_ snapshot: RentorySharedSnapshot) {
-        guard let session, session.activationState == .activated else { return }
+        // Always retain the most recent snapshot so a cold-launch publish
+        // that lands before the session activates can be replayed once
+        // activationDidCompleteWith fires.
+        pendingSnapshot = snapshot
+
+        guard let session else { return }
+        guard session.activationState == .activated else { return }
         guard session.isPaired, session.isWatchAppInstalled else { return }
         do {
             let data = try encoder.encode(snapshot)
@@ -79,6 +89,11 @@ final class WatchSyncService: NSObject, ObservableObject {
         } catch {
             lastSendError = error.localizedDescription
         }
+    }
+
+    private func resendPendingSnapshotIfNeeded() {
+        guard let pendingSnapshot else { return }
+        send(pendingSnapshot)
     }
 
     private func activateIfNeeded() {
@@ -105,6 +120,26 @@ final class WatchSyncService: NSObject, ObservableObject {
         }
         Task { @MainActor in
             self.pendingReminderHandler?(decoded)
+            // Tell the watch we landed this reminder so it can clear
+            // its local "Queued to iPhone" counter for that ID. Two
+            // transports: live message if reachable, transferUserInfo
+            // otherwise — same guaranteed-delivery property as the
+            // outbound snapshot.
+            self.sendConfirmation(for: decoded.id)
+        }
+    }
+
+    private func sendConfirmation(for reminderID: UUID) {
+        guard let session, session.activationState == .activated else { return }
+        guard session.isPaired, session.isWatchAppInstalled else { return }
+        let payload: [String: Any] = [
+            "kind": "confirmed-reminder",
+            "id": reminderID.uuidString
+        ]
+        if session.isReachable {
+            session.sendMessage(payload, replyHandler: nil, errorHandler: nil)
+        } else {
+            session.transferUserInfo(payload)
         }
     }
 }
@@ -113,6 +148,9 @@ extension WatchSyncService: @preconcurrency WCSessionDelegate {
     func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
         Task { @MainActor in
             self.refreshState()
+            if activationState == .activated {
+                self.resendPendingSnapshotIfNeeded()
+            }
         }
     }
 
