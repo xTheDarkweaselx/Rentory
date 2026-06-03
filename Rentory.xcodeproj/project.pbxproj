@@ -738,11 +738,11 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
@@ -810,11 +810,11 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
 				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
