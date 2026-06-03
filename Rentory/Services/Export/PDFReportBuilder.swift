@@ -82,7 +82,7 @@ struct PDFReportBuilder {
         }
 
         if enforcedOptions.includePhotos {
-            sections.append(makePhotosSection(for: snapshot))
+            sections.append(makePhotosSection(for: snapshot, options: enforcedOptions))
         }
 
         if enforcedOptions.includeDocumentsList {
@@ -151,6 +151,10 @@ struct PDFReportBuilder {
     private func makeCoverSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         var lines = ["Date created: \(dateFormatter.string(from: .now))"]
 
+        if options.reportType != .fullRecord {
+            lines.append("Report type: \(options.reportType.title) — \(options.reportType.summary)")
+        }
+
         if options.includePropertyName {
             lines.append("Property name: \(propertyPack.nickname)")
         }
@@ -167,7 +171,7 @@ struct PDFReportBuilder {
             lines.append("Tenancy dates: \(tenancy)")
         }
 
-        return PDFReportSection(title: "Rentory report", lines: lines)
+        return PDFReportSection(title: options.reportType.coverTitle, lines: lines)
     }
 
     private func makePropertySummarySection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
@@ -220,21 +224,27 @@ struct PDFReportBuilder {
         let rooms = propertyPack.rooms.sorted { $0.sortOrder < $1.sortOrder }
         var lines: [String] = []
 
+        // A check-out report generated before any move-out condition is
+        // recorded would otherwise read as a wall of "Not checked" — say so
+        // plainly rather than letting it look like a completed inspection.
+        if options.reportType == .checkOut, !rooms.isEmpty,
+           !rooms.contains(where: { room in
+               room.checklistItems.contains { $0.moveOutCondition.contributesToAggregate }
+           }) {
+            lines.append("No move-out condition has been recorded yet — this report reflects move-in data only.")
+        }
+
         for room in rooms {
+            let items = room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder })
+            let summary = ReportConditionSummary(
+                conditionPairs: items.map { (moveIn: $0.moveInCondition, moveOut: $0.moveOutCondition) }
+            )
+
             lines.append(room.name)
+            roomSummaryLine(for: options.reportType, summary: summary).map { lines.append($0) }
 
-            for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-                lines.append("• \(item.title)")
-                lines.append("  Move-in: \(item.moveInCondition.rawValue)")
-                lines.append("  Move-out: \(item.moveOutCondition.rawValue)")
-
-                if options.includeChecklistNotes, let moveInNotes = trimmed(item.moveInNotes) {
-                    lines.append("  Move-in summary: \(moveInNotes)")
-                }
-
-                if options.includeChecklistNotes, let moveOutNotes = trimmed(item.moveOutNotes) {
-                    lines.append("  Move-out summary: \(moveOutNotes)")
-                }
+            for item in items {
+                lines.append(contentsOf: itemLines(for: item, options: options))
             }
         }
 
@@ -242,16 +252,83 @@ struct PDFReportBuilder {
             lines.append("No rooms have been added yet.")
         }
 
-        return PDFReportSection(title: "Rooms and checklist", lines: lines)
+        return PDFReportSection(title: roomsSectionTitle(for: options.reportType), lines: lines)
     }
 
-    private func makePhotosSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
+    private func roomsSectionTitle(for reportType: ReportType) -> String {
+        switch reportType {
+        case .checkIn: return "Rooms and condition (check-in)"
+        case .checkOut: return "Rooms and condition (check-out)"
+        case .fullRecord: return "Rooms and checklist"
+        }
+    }
+
+    /// A one-line condition rollup printed under each room name. The full
+    /// record keeps its original item-only layout (no rollup).
+    private func roomSummaryLine(for reportType: ReportType, summary: ReportConditionSummary) -> String? {
+        switch reportType {
+        case .checkIn:
+            return "  Overall condition: \(summary.moveInAggregate.rawValue)"
+        case .checkOut:
+            var line = "  Overall condition: \(summary.moveOutAggregate.rawValue)"
+            if summary.worsenedItemCount > 0 {
+                let noun = summary.worsenedItemCount == 1 ? "item" : "items"
+                line += " · \(summary.worsenedItemCount) \(noun) worse than at move-in"
+            }
+            return line
+        case .fullRecord:
+            return nil
+        }
+    }
+
+    private func itemLines(for item: PDFReportChecklistItemSnapshot, options: ExportOptions) -> [String] {
+        var lines = ["• \(item.title)"]
+
+        switch options.reportType {
+        case .checkIn:
+            lines.append("  Condition: \(item.moveInCondition.rawValue)")
+            if options.includeChecklistNotes, let notes = trimmed(item.moveInNotes) {
+                lines.append("  Notes: \(notes)")
+            }
+
+        case .checkOut:
+            // Em-dash (not a "→" arrow) — the arrow glyph isn't in the
+            // report font and would render in a substituted typeface.
+            var conditionLine = "  Move-in: \(item.moveInCondition.rawValue) — Move-out: \(item.moveOutCondition.rawValue)"
+            if ReportConditionSummary.isWorsening(from: item.moveInCondition, to: item.moveOutCondition) {
+                conditionLine += "  (worse than move-in)"
+            } else if item.moveInCondition.contributesToAggregate, !item.moveOutCondition.contributesToAggregate {
+                // Had a move-in baseline but wasn't re-assessed at move-out —
+                // flag it so an unchecked item doesn't read as "nothing wrong".
+                conditionLine += "  (not re-checked at move-out)"
+            }
+            lines.append(conditionLine)
+            if options.includeChecklistNotes, let notes = trimmed(item.moveOutNotes) {
+                lines.append("  Move-out notes: \(notes)")
+            }
+
+        case .fullRecord:
+            lines.append("  Move-in: \(item.moveInCondition.rawValue)")
+            lines.append("  Move-out: \(item.moveOutCondition.rawValue)")
+            if options.includeChecklistNotes, let moveInNotes = trimmed(item.moveInNotes) {
+                lines.append("  Move-in summary: \(moveInNotes)")
+            }
+            if options.includeChecklistNotes, let moveOutNotes = trimmed(item.moveOutNotes) {
+                lines.append("  Move-out summary: \(moveOutNotes)")
+            }
+        }
+
+        return lines
+    }
+
+    private func makePhotosSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         var lines: [String] = []
         var photos: [PDFReportPhotoEntry] = []
 
         for room in propertyPack.rooms.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-                for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder }) where photo.includeInExport {
+                for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder })
+                    where photo.includeInExport && photoBelongs(photo, in: options.reportType) {
                     var details = ["\(room.name) • \(item.title)", photo.evidencePhase.rawValue]
                     if let caption = trimmed(photo.caption) {
                         details.append(caption)
@@ -274,6 +351,15 @@ struct PDFReportBuilder {
         }
 
         return PDFReportSection(title: "Photos", lines: lines, photos: photos)
+    }
+
+    /// A check-in report shouldn't carry move-out photos (they don't exist
+    /// yet at move-in); check-out and the full record include every phase.
+    private func photoBelongs(_ photo: PDFReportEvidencePhotoSnapshot, in reportType: ReportType) -> Bool {
+        switch reportType {
+        case .checkIn: return photo.evidencePhase != .moveOut
+        case .checkOut, .fullRecord: return true
+        }
     }
 
     private func makeDocumentsSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {

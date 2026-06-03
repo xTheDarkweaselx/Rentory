@@ -46,6 +46,31 @@ struct ExportOptionsView: View {
                     Section {
                         RRCard {
                             VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                Text("Report type")
+                                    .font(RRTypography.headline)
+                                    .foregroundStyle(RRColours.primary)
+
+                                Picker("Report type", selection: $options.reportType) {
+                                    ForEach(ReportType.allCases) { type in
+                                        Text(type.title).tag(type)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+
+                                Text(options.reportType.summary)
+                                    .font(RRTypography.footnote)
+                                    .foregroundStyle(RRColours.mutedText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
+                    }
+
+                    Section {
+                        RRCard {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
                                 Text("Property details")
                                     .font(RRTypography.headline)
                                     .foregroundStyle(RRColours.primary)

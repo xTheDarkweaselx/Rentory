@@ -1,0 +1,109 @@
+//
+//  ReportConditionSummaryTests.swift
+//  RentoryTests
+//
+//  Covers the check-in / check-out condition rollup + change detection,
+//  and that each report type renders a materially different rooms
+//  section (so a check-out report can't read identically to a check-in).
+//
+
+import Testing
+
+@testable import Rentory
+
+struct ReportConditionSummaryTests {
+    private func summary(_ pairs: [(EvidenceCondition, EvidenceCondition)]) -> ReportConditionSummary {
+        ReportConditionSummary(conditionPairs: pairs.map { (moveIn: $0.0, moveOut: $0.1) })
+    }
+
+    @Test func aggregatesWorstContributingCondition() {
+        let result = summary([(.good, .good), (.fair, .damaged), (.notChecked, .notApplicable)])
+        #expect(result.moveInAggregate == .fair)     // worst assessed move-in (good, fair)
+        #expect(result.moveOutAggregate == .damaged) // worst assessed move-out (good, damaged)
+    }
+
+    @Test func aggregateIsNotCheckedWhenNothingAssessed() {
+        let result = summary([(.notChecked, .notApplicable), (.notApplicable, .notChecked)])
+        #expect(result.moveInAggregate == .notChecked)
+        #expect(result.moveOutAggregate == .notChecked)
+    }
+
+    @Test func countsOnlyItemsThatGotWorse() {
+        let result = summary([
+            (.good, .damaged),       // worsened ✓
+            (.fair, .fair),          // unchanged
+            (.poor, .good),          // improved
+            (.notChecked, .damaged), // move-in unknown — can't call it a change
+            (.good, .notChecked),    // move-out unknown — can't call it a change
+        ])
+        #expect(result.worsenedItemCount == 1)
+    }
+
+    @Test func isWorseningRequiresBothEndsAssessedAndMoreSevere() {
+        #expect(ReportConditionSummary.isWorsening(from: .good, to: .damaged))
+        #expect(!ReportConditionSummary.isWorsening(from: .damaged, to: .good))       // improved
+        #expect(!ReportConditionSummary.isWorsening(from: .good, to: .good))          // unchanged
+        #expect(!ReportConditionSummary.isWorsening(from: .notChecked, to: .damaged)) // move-in unknown
+        #expect(!ReportConditionSummary.isWorsening(from: .good, to: .notApplicable)) // move-out not real
+    }
+
+    // MARK: - Builder integration: each report type reads differently
+
+    @MainActor
+    private func roomsText(for reportType: ReportType) -> String {
+        let item = ChecklistItemRecord(
+            title: "Oven",
+            sortOrder: 0,
+            moveInConditionRawValue: EvidenceCondition.good.rawValue,
+            moveOutConditionRawValue: EvidenceCondition.damaged.rawValue
+        )
+        let room = RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0, checklistItems: [item])
+        let pack = PropertyPack(nickname: "Home", rooms: [room])
+        let snapshot = PDFReportSnapshot(propertyPack: pack)
+        let sections = PDFReportBuilder().makeReportSections(
+            for: snapshot,
+            options: ExportOptions(reportType: reportType)
+        )
+        return sections.first { $0.title.contains("Rooms") }?.lines.joined(separator: "\n") ?? ""
+    }
+
+    @Test @MainActor func checkInShowsOnlyMoveInCondition() {
+        let text = roomsText(for: .checkIn)
+        #expect(text.contains("Condition: Good"))
+        #expect(text.contains("Overall condition: Good"))
+        #expect(!text.contains("Move-out")) // a check-in must not surface move-out data
+    }
+
+    @Test @MainActor func checkOutShowsBeforeAfterAndFlagsTheChange() {
+        let text = roomsText(for: .checkOut)
+        #expect(text.contains("Move-in: Good — Move-out: Damaged"))
+        #expect(text.contains("(worse than move-in)"))
+        #expect(text.contains("Overall condition: Damaged"))
+    }
+
+    @Test @MainActor func fullRecordShowsBothConditionsOnSeparateLines() {
+        let text = roomsText(for: .fullRecord)
+        #expect(text.contains("Move-in: Good"))
+        #expect(text.contains("Move-out: Damaged"))
+        #expect(!text.contains("—")) // full record keeps the original separate-lines layout
+    }
+
+    @Test @MainActor func checkOutWithoutMoveOutDataWarnsAndFlagsUnchecked() {
+        // Move-in assessed, move-out left unchecked — must not read as clean.
+        let item = ChecklistItemRecord(
+            title: "Oven",
+            sortOrder: 0,
+            moveInConditionRawValue: EvidenceCondition.good.rawValue
+        )
+        let room = RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0, checklistItems: [item])
+        let pack = PropertyPack(nickname: "Home", rooms: [room])
+        let snapshot = PDFReportSnapshot(propertyPack: pack)
+        let sections = PDFReportBuilder().makeReportSections(
+            for: snapshot,
+            options: ExportOptions(reportType: .checkOut)
+        )
+        let text = sections.first { $0.title.contains("Rooms") }?.lines.joined(separator: "\n") ?? ""
+        #expect(text.contains("No move-out condition has been recorded yet"))
+        #expect(text.contains("(not re-checked at move-out)"))
+    }
+}
