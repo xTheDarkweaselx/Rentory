@@ -138,6 +138,7 @@ struct PDFReportEvidencePhotoSnapshot: Sendable {
     let evidencePhaseRawValue: String
     let caption: String?
     let capturedAt: Date
+    let captureDateIsConfirmed: Bool
     let includeInExport: Bool
     let sortOrder: Int
 
@@ -151,6 +152,7 @@ struct PDFReportEvidencePhotoSnapshot: Sendable {
         evidencePhaseRawValue = photo.evidencePhaseRawValue
         caption = photo.caption
         capturedAt = photo.capturedAt
+        captureDateIsConfirmed = photo.captureDateIsConfirmed
         includeInExport = photo.includeInExport
         sortOrder = photo.sortOrder
     }

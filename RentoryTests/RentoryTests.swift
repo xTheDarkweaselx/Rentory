@@ -649,7 +649,7 @@ struct RentoryTests {
         let checklistItem = ChecklistItemRecord(
             title: "Walls",
             sortOrder: 0,
-            photos: [EvidencePhoto(localFileName: photoFileName, phase: .moveIn)]
+            photos: [EvidencePhoto(localFileName: photoFileName, phase: .moveIn, captureDateIsConfirmed: true)]
         )
         let room = RoomRecord(name: "Bedroom", type: .bedroom, sortOrder: 0, checklistItems: [checklistItem])
         let propertyPack = PropertyPack(
@@ -681,6 +681,7 @@ struct RentoryTests {
         #expect(importedPropertyPacks[0].rooms[0].checklistItems.count == 1)
         #expect(importedPropertyPacks[0].rooms[0].checklistItems[0].photos.count == 1)
         #expect(importedPropertyPacks[0].rooms[0].checklistItems[0].photos[0].localFileName != photoFileName)
+        #expect(importedPropertyPacks[0].rooms[0].checklistItems[0].photos[0].captureDateIsConfirmed)
         #expect(importedPropertyPacks[0].documents[0].localFileName != documentFileName)
     }
 

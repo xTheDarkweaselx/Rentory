@@ -18,6 +18,8 @@ struct EvidencePhotoDetailView: View {
 
     @State private var caption: String
     @State private var evidencePhase: EvidencePhase
+    @State private var capturedAt: Date
+    @State private var dateIsConfirmed: Bool
     @State private var includeInReport: Bool
     @State private var loadedImage: UIImage?
     @State private var alertContent: RRAlertContent?
@@ -27,6 +29,8 @@ struct EvidencePhotoDetailView: View {
         self.photo = photo
         _caption = State(initialValue: photo.caption ?? "")
         _evidencePhase = State(initialValue: photo.evidencePhase)
+        _capturedAt = State(initialValue: photo.capturedAt)
+        _dateIsConfirmed = State(initialValue: photo.captureDateIsConfirmed)
         _includeInReport = State(initialValue: photo.includeInExport)
     }
 
@@ -69,6 +73,42 @@ struct EvidencePhotoDetailView: View {
 
                         TextField("Add a short note", text: $caption, axis: .vertical)
                             .lineLimit(2...4)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            DatePicker(
+                                "Date taken",
+                                selection: $capturedAt,
+                                in: ...Date.now,
+                                displayedComponents: .date
+                            )
+                            .onChange(of: capturedAt) { _, _ in
+                                // The user has explicitly set the date, so it
+                                // becomes an affirmed capture date.
+                                dateIsConfirmed = true
+                            }
+
+                            if dateIsConfirmed {
+                                Text("Shown on your report as when this photo was taken. Adjust it if it looks wrong.")
+                                    .font(RRTypography.caption)
+                                    .foregroundStyle(RRColours.mutedText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else {
+                                Label {
+                                    Text("Rentory couldn’t read a date from this photo, so it’s showing today’s date. Set the day it was actually taken so your report is accurate.")
+                                } icon: {
+                                    Image(systemName: "calendar.badge.exclamationmark")
+                                }
+                                .font(RRTypography.caption)
+                                .foregroundStyle(RRColours.warning)
+                                .fixedSize(horizontal: false, vertical: true)
+
+                                Button("Today’s date is correct") {
+                                    dateIsConfirmed = true
+                                }
+                                .font(RRTypography.caption.weight(.semibold))
+                                .foregroundStyle(RRColours.secondary)
+                            }
+                        }
 
                         Picker("Where this photo belongs", selection: $evidencePhase) {
                             ForEach(EvidencePhase.allCases, id: \.self) { phase in
@@ -124,6 +164,8 @@ struct EvidencePhotoDetailView: View {
     private func saveChanges() {
         photo.caption = optionalText(caption)
         photo.evidencePhase = evidencePhase
+        photo.capturedAt = capturedAt
+        photo.captureDateIsConfirmed = dateIsConfirmed
         photo.includeInExport = includeInReport
 
         do {

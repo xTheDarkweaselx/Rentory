@@ -22,6 +22,7 @@ struct ExportOptions: Codable, Equatable, Sendable {
     var includeTenancies: Bool
     var includeReminders: Bool
     var includeDisclaimer: Bool
+    var reportType: ReportType
 
     init(
         includePropertyName: Bool = true,
@@ -37,7 +38,8 @@ struct ExportOptions: Codable, Equatable, Sendable {
         includeTimeline: Bool = true,
         includeTenancies: Bool = true,
         includeReminders: Bool = true,
-        includeDisclaimer: Bool = true
+        includeDisclaimer: Bool = true,
+        reportType: ReportType = .fullRecord
     ) {
         self.includePropertyName = includePropertyName
         self.includeTownOrPostcode = includeTownOrPostcode
@@ -53,5 +55,41 @@ struct ExportOptions: Codable, Equatable, Sendable {
         self.includeTenancies = includeTenancies
         self.includeReminders = includeReminders
         self.includeDisclaimer = includeDisclaimer ? true : true
+        self.reportType = reportType
+    }
+}
+
+/// Shape of the generated report. Mirrors how a property is documented
+/// over a tenancy — a check-in (baseline at move-in), a check-out
+/// (condition at the end, compared to move-in), or the full record with
+/// both side by side.
+enum ReportType: String, Codable, CaseIterable, Sendable, Identifiable {
+    case checkIn = "Check-in"
+    case checkOut = "Check-out"
+    case fullRecord = "Full record"
+
+    var id: String { rawValue }
+
+    var title: String { rawValue }
+
+    /// One-line description shown beneath the picker.
+    var summary: String {
+        switch self {
+        case .checkIn:
+            return "Condition at move-in — the baseline for the tenancy."
+        case .checkOut:
+            return "Condition at move-out, compared against move-in."
+        case .fullRecord:
+            return "Everything on file: move-in and move-out side by side."
+        }
+    }
+
+    /// Title printed on the report's cover page.
+    var coverTitle: String {
+        switch self {
+        case .checkIn: return "Check-in report"
+        case .checkOut: return "Check-out report"
+        case .fullRecord: return "Rentory report"
+        }
     }
 }

@@ -16,6 +16,14 @@ final class EvidencePhoto {
     var caption: String?
     var evidencePhaseRawValue: String
     var capturedAt: Date
+    /// `true` when `capturedAt` is a real capture date — read from the
+    /// photo's EXIF metadata, or stamped at the moment of an in-app
+    /// camera capture. `false` when the date couldn't be determined and
+    /// we fell back to the import time, so the UI and report can avoid
+    /// presenting an invented date as if it were the capture date.
+    /// Defaults to `false`; existing records migrate to `false` because
+    /// their provenance is unknown.
+    var captureDateIsConfirmed: Bool = false
     var includeInExport: Bool
     var sortOrder: Int
 
@@ -30,6 +38,7 @@ final class EvidencePhoto {
         phase: EvidencePhase,
         caption: String? = nil,
         capturedAt: Date = .now,
+        captureDateIsConfirmed: Bool = false,
         includeInExport: Bool = true,
         sortOrder: Int = 0
     ) {
@@ -38,6 +47,7 @@ final class EvidencePhoto {
         self.caption = caption
         self.evidencePhaseRawValue = phase.rawValue
         self.capturedAt = capturedAt
+        self.captureDateIsConfirmed = captureDateIsConfirmed
         self.includeInExport = includeInExport
         self.sortOrder = sortOrder
     }
