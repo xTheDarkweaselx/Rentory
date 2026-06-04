@@ -39,6 +39,12 @@ struct ReportConditionSummaryTests {
         #expect(result.worsenedItemCount == 1)
     }
 
+    @Test func suggestedReportTypeFollowsTheStage() {
+        #expect(ReportType.suggested(for: .moveIn) == .checkIn)
+        #expect(ReportType.suggested(for: .living) == .fullRecord)
+        #expect(ReportType.suggested(for: .moveOut) == .checkOut)
+    }
+
     @Test func isWorseningRequiresBothEndsAssessedAndMoreSevere() {
         #expect(ReportConditionSummary.isWorsening(from: .good, to: .damaged))
         #expect(!ReportConditionSummary.isWorsening(from: .damaged, to: .good))       // improved
