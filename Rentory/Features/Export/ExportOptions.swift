@@ -21,7 +21,6 @@ struct ExportOptions: Codable, Equatable, Sendable {
     var includeTimeline: Bool
     var includeTenancies: Bool
     var includeReminders: Bool
-    var includeDisclaimer: Bool
     var reportType: ReportType
 
     init(
@@ -38,7 +37,6 @@ struct ExportOptions: Codable, Equatable, Sendable {
         includeTimeline: Bool = true,
         includeTenancies: Bool = true,
         includeReminders: Bool = true,
-        includeDisclaimer: Bool = true,
         reportType: ReportType = .fullRecord
     ) {
         self.includePropertyName = includePropertyName
@@ -54,7 +52,6 @@ struct ExportOptions: Codable, Equatable, Sendable {
         self.includeTimeline = includeTimeline
         self.includeTenancies = includeTenancies
         self.includeReminders = includeReminders
-        self.includeDisclaimer = includeDisclaimer ? true : true
         self.reportType = reportType
     }
 }

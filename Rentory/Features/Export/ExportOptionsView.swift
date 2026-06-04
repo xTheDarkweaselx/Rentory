@@ -174,9 +174,6 @@ struct ExportOptionsView: View {
                 dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK"))
             )
         }
-        .onChange(of: options.includeDisclaimer) { _, _ in
-            options.includeDisclaimer = true
-        }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
         }
@@ -205,8 +202,6 @@ struct ExportOptionsView: View {
     }
 
     private func createReport() {
-        options.includeDisclaimer = true
-
         guard FeatureAccessService.canCreateFullReport(isUnlocked: entitlementManager.isUnlocked) else {
             upgradePromptContent = FeatureAccessService.reportLimitPrompt
             return

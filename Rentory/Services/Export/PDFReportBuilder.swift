@@ -67,43 +67,42 @@ struct PDFReportBuilder {
     }
 
     func makeReportSections(for snapshot: PDFReportSnapshot, options: ExportOptions) -> [PDFReportSection] {
-        let enforcedOptions = sanitised(options)
         var sections: [PDFReportSection] = []
 
-        sections.append(makeCoverSection(for: snapshot, options: enforcedOptions))
-        sections.append(makePropertySummarySection(for: snapshot, options: enforcedOptions))
+        sections.append(makeCoverSection(for: snapshot, options: options))
+        sections.append(makePropertySummarySection(for: snapshot, options: options))
 
-        if enforcedOptions.includeTenancies, !snapshot.tenancies.isEmpty {
+        if options.includeTenancies, !snapshot.tenancies.isEmpty {
             sections.append(makeTenanciesSection(for: snapshot))
         }
 
-        if enforcedOptions.includeRooms {
-            sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
+        if options.includeRooms {
+            sections.append(makeRoomsSection(for: snapshot, options: options))
         }
 
         // The headline evidence for a check-out: each item's move-in photo
         // beside its move-out photo. Only when there's something to compare.
         var pairedPhotoFileNames: Set<String> = []
-        if enforcedOptions.reportType == .checkOut, enforcedOptions.includePhotos,
+        if options.reportType == .checkOut, options.includePhotos,
            let beforeAfter = makeBeforeAfterSection(for: snapshot) {
             sections.append(beforeAfter.section)
             pairedPhotoFileNames = beforeAfter.usedFileNames
         }
 
-        if enforcedOptions.includePhotos {
+        if options.includePhotos {
             // Don't repeat the paired photos in the flat grid below them.
-            sections.append(makePhotosSection(for: snapshot, options: enforcedOptions, excluding: pairedPhotoFileNames))
+            sections.append(makePhotosSection(for: snapshot, options: options, excluding: pairedPhotoFileNames))
         }
 
-        if enforcedOptions.includeDocumentsList {
+        if options.includeDocumentsList {
             sections.append(makeDocumentsSection(for: snapshot))
         }
 
-        if enforcedOptions.includeTimeline {
+        if options.includeTimeline {
             sections.append(makeTimelineSection(for: snapshot))
         }
 
-        if enforcedOptions.includeReminders, !snapshot.reminders.isEmpty {
+        if options.includeReminders, !snapshot.reminders.isEmpty {
             sections.append(makeRemindersSection(for: snapshot))
         }
 
@@ -115,12 +114,6 @@ struct PDFReportBuilder {
         )
 
         return sections
-    }
-
-    private func sanitised(_ options: ExportOptions) -> ExportOptions {
-        var options = options
-        options.includeDisclaimer = true
-        return options
     }
 
     private func paginatedSections(_ section: PDFReportSection) -> [PDFReportSection] {
