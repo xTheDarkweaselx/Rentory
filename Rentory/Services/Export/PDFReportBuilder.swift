@@ -81,8 +81,18 @@ struct PDFReportBuilder {
             sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
         }
 
+        // The headline evidence for a check-out: each item's move-in photo
+        // beside its move-out photo. Only when there's something to compare.
+        var pairedPhotoFileNames: Set<String> = []
+        if enforcedOptions.reportType == .checkOut, enforcedOptions.includePhotos,
+           let beforeAfter = makeBeforeAfterSection(for: snapshot) {
+            sections.append(beforeAfter.section)
+            pairedPhotoFileNames = beforeAfter.usedFileNames
+        }
+
         if enforcedOptions.includePhotos {
-            sections.append(makePhotosSection(for: snapshot, options: enforcedOptions))
+            // Don't repeat the paired photos in the flat grid below them.
+            sections.append(makePhotosSection(for: snapshot, options: enforcedOptions, excluding: pairedPhotoFileNames))
         }
 
         if enforcedOptions.includeDocumentsList {
@@ -321,24 +331,20 @@ struct PDFReportBuilder {
         return lines
     }
 
-    private func makePhotosSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
+    private func makePhotosSection(for propertyPack: PDFReportSnapshot, options: ExportOptions, excluding excludedFileNames: Set<String> = []) -> PDFReportSection {
         var lines: [String] = []
         var photos: [PDFReportPhotoEntry] = []
 
         for room in propertyPack.rooms.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
                 for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder })
-                    where photo.includeInExport && photoBelongs(photo, in: options.reportType) {
+                    where photo.includeInExport && photoBelongs(photo, in: options.reportType)
+                        && !excludedFileNames.contains(photo.localFileName) {
                     var details = ["\(room.name) • \(item.title)", photo.evidencePhase.rawValue]
                     if let caption = trimmed(photo.caption) {
                         details.append(caption)
                     }
-                    // Only present the date as a capture date when it is one.
-                    // Unconfirmed photos (no readable capture date, defaulted
-                    // to import time) are labelled "Added" so the report never
-                    // implies an invented capture date.
-                    let dateLabel = photo.captureDateIsConfirmed ? "Taken" : "Added"
-                    details.append("\(dateLabel) \(dateFormatter.string(from: photo.capturedAt))")
+                    details.append(photoDateText(photo))
 
                     let image = try? thumbnailImage(for: photo.localFileName)
                     photos.append(PDFReportPhotoEntry(image: image, details: details))
@@ -351,6 +357,62 @@ struct PDFReportBuilder {
         }
 
         return PDFReportSection(title: "Photos", lines: lines, photos: photos)
+    }
+
+    /// Date caption for a photo. Only says "Taken" when the date is a real
+    /// capture date; otherwise "Added", so the report never implies an
+    /// invented capture date.
+    private func photoDateText(_ photo: PDFReportEvidencePhotoSnapshot) -> String {
+        let label = photo.captureDateIsConfirmed ? "Taken" : "Added"
+        return "\(label) \(dateFormatter.string(from: photo.capturedAt))"
+    }
+
+    /// Side-by-side move-in vs move-out photos for each item documented at
+    /// both ends — the comparison a check-out report leans on for a deposit
+    /// discussion. Emitted in pairs (move-in then move-out) so the 2-column
+    /// photo grid renders each pair on one row; `nil` when nothing was
+    /// photographed at both ends.
+    private func makeBeforeAfterSection(for propertyPack: PDFReportSnapshot) -> (section: PDFReportSection, usedFileNames: Set<String>)? {
+        var photos: [PDFReportPhotoEntry] = []
+        var usedFileNames: Set<String> = []
+
+        for room in propertyPack.rooms.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                let exportable = item.photos.filter(\.includeInExport)
+                guard
+                    let moveIn = exportable.filter({ $0.evidencePhase == .moveIn }).min(by: { $0.sortOrder < $1.sortOrder }),
+                    let moveOut = exportable.filter({ $0.evidencePhase == .moveOut }).min(by: { $0.sortOrder < $1.sortOrder })
+                else { continue }
+
+                let label = "\(room.name) • \(item.title)"
+                let changed = ReportConditionSummary.isWorsening(from: item.moveInCondition, to: item.moveOutCondition)
+
+                photos.append(PDFReportPhotoEntry(
+                    image: try? thumbnailImage(for: moveIn.localFileName),
+                    details: [label, "Move-in — \(item.moveInCondition.rawValue)", photoDateText(moveIn)]
+                ))
+                usedFileNames.insert(moveIn.localFileName)
+
+                var moveOutCaption = "Move-out — \(item.moveOutCondition.rawValue)"
+                if changed { moveOutCaption += " (worse than move-in)" }
+                photos.append(PDFReportPhotoEntry(
+                    image: try? thumbnailImage(for: moveOut.localFileName),
+                    details: [label, moveOutCaption, photoDateText(moveOut)]
+                ))
+                usedFileNames.insert(moveOut.localFileName)
+            }
+        }
+
+        guard !photos.isEmpty else { return nil }
+
+        let intro = "Each row shows an item's move-in photo (left) beside its move-out photo (right). "
+            + "Only items photographed at both move-in and move-out appear here; any other photos follow in the Photos section."
+        let section = PDFReportSection(
+            title: "Before & after (move-in vs move-out)",
+            lines: [intro],
+            photos: photos
+        )
+        return (section, usedFileNames)
     }
 
     /// A check-in report shouldn't carry move-out photos (they don't exist
@@ -585,7 +647,7 @@ struct PDFReportBuilder {
                 let column = index % 2
                 let row = index / 2
                 let xPosition = margin + CGFloat(column) * (imageWidth + 12)
-                let blockTop = topOffset + CGFloat(row) * (imageHeight + 60)
+                let blockTop = topOffset + CGFloat(row) * (imageHeight + 76)
 
                 let frame = CGRect(x: xPosition, y: blockTop, width: imageWidth, height: imageHeight)
                 let pdfFrame = convertToPDFRect(frame, pageHeight: pageBounds.height)
@@ -606,7 +668,7 @@ struct PDFReportBuilder {
 
                 _ = drawText(
                     photo.details.joined(separator: " • "),
-                    in: CGRect(x: xPosition, y: frame.maxY + 6, width: imageWidth, height: 48),
+                    in: CGRect(x: xPosition, y: frame.maxY + 6, width: imageWidth, height: 64),
                     pageHeight: pageBounds.height,
                     attributes: captionAttributes,
                     context: context
