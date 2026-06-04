@@ -67,33 +67,32 @@ struct PDFReportBuilder {
     }
 
     func makeReportSections(for snapshot: PDFReportSnapshot, options: ExportOptions) -> [PDFReportSection] {
-        let enforcedOptions = sanitised(options)
         var sections: [PDFReportSection] = []
 
-        sections.append(makeCoverSection(for: snapshot, options: enforcedOptions))
-        sections.append(makePropertySummarySection(for: snapshot, options: enforcedOptions))
+        sections.append(makeCoverSection(for: snapshot, options: options))
+        sections.append(makePropertySummarySection(for: snapshot, options: options))
 
-        if enforcedOptions.includeTenancies, !snapshot.tenancies.isEmpty {
+        if options.includeTenancies, !snapshot.tenancies.isEmpty {
             sections.append(makeTenanciesSection(for: snapshot))
         }
 
-        if enforcedOptions.includeRooms {
-            sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
+        if options.includeRooms {
+            sections.append(makeRoomsSection(for: snapshot, options: options))
         }
 
-        if enforcedOptions.includePhotos {
-            sections.append(makePhotosSection(for: snapshot, options: enforcedOptions))
+        if options.includePhotos {
+            sections.append(makePhotosSection(for: snapshot, options: options))
         }
 
-        if enforcedOptions.includeDocumentsList {
+        if options.includeDocumentsList {
             sections.append(makeDocumentsSection(for: snapshot))
         }
 
-        if enforcedOptions.includeTimeline {
+        if options.includeTimeline {
             sections.append(makeTimelineSection(for: snapshot))
         }
 
-        if enforcedOptions.includeReminders, !snapshot.reminders.isEmpty {
+        if options.includeReminders, !snapshot.reminders.isEmpty {
             sections.append(makeRemindersSection(for: snapshot))
         }
 
@@ -105,12 +104,6 @@ struct PDFReportBuilder {
         )
 
         return sections
-    }
-
-    private func sanitised(_ options: ExportOptions) -> ExportOptions {
-        var options = options
-        options.includeDisclaimer = true
-        return options
     }
 
     private func paginatedSections(_ section: PDFReportSection) -> [PDFReportSection] {

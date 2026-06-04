@@ -225,7 +225,6 @@ struct RentoryTests {
         #expect(options.includeTimeline)
         #expect(options.includeTenancies)
         #expect(options.includeReminders)
-        #expect(options.includeDisclaimer)
     }
 
     @Test func reportSectionsLeaveSensitiveFieldsOutWhenTurnedOff() {
@@ -261,8 +260,7 @@ struct RentoryTests {
     @Test func reportDisclaimerIsAlwaysIncluded() {
         let builder = PDFReportBuilder()
         let propertyPack = PropertyPack(nickname: "Home")
-        var options = ExportOptions()
-        options.includeDisclaimer = false
+        let options = ExportOptions()
 
         let sections = builder.makeReportSections(for: propertyPack, options: options)
         let text = sections.flatMap(\.lines).joined(separator: "\n")
@@ -1258,17 +1256,15 @@ struct RentoryTests {
         context.insert(pack)
         try context.save()
 
-        var options = ExportOptions()
-        options.includeDisclaimer = false
+        let options = ExportOptions()
 
         let data = try PDFReportBuilder().buildReportData(
             for: pack,
             options: options
         )
 
-        // The builder's `sanitised(options:)` forces the disclaimer
-        // back on even if the caller cleared it. Verify the report
-        // still produces and renders.
+        // The disclaimer section is always appended by the builder;
+        // verify the report still produces and renders it.
         let document = PDFDocument(data: data)
         #expect(document != nil)
         let allText = (0..<(document?.pageCount ?? 0))
