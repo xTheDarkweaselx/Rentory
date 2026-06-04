@@ -13,13 +13,21 @@ struct ExportOptionsView: View {
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var entitlementManager: EntitlementManager
-    @State private var options = ExportOptions()
+    @State private var options: ExportOptions // set from the tenancy stage in init
     @State private var createdReportURL: URL?
     @State private var userFacingError: UserFacingError?
     @State private var isCreatingReport = false
     @State private var reportProgress = ReportCreationProgress(stage: "Getting the report ready.", fractionCompleted: 0.12)
     @State private var reportTask: Task<Void, Never>?
     @State private var upgradePromptContent: UpgradePromptContent?
+
+    init(propertyPack: PropertyPack, showsHelpfulNote: Bool) {
+        self.propertyPack = propertyPack
+        self.showsHelpfulNote = showsHelpfulNote
+        // Pre-select the report type that fits where the tenancy is now,
+        // so the common case needs no extra tap. Still changeable.
+        _options = State(initialValue: ExportOptions(reportType: .suggested(for: propertyPack.effectiveTenancyStage)))
+    }
 
     var body: some View {
         RRMacSheetContainer(maxWidth: 760) {

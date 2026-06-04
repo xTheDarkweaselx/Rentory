@@ -39,6 +39,12 @@ struct ReportConditionSummaryTests {
         #expect(result.worsenedItemCount == 1)
     }
 
+    @Test func suggestedReportTypeFollowsTheStage() {
+        #expect(ReportType.suggested(for: .moveIn) == .checkIn)
+        #expect(ReportType.suggested(for: .living) == .fullRecord)
+        #expect(ReportType.suggested(for: .moveOut) == .checkOut)
+    }
+
     @Test func isWorseningRequiresBothEndsAssessedAndMoreSevere() {
         #expect(ReportConditionSummary.isWorsening(from: .good, to: .damaged))
         #expect(!ReportConditionSummary.isWorsening(from: .damaged, to: .good))       // improved
@@ -105,5 +111,70 @@ struct ReportConditionSummaryTests {
         let text = sections.first { $0.title.contains("Rooms") }?.lines.joined(separator: "\n") ?? ""
         #expect(text.contains("No move-out condition has been recorded yet"))
         #expect(text.contains("(not re-checked at move-out)"))
+    }
+
+    // MARK: - Before / after photo pairing (check-out)
+
+    @MainActor
+    private func reportSections(for reportType: ReportType, itemPhotos: [EvidencePhoto]) -> [PDFReportSection] {
+        let item = ChecklistItemRecord(
+            title: "Oven",
+            sortOrder: 0,
+            moveInConditionRawValue: EvidenceCondition.good.rawValue,
+            moveOutConditionRawValue: EvidenceCondition.damaged.rawValue,
+            photos: itemPhotos
+        )
+        let room = RoomRecord(name: "Kitchen", type: .kitchen, sortOrder: 0, checklistItems: [item])
+        let pack = PropertyPack(nickname: "Home", rooms: [room])
+        return PDFReportBuilder().makeReportSections(
+            for: PDFReportSnapshot(propertyPack: pack),
+            options: ExportOptions(reportType: reportType)
+        )
+    }
+
+    @Test @MainActor func checkOutPairsMoveInAndMoveOutPhotos() {
+        let sections = reportSections(for: .checkOut, itemPhotos: [
+            EvidencePhoto(localFileName: "in.jpg", phase: .moveIn, sortOrder: 0),
+            EvidencePhoto(localFileName: "out.jpg", phase: .moveOut, sortOrder: 0),
+        ])
+        let beforeAfter = sections.first { $0.title.contains("Before & after") }
+        #expect(beforeAfter != nil)
+        #expect(beforeAfter?.photos.count == 2) // exactly one move-in / move-out pair
+
+        // Order is the whole premise: move-in must be the left (first) entry,
+        // move-out the right (second). The 2-column grid renders them side by side.
+        #expect(beforeAfter?.photos.first?.details.contains(where: { $0.contains("Move-in") }) == true)
+        #expect(beforeAfter?.photos.last?.details.contains(where: { $0.contains("Move-out") }) == true)
+
+        let details = (beforeAfter?.photos ?? []).flatMap(\.details).joined(separator: "|")
+        #expect(details.contains("Move-in — Good"))
+        #expect(details.contains("Move-out — Damaged"))
+        #expect(details.contains("worse than move-in"))
+    }
+
+    @Test @MainActor func checkOutFlatPhotosSectionExcludesPairedPhotos() {
+        let sections = reportSections(for: .checkOut, itemPhotos: [
+            EvidencePhoto(localFileName: "in.jpg", phase: .moveIn, sortOrder: 0),
+            EvidencePhoto(localFileName: "out.jpg", phase: .moveOut, sortOrder: 0),
+        ])
+        // Both photos appear paired in "Before & after"; the flat Photos
+        // section must not repeat them.
+        let photosSection = sections.first { $0.title == "Photos" }
+        #expect(photosSection?.photos.isEmpty == true)
+    }
+
+    @Test @MainActor func checkInHasNoBeforeAfterSection() {
+        let sections = reportSections(for: .checkIn, itemPhotos: [
+            EvidencePhoto(localFileName: "in.jpg", phase: .moveIn, sortOrder: 0),
+            EvidencePhoto(localFileName: "out.jpg", phase: .moveOut, sortOrder: 0),
+        ])
+        #expect(sections.first { $0.title.contains("Before & after") } == nil)
+    }
+
+    @Test @MainActor func noBeforeAfterWhenAnItemLacksOnePhase() {
+        let sections = reportSections(for: .checkOut, itemPhotos: [
+            EvidencePhoto(localFileName: "in.jpg", phase: .moveIn, sortOrder: 0),
+        ])
+        #expect(sections.first { $0.title.contains("Before & after") } == nil)
     }
 }

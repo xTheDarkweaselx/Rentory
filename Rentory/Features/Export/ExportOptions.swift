@@ -92,4 +92,15 @@ enum ReportType: String, Codable, CaseIterable, Sendable, Identifiable {
         case .fullRecord: return "Rentory report"
         }
     }
+
+    /// The report type that best fits a property's current stage — used as
+    /// the initial selection so the common case (documenting the stage
+    /// you're in) needs no extra tap. The user can still switch to any type.
+    static func suggested(for stage: TenancyStage) -> ReportType {
+        switch stage {
+        case .moveIn: return .checkIn
+        case .living: return .fullRecord
+        case .moveOut: return .checkOut
+        }
+    }
 }
