@@ -15,6 +15,9 @@
 
 import Foundation
 import SwiftData
+#if canImport(WidgetKit)
+import WidgetKit
+#endif
 
 @MainActor
 final class RentorySnapshotPublisher {
@@ -39,6 +42,14 @@ final class RentorySnapshotPublisher {
         let snapshot = makeSnapshot(context: context, activeProfile: activeProfile)
         try? RentorySharedSnapshotStore.write(snapshot)
         onPublish?(snapshot)
+        #if canImport(WidgetKit)
+        // Nudge Home Screen / StandBy widgets to re-read the snapshot we
+        // just wrote. Without this they only refresh on their own timeline
+        // cadence (midnight / +4h / +6h), so a freshly added reminder or
+        // payment — or a profile switch — would otherwise show stale data
+        // until the next scheduled refresh.
+        WidgetCenter.shared.reloadAllTimelines()
+        #endif
     }
 
     /// Optional hook fired after each successful publish. Used to mirror the
