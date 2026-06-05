@@ -3,9 +3,15 @@
 //  Rentory
 //
 //  Opt-in one-way mirror that writes Rentory reminders to a dedicated
-//  "Rentory reminders" calendar in the user's iOS Calendar database.
-//  Strictly write-only — Rentory never reads other calendar events —
-//  using `EKEventStore.requestWriteOnlyAccessToEvents()` (iOS 17+).
+//  "Rentory reminders" calendar in the user's Calendar database.
+//
+//  Access level: full calendar access (`requestFullAccessToEvents`,
+//  iOS 17 / macOS 14+). Full access is required because the
+//  reconciliation step below reads back the events Rentory itself
+//  created in order to update and de-duplicate them — write-only
+//  access cannot read events at all. Rentory only ever creates,
+//  updates, or removes events in its own dedicated "Rentory reminders"
+//  calendar; it never touches the user's other calendars.
 //
 //  Why one-way?
 //    - Two-way sync needs change tokens, conflict rules, and a real
@@ -69,12 +75,15 @@ final class CalendarMirrorService: ObservableObject {
         set { userDefaults.set(newValue, forKey: Self.isEnabledStorageKey) }
     }
 
-    /// Asks for write-only access. The user sees a system prompt the
-    /// first time; subsequent calls return the cached decision.
+    /// Asks for full calendar access. The user sees a system prompt the
+    /// first time; subsequent calls return the cached decision. Full
+    /// access (rather than write-only) is required because
+    /// `mirror(context:)` reads back the events it created in order to
+    /// reconcile them — write-only access cannot read events.
     @discardableResult
-    func requestWriteOnlyAccess() async -> Bool {
+    func requestAccess() async -> Bool {
         do {
-            let granted = try await eventStore.requestWriteOnlyAccessToEvents()
+            let granted = try await eventStore.requestFullAccessToEvents()
             authorizationStatus = EKEventStore.authorizationStatus(for: .event)
             return granted
         } catch {
@@ -90,9 +99,11 @@ final class CalendarMirrorService: ObservableObject {
     func mirror(context: ModelContext) async {
         guard isEnabledByUser else { return }
         let status = EKEventStore.authorizationStatus(for: .event)
-        // `.authorized` was deprecated in iOS 17 in favour of explicit
-        // `.fullAccess` / `.writeOnly`. We only need write-only here.
-        guard status == .writeOnly || status == .fullAccess else { return }
+        // Full access is required: the reconciliation below reads existing
+        // events to upsert and de-duplicate them, which write-only access
+        // cannot do. `.authorized` is the pre-iOS 17 spelling of the same
+        // full-access grant, accepted here for older systems.
+        guard status == .fullAccess || status == .authorized else { return }
 
         guard let calendar = ensureDedicatedCalendar() else { return }
 

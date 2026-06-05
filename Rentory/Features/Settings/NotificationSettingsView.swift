@@ -139,7 +139,7 @@ struct NotificationSettingsView: View {
                     .font(RRTypography.headline)
                     .foregroundStyle(RRColours.primary)
 
-                Text("Rentory can also write upcoming reminders to a dedicated “Rentory reminders” calendar so they show on your iPhone Calendar, watch face, and CarPlay. It only writes — Rentory never reads other events — and the calendar lives locally with your other Calendar data.")
+                Text("Rentory can also keep upcoming reminders in a dedicated “Rentory reminders” calendar so they show on your Calendar, watch face, and CarPlay. Rentory only manages that one calendar — it never changes your other events — and it lives locally with your other Calendar data.")
                     .font(RRTypography.body)
                     .foregroundStyle(RRColours.mutedText)
                     .fixedSize(horizontal: false, vertical: true)
@@ -222,11 +222,11 @@ struct NotificationSettingsView: View {
             set: { newValue in
                 Task {
                     if newValue {
-                        // Ask for write-only access the first time the
+                        // Ask for full Calendar access the first time the
                         // toggle goes on. If the user declines we leave
                         // the toggle off — there's no point persisting
                         // an opt-in we can't honour.
-                        let granted = await calendarMirrorService.requestWriteOnlyAccess()
+                        let granted = await calendarMirrorService.requestAccess()
                         if granted {
                             calendarMirrorService.isEnabledByUser = true
                             isCalendarMirrorEnabled = true
@@ -251,7 +251,7 @@ struct NotificationSettingsView: View {
         if isCalendarMirrorEnabled {
             return "Reminders show in your Calendar under “Rentory reminders”. Disabling removes that calendar from your device."
         }
-        return "Rentory will ask for write-only Calendar access the first time you enable this."
+        return "Rentory will ask for Calendar access the first time you enable this. It only manages its own “Rentory reminders” calendar."
     }
 
     private var toggleFooterText: String {
