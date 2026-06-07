@@ -240,11 +240,13 @@ struct AddPhotoFlowView: View {
                 }
 
                 // Decode, read the EXIF capture date, resize and encode the
-                // image OFF the main actor — this is the expensive work, and
-                // doing it inline would block the UI for a large batch.
-                guard let prepared = await Task.detached(priority: .userInitiated, operation: {
-                    Self.prepareImport(from: imageData)
-                }).value else {
+                // image, then store it to disk. The image/storage utilities
+                // are main-actor-isolated, so this runs on the main actor;
+                // yielding first lets a large batch refresh the UI (and its
+                // progress) between photos, and the selection is capped so
+                // the total work stays bounded.
+                await Task.yield()
+                guard let prepared = Self.prepareImport(from: imageData) else {
                     failedCount += 1
                     continue
                 }
@@ -265,10 +267,9 @@ struct AddPhotoFlowView: View {
         resolveBatch(addedCount: addedCount, failedCount: failedCount, hitLimit: hitLimit)
     }
 
-    /// Decodes and stores the image to disk off the main actor, returning
-    /// the stored file name and the photo's EXIF capture date (if any).
-    /// `nil` when the image can't be read. Static so it captures nothing
-    /// main-actor-bound and is safe to run in a detached task.
+    /// Decodes the image, reads its EXIF capture date and stores a
+    /// resized copy to disk, returning the stored file name and the
+    /// capture date (if any). `nil` when the image can't be read.
     private static func prepareImport(from data: Data) -> (fileName: String, capturedAt: Date?)? {
         guard let image = UIImage(data: data) else { return nil }
         let capturedAt = PhotoCaptureDate.captureDate(fromImageData: data)
