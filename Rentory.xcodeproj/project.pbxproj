@@ -129,7 +129,6 @@
 		AABBCC04040000000000000E /* Exceptions for "Rentory" folder in "Rentory" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Configuration/RentoryLocalConfig.swift.example,
 			);
 			target = 6691EBCD2FA3DC04006FC53C /* Rentory */;
 		};
@@ -729,7 +728,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
@@ -740,9 +739,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
+				"INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription[sdk=iphoneos*]" = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
+				"INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
@@ -801,7 +800,7 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
 				ENABLE_RESOURCE_ACCESS_BLUETOOTH = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
+				ENABLE_RESOURCE_ACCESS_CALENDARS = YES;
 				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
 				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
 				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
@@ -812,9 +811,9 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Rentory;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
-				INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphoneos*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
-				"INFOPLIST_KEY_NSCalendarsWriteOnlyAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory mirrors your reminders to a dedicated Calendar entry when you turn on calendar mirror in Settings. It only writes — never reads — and stays local to your device.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
+				"INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription[sdk=iphoneos*]" = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
+				"INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription[sdk=iphonesimulator*]" = "Rentory keeps your reminders in a dedicated 'Rentory reminders' calendar when you turn on calendar mirror in Settings. It only manages that one calendar — it never changes your other events — and stays on your device.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphoneos*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";
 				"INFOPLIST_KEY_NSCameraUsageDescription[sdk=iphonesimulator*]" = "Rentory needs camera access when you choose to take a photo for your rental record.";

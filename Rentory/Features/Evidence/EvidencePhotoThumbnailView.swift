@@ -50,9 +50,17 @@ struct EvidencePhotoThumbnailView: View {
                         .lineLimit(2)
                 }
 
-                Text(photo.capturedAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(RRTypography.caption)
-                    .foregroundStyle(RRColours.mutedText)
+                HStack(spacing: 5) {
+                    if !photo.captureDateIsConfirmed {
+                        Image(systemName: "calendar.badge.exclamationmark")
+                            .font(RRTypography.caption)
+                            .foregroundStyle(RRColours.warning)
+                    }
+
+                    Text(photo.capturedAt.formatted(date: .abbreviated, time: .omitted))
+                        .font(RRTypography.caption)
+                        .foregroundStyle(photo.captureDateIsConfirmed ? RRColours.mutedText : RRColours.warning)
+                }
             }
         }
         .task(id: photo.localFileName) {
@@ -100,7 +108,11 @@ struct EvidencePhotoThumbnailView: View {
             parts.append("With a short note")
         }
         parts.append(photo.evidencePhase.rawValue)
-        parts.append(photo.capturedAt.formatted(date: .abbreviated, time: .omitted))
+        if photo.captureDateIsConfirmed {
+            parts.append("Taken \(photo.capturedAt.formatted(date: .abbreviated, time: .omitted))")
+        } else {
+            parts.append("Date not set")
+        }
         return parts.joined(separator: ", ")
     }
 }

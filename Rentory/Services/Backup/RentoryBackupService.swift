@@ -247,6 +247,7 @@ struct RentoryBackupService {
                                 caption: photo.caption,
                                 evidencePhaseRawValue: photo.evidencePhaseRawValue,
                                 capturedAt: photo.capturedAt,
+                                captureDateIsConfirmed: photo.captureDateIsConfirmed,
                                 includeInExport: photo.includeInExport,
                                 sortOrder: photo.sortOrder
                             )
@@ -651,6 +652,7 @@ struct RentoryBackupService {
                 phase: EvidencePhase(rawValue: photo.evidencePhaseRawValue) ?? .duringTenancy,
                 caption: photo.caption,
                 capturedAt: photo.capturedAt,
+                captureDateIsConfirmed: photo.captureDateIsConfirmed ?? false,
                 includeInExport: photo.includeInExport,
                 sortOrder: photo.sortOrder
             )
@@ -869,6 +871,10 @@ private struct BackupEvidencePhoto: Codable {
     let caption: String?
     let evidencePhaseRawValue: String
     let capturedAt: Date
+    // Optional for backward compatibility: archives written before this
+    // field existed decode to nil and are treated as unconfirmed on import.
+    // Kept additive so older app versions can still restore newer backups.
+    let captureDateIsConfirmed: Bool?
     let includeInExport: Bool
     let sortOrder: Int
 }

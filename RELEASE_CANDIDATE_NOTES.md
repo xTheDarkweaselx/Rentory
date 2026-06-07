@@ -18,7 +18,7 @@ Current version: 1.0 candidate
 - Recurring reminders (daily / weekly / fortnightly / monthly / quarterly / yearly) — completing a recurring reminder spawns the next occurrence automatically
 - CSV finance export for the current UK tax year (landlord profile) — per-property rent payments and expenses, shareable via the system share sheet
 - Siri Shortcuts / AppIntents app actions: Add Rentory reminder, Open next Rentory reminder, Log Rentory rent payment
-- Optional Calendar mirror (write-only) — Rentory writes upcoming reminders to a dedicated "Rentory reminders" calendar; disabling removes the calendar
+- Optional Calendar mirror — Rentory keeps upcoming reminders in a dedicated "Rentory reminders" calendar (full Calendar access, used only to manage that one calendar); disabling removes the calendar
 - Top-level search across reminders, rooms, documents, timeline and notes — hits inside a record show inline as a chip on the property card
 - Provisional notification fallback — after a user declines the explicit notification prompt once, Rentory silently requests `.provisional` permission on the next reminder save so they still get quiet Notification Centre delivery
 - Optional iCloud snapshot sync to the user's private CloudKit database

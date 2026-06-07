@@ -13,13 +13,21 @@ struct ExportOptionsView: View {
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @EnvironmentObject private var entitlementManager: EntitlementManager
-    @State private var options = ExportOptions()
+    @State private var options: ExportOptions // set from the tenancy stage in init
     @State private var createdReportURL: URL?
     @State private var userFacingError: UserFacingError?
     @State private var isCreatingReport = false
     @State private var reportProgress = ReportCreationProgress(stage: "Getting the report ready.", fractionCompleted: 0.12)
     @State private var reportTask: Task<Void, Never>?
     @State private var upgradePromptContent: UpgradePromptContent?
+
+    init(propertyPack: PropertyPack, showsHelpfulNote: Bool) {
+        self.propertyPack = propertyPack
+        self.showsHelpfulNote = showsHelpfulNote
+        // Pre-select the report type that fits where the tenancy is now,
+        // so the common case needs no extra tap. Still changeable.
+        _options = State(initialValue: ExportOptions(reportType: .suggested(for: propertyPack.effectiveTenancyStage)))
+    }
 
     var body: some View {
         RRMacSheetContainer(maxWidth: 760) {
@@ -41,6 +49,31 @@ struct ExportOptionsView: View {
                                 .font(RRTypography.footnote)
                                 .foregroundStyle(RRColours.mutedText)
                         }
+                    }
+
+                    Section {
+                        RRCard {
+                            VStack(alignment: .leading, spacing: RRTheme.controlSpacing) {
+                                Text("Report type")
+                                    .font(RRTypography.headline)
+                                    .foregroundStyle(RRColours.primary)
+
+                                Picker("Report type", selection: $options.reportType) {
+                                    ForEach(ReportType.allCases) { type in
+                                        Text(type.title).tag(type)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                                .labelsHidden()
+
+                                Text(options.reportType.summary)
+                                    .font(RRTypography.footnote)
+                                    .foregroundStyle(RRColours.mutedText)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .listRowInsets(EdgeInsets())
+                        .listRowBackground(Color.clear)
                     }
 
                     Section {
@@ -141,9 +174,6 @@ struct ExportOptionsView: View {
                 dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK"))
             )
         }
-        .onChange(of: options.includeDisclaimer) { _, _ in
-            options.includeDisclaimer = true
-        }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
         }
@@ -172,8 +202,6 @@ struct ExportOptionsView: View {
     }
 
     private func createReport() {
-        options.includeDisclaimer = true
-
         guard FeatureAccessService.canCreateFullReport(isUnlocked: entitlementManager.isUnlocked) else {
             upgradePromptContent = FeatureAccessService.reportLimitPrompt
             return

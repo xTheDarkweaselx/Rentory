@@ -67,33 +67,42 @@ struct PDFReportBuilder {
     }
 
     func makeReportSections(for snapshot: PDFReportSnapshot, options: ExportOptions) -> [PDFReportSection] {
-        let enforcedOptions = sanitised(options)
         var sections: [PDFReportSection] = []
 
-        sections.append(makeCoverSection(for: snapshot, options: enforcedOptions))
-        sections.append(makePropertySummarySection(for: snapshot, options: enforcedOptions))
+        sections.append(makeCoverSection(for: snapshot, options: options))
+        sections.append(makePropertySummarySection(for: snapshot, options: options))
 
-        if enforcedOptions.includeTenancies, !snapshot.tenancies.isEmpty {
+        if options.includeTenancies, !snapshot.tenancies.isEmpty {
             sections.append(makeTenanciesSection(for: snapshot))
         }
 
-        if enforcedOptions.includeRooms {
-            sections.append(makeRoomsSection(for: snapshot, options: enforcedOptions))
+        if options.includeRooms {
+            sections.append(makeRoomsSection(for: snapshot, options: options))
         }
 
-        if enforcedOptions.includePhotos {
-            sections.append(makePhotosSection(for: snapshot))
+        // The headline evidence for a check-out: each item's move-in photo
+        // beside its move-out photo. Only when there's something to compare.
+        var pairedPhotoFileNames: Set<String> = []
+        if options.reportType == .checkOut, options.includePhotos,
+           let beforeAfter = makeBeforeAfterSection(for: snapshot) {
+            sections.append(beforeAfter.section)
+            pairedPhotoFileNames = beforeAfter.usedFileNames
         }
 
-        if enforcedOptions.includeDocumentsList {
+        if options.includePhotos {
+            // Don't repeat the paired photos in the flat grid below them.
+            sections.append(makePhotosSection(for: snapshot, options: options, excluding: pairedPhotoFileNames))
+        }
+
+        if options.includeDocumentsList {
             sections.append(makeDocumentsSection(for: snapshot))
         }
 
-        if enforcedOptions.includeTimeline {
+        if options.includeTimeline {
             sections.append(makeTimelineSection(for: snapshot))
         }
 
-        if enforcedOptions.includeReminders, !snapshot.reminders.isEmpty {
+        if options.includeReminders, !snapshot.reminders.isEmpty {
             sections.append(makeRemindersSection(for: snapshot))
         }
 
@@ -105,12 +114,6 @@ struct PDFReportBuilder {
         )
 
         return sections
-    }
-
-    private func sanitised(_ options: ExportOptions) -> ExportOptions {
-        var options = options
-        options.includeDisclaimer = true
-        return options
     }
 
     private func paginatedSections(_ section: PDFReportSection) -> [PDFReportSection] {
@@ -151,6 +154,10 @@ struct PDFReportBuilder {
     private func makeCoverSection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
         var lines = ["Date created: \(dateFormatter.string(from: .now))"]
 
+        if options.reportType != .fullRecord {
+            lines.append("Report type: \(options.reportType.title) — \(options.reportType.summary)")
+        }
+
         if options.includePropertyName {
             lines.append("Property name: \(propertyPack.nickname)")
         }
@@ -167,7 +174,7 @@ struct PDFReportBuilder {
             lines.append("Tenancy dates: \(tenancy)")
         }
 
-        return PDFReportSection(title: "Rentory report", lines: lines)
+        return PDFReportSection(title: options.reportType.coverTitle, lines: lines)
     }
 
     private func makePropertySummarySection(for propertyPack: PDFReportSnapshot, options: ExportOptions) -> PDFReportSection {
@@ -220,21 +227,27 @@ struct PDFReportBuilder {
         let rooms = propertyPack.rooms.sorted { $0.sortOrder < $1.sortOrder }
         var lines: [String] = []
 
+        // A check-out report generated before any move-out condition is
+        // recorded would otherwise read as a wall of "Not checked" — say so
+        // plainly rather than letting it look like a completed inspection.
+        if options.reportType == .checkOut, !rooms.isEmpty,
+           !rooms.contains(where: { room in
+               room.checklistItems.contains { $0.moveOutCondition.contributesToAggregate }
+           }) {
+            lines.append("No move-out condition has been recorded yet — this report reflects move-in data only.")
+        }
+
         for room in rooms {
+            let items = room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder })
+            let summary = ReportConditionSummary(
+                conditionPairs: items.map { (moveIn: $0.moveInCondition, moveOut: $0.moveOutCondition) }
+            )
+
             lines.append(room.name)
+            roomSummaryLine(for: options.reportType, summary: summary).map { lines.append($0) }
 
-            for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-                lines.append("• \(item.title)")
-                lines.append("  Move-in: \(item.moveInCondition.rawValue)")
-                lines.append("  Move-out: \(item.moveOutCondition.rawValue)")
-
-                if options.includeChecklistNotes, let moveInNotes = trimmed(item.moveInNotes) {
-                    lines.append("  Move-in summary: \(moveInNotes)")
-                }
-
-                if options.includeChecklistNotes, let moveOutNotes = trimmed(item.moveOutNotes) {
-                    lines.append("  Move-out summary: \(moveOutNotes)")
-                }
+            for item in items {
+                lines.append(contentsOf: itemLines(for: item, options: options))
             }
         }
 
@@ -242,21 +255,89 @@ struct PDFReportBuilder {
             lines.append("No rooms have been added yet.")
         }
 
-        return PDFReportSection(title: "Rooms and checklist", lines: lines)
+        return PDFReportSection(title: roomsSectionTitle(for: options.reportType), lines: lines)
     }
 
-    private func makePhotosSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
+    private func roomsSectionTitle(for reportType: ReportType) -> String {
+        switch reportType {
+        case .checkIn: return "Rooms and condition (check-in)"
+        case .checkOut: return "Rooms and condition (check-out)"
+        case .fullRecord: return "Rooms and checklist"
+        }
+    }
+
+    /// A one-line condition rollup printed under each room name. The full
+    /// record keeps its original item-only layout (no rollup).
+    private func roomSummaryLine(for reportType: ReportType, summary: ReportConditionSummary) -> String? {
+        switch reportType {
+        case .checkIn:
+            return "  Overall condition: \(summary.moveInAggregate.rawValue)"
+        case .checkOut:
+            var line = "  Overall condition: \(summary.moveOutAggregate.rawValue)"
+            if summary.worsenedItemCount > 0 {
+                let noun = summary.worsenedItemCount == 1 ? "item" : "items"
+                line += " · \(summary.worsenedItemCount) \(noun) worse than at move-in"
+            }
+            return line
+        case .fullRecord:
+            return nil
+        }
+    }
+
+    private func itemLines(for item: PDFReportChecklistItemSnapshot, options: ExportOptions) -> [String] {
+        var lines = ["• \(item.title)"]
+
+        switch options.reportType {
+        case .checkIn:
+            lines.append("  Condition: \(item.moveInCondition.rawValue)")
+            if options.includeChecklistNotes, let notes = trimmed(item.moveInNotes) {
+                lines.append("  Notes: \(notes)")
+            }
+
+        case .checkOut:
+            // Em-dash (not a "→" arrow) — the arrow glyph isn't in the
+            // report font and would render in a substituted typeface.
+            var conditionLine = "  Move-in: \(item.moveInCondition.rawValue) — Move-out: \(item.moveOutCondition.rawValue)"
+            if ReportConditionSummary.isWorsening(from: item.moveInCondition, to: item.moveOutCondition) {
+                conditionLine += "  (worse than move-in)"
+            } else if item.moveInCondition.contributesToAggregate, !item.moveOutCondition.contributesToAggregate {
+                // Had a move-in baseline but wasn't re-assessed at move-out —
+                // flag it so an unchecked item doesn't read as "nothing wrong".
+                conditionLine += "  (not re-checked at move-out)"
+            }
+            lines.append(conditionLine)
+            if options.includeChecklistNotes, let notes = trimmed(item.moveOutNotes) {
+                lines.append("  Move-out notes: \(notes)")
+            }
+
+        case .fullRecord:
+            lines.append("  Move-in: \(item.moveInCondition.rawValue)")
+            lines.append("  Move-out: \(item.moveOutCondition.rawValue)")
+            if options.includeChecklistNotes, let moveInNotes = trimmed(item.moveInNotes) {
+                lines.append("  Move-in summary: \(moveInNotes)")
+            }
+            if options.includeChecklistNotes, let moveOutNotes = trimmed(item.moveOutNotes) {
+                lines.append("  Move-out summary: \(moveOutNotes)")
+            }
+        }
+
+        return lines
+    }
+
+    private func makePhotosSection(for propertyPack: PDFReportSnapshot, options: ExportOptions, excluding excludedFileNames: Set<String> = []) -> PDFReportSection {
         var lines: [String] = []
         var photos: [PDFReportPhotoEntry] = []
 
         for room in propertyPack.rooms.sorted(by: { $0.sortOrder < $1.sortOrder }) {
             for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
-                for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder }) where photo.includeInExport {
+                for photo in item.photos.sorted(by: { $0.sortOrder < $1.sortOrder })
+                    where photo.includeInExport && photoBelongs(photo, in: options.reportType)
+                        && !excludedFileNames.contains(photo.localFileName) {
                     var details = ["\(room.name) • \(item.title)", photo.evidencePhase.rawValue]
                     if let caption = trimmed(photo.caption) {
                         details.append(caption)
                     }
-                    details.append(dateFormatter.string(from: photo.capturedAt))
+                    details.append(photoDateText(photo))
 
                     let image = try? thumbnailImage(for: photo.localFileName)
                     photos.append(PDFReportPhotoEntry(image: image, details: details))
@@ -269,6 +350,71 @@ struct PDFReportBuilder {
         }
 
         return PDFReportSection(title: "Photos", lines: lines, photos: photos)
+    }
+
+    /// Date caption for a photo. Only says "Taken" when the date is a real
+    /// capture date; otherwise "Added", so the report never implies an
+    /// invented capture date.
+    private func photoDateText(_ photo: PDFReportEvidencePhotoSnapshot) -> String {
+        let label = photo.captureDateIsConfirmed ? "Taken" : "Added"
+        return "\(label) \(dateFormatter.string(from: photo.capturedAt))"
+    }
+
+    /// Side-by-side move-in vs move-out photos for each item documented at
+    /// both ends — the comparison a check-out report leans on for a deposit
+    /// discussion. Emitted in pairs (move-in then move-out) so the 2-column
+    /// photo grid renders each pair on one row; `nil` when nothing was
+    /// photographed at both ends.
+    private func makeBeforeAfterSection(for propertyPack: PDFReportSnapshot) -> (section: PDFReportSection, usedFileNames: Set<String>)? {
+        var photos: [PDFReportPhotoEntry] = []
+        var usedFileNames: Set<String> = []
+
+        for room in propertyPack.rooms.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+            for item in room.checklistItems.sorted(by: { $0.sortOrder < $1.sortOrder }) {
+                let exportable = item.photos.filter(\.includeInExport)
+                guard
+                    let moveIn = exportable.filter({ $0.evidencePhase == .moveIn }).min(by: { $0.sortOrder < $1.sortOrder }),
+                    let moveOut = exportable.filter({ $0.evidencePhase == .moveOut }).min(by: { $0.sortOrder < $1.sortOrder })
+                else { continue }
+
+                let label = "\(room.name) • \(item.title)"
+                let changed = ReportConditionSummary.isWorsening(from: item.moveInCondition, to: item.moveOutCondition)
+
+                photos.append(PDFReportPhotoEntry(
+                    image: try? thumbnailImage(for: moveIn.localFileName),
+                    details: [label, "Move-in — \(item.moveInCondition.rawValue)", photoDateText(moveIn)]
+                ))
+                usedFileNames.insert(moveIn.localFileName)
+
+                var moveOutCaption = "Move-out — \(item.moveOutCondition.rawValue)"
+                if changed { moveOutCaption += " (worse than move-in)" }
+                photos.append(PDFReportPhotoEntry(
+                    image: try? thumbnailImage(for: moveOut.localFileName),
+                    details: [label, moveOutCaption, photoDateText(moveOut)]
+                ))
+                usedFileNames.insert(moveOut.localFileName)
+            }
+        }
+
+        guard !photos.isEmpty else { return nil }
+
+        let intro = "Each row shows an item's move-in photo (left) beside its move-out photo (right). "
+            + "Only items photographed at both move-in and move-out appear here; any other photos follow in the Photos section."
+        let section = PDFReportSection(
+            title: "Before & after (move-in vs move-out)",
+            lines: [intro],
+            photos: photos
+        )
+        return (section, usedFileNames)
+    }
+
+    /// A check-in report shouldn't carry move-out photos (they don't exist
+    /// yet at move-in); check-out and the full record include every phase.
+    private func photoBelongs(_ photo: PDFReportEvidencePhotoSnapshot, in reportType: ReportType) -> Bool {
+        switch reportType {
+        case .checkIn: return photo.evidencePhase != .moveOut
+        case .checkOut, .fullRecord: return true
+        }
     }
 
     private func makeDocumentsSection(for propertyPack: PDFReportSnapshot) -> PDFReportSection {
@@ -494,7 +640,7 @@ struct PDFReportBuilder {
                 let column = index % 2
                 let row = index / 2
                 let xPosition = margin + CGFloat(column) * (imageWidth + 12)
-                let blockTop = topOffset + CGFloat(row) * (imageHeight + 60)
+                let blockTop = topOffset + CGFloat(row) * (imageHeight + 76)
 
                 let frame = CGRect(x: xPosition, y: blockTop, width: imageWidth, height: imageHeight)
                 let pdfFrame = convertToPDFRect(frame, pageHeight: pageBounds.height)
@@ -515,7 +661,7 @@ struct PDFReportBuilder {
 
                 _ = drawText(
                     photo.details.joined(separator: " • "),
-                    in: CGRect(x: xPosition, y: frame.maxY + 6, width: imageWidth, height: 48),
+                    in: CGRect(x: xPosition, y: frame.maxY + 6, width: imageWidth, height: 64),
                     pageHeight: pageBounds.height,
                     attributes: captionAttributes,
                     context: context

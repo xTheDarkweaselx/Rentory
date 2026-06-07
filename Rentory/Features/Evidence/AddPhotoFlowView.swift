@@ -19,99 +19,93 @@ struct AddPhotoFlowView: View {
     @Query private var allPhotos: [EvidencePhoto]
 
     let checklistItem: ChecklistItemRecord
-    var stage: TenancyStage? = nil
+    var stage: TenancyStage?
 
-    /// Phases the user is allowed to tag a new photo with. Mirrors the
-    /// move-out lock applied in ChecklistItemDetailView: during move-in
-    /// or while living, "Move-out" is hidden so the user doesn't end up
-    /// with a stray exit photo before the tenancy is actually winding
-    /// down.
-    private var allowedPhases: [EvidencePhase] {
-        switch stage {
-        case .moveIn, .living:
-            return EvidencePhase.allCases.filter { $0 != .moveOut }
-        case .moveOut, .none:
-            return EvidencePhase.allCases
-        }
-    }
+    /// Most photos selected from the library in one go. Free-plan limits
+    /// still apply per photo while saving; this is just a sanity ceiling
+    /// so a single import can't pull in a runaway number of images.
+    private static let maxBatchSelection = 25
 
     private let photoStorageService = PhotoStorageService()
 
-    @State private var selectedPhase: EvidencePhase?
+    @State private var selectedPhase: EvidencePhase
     @State private var isShowingCamera = false
     @State private var isShowingPhotoPicker = false
     @State private var userFacingError: UserFacingError?
+    @State private var infoAlert: RRAlertContent?
     @State private var isSavingPhoto = false
+    @State private var savingPhotoCount = 1
     @State private var upgradePromptContent: UpgradePromptContent?
 
 #if canImport(PhotosUI)
-    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var selectedPhotoItems: [PhotosPickerItem] = []
 #endif
+
+    init(checklistItem: ChecklistItemRecord, stage: TenancyStage? = nil) {
+        self.checklistItem = checklistItem
+        self.stage = stage
+        let allowed = Self.allowedPhases(for: stage)
+        _selectedPhase = State(initialValue: Self.initialPhase(for: stage, allowed: allowed))
+    }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if let selectedPhase {
-                    VStack(spacing: RRTheme.sectionSpacing) {
-                        RRSheetHeader(
-                            title: "Add a photo",
-                            subtitle: "Choose where this photo belongs, then add it from your camera or photo library.",
-                            systemImage: "camera.viewfinder"
-                        )
+            VStack(alignment: .leading, spacing: RRTheme.sectionSpacing) {
+                RRSheetHeader(
+                    title: "Add a photo",
+                    subtitle: "Take a new photo, or choose one or more from your library.",
+                    systemImage: "camera.viewfinder"
+                )
 
-                        PhotoSourcePickerView(
-                            isCameraAvailable: CameraCaptureView.isCameraAvailable,
-                            onTakePhoto: {
-                                self.selectedPhase = selectedPhase
-                                isShowingCamera = true
-                            },
-                            onChooseFromPhotos: {
-                                self.selectedPhase = selectedPhase
-                                isShowingPhotoPicker = true
+                RRCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Where this photo belongs")
+                            .font(RRTypography.caption.weight(.semibold))
+                            .foregroundStyle(RRColours.secondary)
+
+                        Picker("Where this photo belongs", selection: $selectedPhase) {
+                            ForEach(allowedPhases, id: \.self) { phase in
+                                Text(phase.rawValue).tag(phase)
                             }
-                        )
-                    }
-                    .padding(RRTheme.screenPadding)
-                } else {
-                    VStack(spacing: RRTheme.sectionSpacing) {
-                        RRSheetHeader(
-                            title: "Add a photo",
-                            subtitle: "Choose where this photo belongs in your record.",
-                            systemImage: "camera.viewfinder"
-                        )
-
-                        PhotoPhasePickerView(allowedPhases: allowedPhases) { phase in
-                            selectedPhase = phase
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+
+                        Text("Set from your current stage — tap to change.")
+                            .font(RRTypography.caption)
+                            .foregroundStyle(RRColours.mutedText)
                     }
-                    .padding(RRTheme.screenPadding)
                 }
+
+                PhotoSourcePickerView(
+                    isCameraAvailable: CameraCaptureView.isCameraAvailable,
+                    onTakePhoto: { isShowingCamera = true },
+                    onChooseFromPhotos: { isShowingPhotoPicker = true }
+                )
+
+                Spacer(minLength: 0)
             }
+            .padding(RRTheme.screenPadding)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .navigationTitle("Add a photo")
             .rrInlineNavigationTitle()
             .background(RRBackgroundView())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(selectedPhase == nil ? "Cancel" : "Back") {
-                        if selectedPhase == nil {
-                            dismiss()
-                        } else {
-                            selectedPhase = nil
-                        }
-                    }
+                    Button("Cancel") { dismiss() }
                 }
             }
             .overlay {
                 if isSavingPhoto {
                     ZStack {
-                        Color.black.opacity(0.12)
+                        Rectangle()
+                            .fill(.black.opacity(0.12))
                             .ignoresSafeArea()
+                            .contentShape(Rectangle())
+                            .onTapGesture {} // Swallow taps while saving.
 
-                        RRLoadingView(
-                            title: "Adding photo",
-                            message: "Please wait while this photo is added."
-                        )
-                        .padding(24)
+                        RRLoadingView(title: savingTitle, message: savingMessage)
+                            .padding(24)
                     }
                 }
             }
@@ -120,7 +114,7 @@ struct AddPhotoFlowView: View {
             CameraCaptureView(
                 onImageCaptured: { image in
                     isShowingCamera = false
-                    handleSelectedImage(image)
+                    handleCameraImage(image)
                 },
                 onCancel: {
                     isShowingCamera = false
@@ -130,27 +124,16 @@ struct AddPhotoFlowView: View {
 #if canImport(PhotosUI)
         .photosPicker(
             isPresented: $isShowingPhotoPicker,
-            selection: $selectedPhotoItem,
+            selection: $selectedPhotoItems,
+            maxSelectionCount: Self.maxBatchSelection,
             matching: .images,
             preferredItemEncoding: .current
         )
-        .task(id: selectedPhotoItem) {
-            guard let selectedPhotoItem else {
-                return
-            }
-
-            do {
-                guard let imageData = try await selectedPhotoItem.loadTransferable(type: Data.self),
-                      let image = UIImage(data: imageData) else {
-                    throw ImageProcessingError.unableToReadImage
-                }
-
-                handleSelectedImage(image)
-            } catch {
-                userFacingError = .photoCouldNotBeAdded
-            }
-
-            self.selectedPhotoItem = nil
+        .task(id: selectedPhotoItems) {
+            let items = selectedPhotoItems
+            guard !items.isEmpty else { return }
+            await processSelectedItems(items)
+            selectedPhotoItems = []
         }
 #endif
         .alert(item: $userFacingError) { error in
@@ -160,17 +143,54 @@ struct AddPhotoFlowView: View {
                 dismissButton: .cancel(Text(error.recoveryActionTitle ?? "OK"))
             )
         }
+        .alert(item: $infoAlert) { content in
+            Alert(
+                title: Text(content.title),
+                message: Text(content.message),
+                dismissButton: .default(Text(content.buttonTitle)) { dismiss() }
+            )
+        }
         .sheet(item: $upgradePromptContent) { content in
             LimitReachedView(title: content.title, message: content.message)
         }
     }
 
-    private func handleSelectedImage(_ image: UIImage) {
-        guard let selectedPhase else {
-            userFacingError = .photoCouldNotBeAdded
-            return
-        }
+    private var savingTitle: String {
+        savingPhotoCount == 1 ? "Adding photo" : "Adding photos"
+    }
 
+    private var savingMessage: String {
+        savingPhotoCount == 1
+            ? "Please wait while your photo is added."
+            : "Please wait while your \(savingPhotoCount) photos are added."
+    }
+
+    private var allowedPhases: [EvidencePhase] { Self.allowedPhases(for: stage) }
+
+    /// Phases the user is allowed to tag a new photo with. Mirrors the
+    /// move-out lock applied in ChecklistItemDetailView: during move-in
+    /// or while living, "Move-out" is hidden so the user doesn't end up
+    /// with a stray exit photo before the tenancy is actually winding
+    /// down. Static so it can be resolved in `init` and unit-tested.
+    static func allowedPhases(for stage: TenancyStage?) -> [EvidencePhase] {
+        switch stage {
+        case .moveIn, .living:
+            return EvidencePhase.allCases.filter { $0 != .moveOut }
+        case .moveOut, .none:
+            return EvidencePhase.allCases
+        }
+    }
+
+    /// The phase a freshly opened add-photo flow should default to —
+    /// derived from the property's current stage so the common case
+    /// (documenting the stage you're in) needs no extra tap. Falls back
+    /// to the first allowed phase if the preferred one isn't allowed.
+    static func initialPhase(for stage: TenancyStage?, allowed: [EvidencePhase]) -> EvidencePhase {
+        let preferred = stage?.matchingPhase ?? .moveIn
+        return allowed.contains(preferred) ? preferred : (allowed.first ?? .moveIn)
+    }
+
+    private func handleCameraImage(_ image: UIImage) {
         guard FeatureAccessService.canAddPhoto(
             currentPhotoCount: allPhotos.count,
             isUnlocked: entitlementManager.isUnlocked
@@ -179,27 +199,120 @@ struct AddPhotoFlowView: View {
             return
         }
 
+        savingPhotoCount = 1
         isSavingPhoto = true
         defer { isSavingPhoto = false }
 
         do {
-            let storedFileName = try photoStorageService.savePhoto(image)
-            let nextSortOrder = checklistItem.photos
-                .filter { $0.evidencePhase == selectedPhase }
-                .count
-
-            let photo = EvidencePhoto(
-                localFileName: storedFileName,
-                phase: selectedPhase,
-                sortOrder: nextSortOrder
-            )
-
-            checklistItem.photos.append(photo)
-            checklistItem.updatedAt = .now
-            try modelContext.save()
+            // A freshly captured photo is, by definition, taken now —
+            // so "now" is a genuine capture date, not a guess.
+            let fileName = try photoStorageService.savePhoto(image)
+            try appendPhoto(fileName: fileName, capturedAt: nil, dateIsConfirmed: true)
             dismiss()
         } catch {
             userFacingError = .photoCouldNotBeAdded
         }
+    }
+
+#if canImport(PhotosUI)
+    private func processSelectedItems(_ items: [PhotosPickerItem]) async {
+        savingPhotoCount = items.count
+        isSavingPhoto = true
+        defer { isSavingPhoto = false }
+
+        var addedCount = 0
+        var failedCount = 0
+        var hitLimit = false
+
+        for item in items {
+            guard FeatureAccessService.canAddPhoto(
+                currentPhotoCount: allPhotos.count + addedCount,
+                isUnlocked: entitlementManager.isUnlocked
+            ) else {
+                hitLimit = true
+                break
+            }
+
+            do {
+                guard let imageData = try await item.loadTransferable(type: Data.self) else {
+                    failedCount += 1
+                    continue
+                }
+
+                // Decode, read the EXIF capture date, resize and encode the
+                // image OFF the main actor — this is the expensive work, and
+                // doing it inline would block the UI for a large batch.
+                guard let prepared = await Task.detached(priority: .userInitiated, operation: {
+                    Self.prepareImport(from: imageData)
+                }).value else {
+                    failedCount += 1
+                    continue
+                }
+
+                // Back on the main actor: the only step that must touch the
+                // SwiftData context. No readable capture date → unconfirmed.
+                try appendPhoto(
+                    fileName: prepared.fileName,
+                    capturedAt: prepared.capturedAt,
+                    dateIsConfirmed: prepared.capturedAt != nil
+                )
+                addedCount += 1
+            } catch {
+                failedCount += 1
+            }
+        }
+
+        resolveBatch(addedCount: addedCount, failedCount: failedCount, hitLimit: hitLimit)
+    }
+
+    /// Decodes and stores the image to disk off the main actor, returning
+    /// the stored file name and the photo's EXIF capture date (if any).
+    /// `nil` when the image can't be read. Static so it captures nothing
+    /// main-actor-bound and is safe to run in a detached task.
+    private static func prepareImport(from data: Data) -> (fileName: String, capturedAt: Date?)? {
+        guard let image = UIImage(data: data) else { return nil }
+        let capturedAt = PhotoCaptureDate.captureDate(fromImageData: data)
+        guard let fileName = try? PhotoStorageService().savePhoto(image) else { return nil }
+        return (fileName, capturedAt)
+    }
+
+    private func resolveBatch(addedCount: Int, failedCount: Int, hitLimit: Bool) {
+        if hitLimit {
+            // Photos that did save are kept; the prompt explains the cap.
+            upgradePromptContent = FeatureAccessService.photoLimitPrompt
+        } else if addedCount == 0 {
+            if failedCount > 0 { userFacingError = .photoCouldNotBeAdded }
+        } else if failedCount > 0 {
+            // Partial success — never dismiss silently on a record app.
+            infoAlert = RRAlertContent(
+                title: "Some photos were skipped",
+                message: "Added \(addedCount) photo\(addedCount == 1 ? "" : "s"). "
+                    + "\(failedCount) couldn’t be read and \(failedCount == 1 ? "was" : "were") skipped."
+            )
+        } else {
+            dismiss()
+        }
+    }
+#endif
+
+    /// Appends a new `EvidencePhoto` (already stored on disk) to the item
+    /// under the currently selected phase, then saves the context. Throws
+    /// on save failure; the caller decides how to surface it.
+    private func appendPhoto(fileName: String, capturedAt: Date?, dateIsConfirmed: Bool) throws {
+        let nextSortOrder = checklistItem.photos
+            .filter { $0.evidencePhase == selectedPhase }
+            .count
+
+        let photo = EvidencePhoto(
+            localFileName: fileName,
+            phase: selectedPhase,
+            capturedAt: capturedAt ?? .now,
+            captureDateIsConfirmed: dateIsConfirmed,
+            sortOrder: nextSortOrder
+        )
+
+        checklistItem.photos.append(photo)
+        checklistItem.updatedAt = .now
+        try modelContext.save()
     }
 }
