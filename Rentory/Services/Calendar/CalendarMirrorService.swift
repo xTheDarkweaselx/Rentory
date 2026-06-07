@@ -101,9 +101,10 @@ final class CalendarMirrorService: ObservableObject {
         let status = EKEventStore.authorizationStatus(for: .event)
         // Full access is required: the reconciliation below reads existing
         // events to upsert and de-duplicate them, which write-only access
-        // cannot do. `.authorized` is the pre-iOS 17 spelling of the same
-        // full-access grant, accepted here for older systems.
-        guard status == .fullAccess || status == .authorized else { return }
+        // cannot do. The deployment target is iOS 17 / macOS 14+, so a
+        // granted store always reports `.fullAccess` (never the legacy
+        // `.authorized`, which is deprecated on these systems).
+        guard status == .fullAccess else { return }
 
         guard let calendar = ensureDedicatedCalendar() else { return }
 
