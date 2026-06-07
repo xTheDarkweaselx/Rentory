@@ -221,6 +221,7 @@ struct SettingsView: View {
                 wideDetailHeader(detail: detail)
                 detailView(for: detail)
                     .rrUsesEmbeddedNavigationLayout()
+                    .environment(\.rrEmbeddedLeafDismiss, { selectedDetail = nil })
             } else {
                 wideCategoryHeader(for: selectedCategory)
                 categoryContent(for: selectedCategory)

@@ -24,6 +24,23 @@ extension View {
     }
 }
 
+private struct RREmbeddedLeafDismissKey: EnvironmentKey {
+    static let defaultValue: (@MainActor () -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// A "go back" action a Settings leaf can call to dismiss itself when
+    /// it's shown inside the wide embedded panel — where the standard
+    /// `@Environment(\.dismiss)` has no sheet or navigation push to act
+    /// on. The wide layout injects this (it clears its `selectedDetail`);
+    /// standalone presentations leave it `nil`, so the leaf falls back to
+    /// the normal `dismiss()`.
+    var rrEmbeddedLeafDismiss: (@MainActor () -> Void)? {
+        get { self[RREmbeddedLeafDismissKey.self] }
+        set { self[RREmbeddedLeafDismissKey.self] = newValue }
+    }
+}
+
 struct RRMacSheetContainer<Content: View>: View {
     var preferredWidth: CGFloat = PlatformLayout.preferredDialogWidth
     var preferredHeight: CGFloat? = PlatformLayout.sheetMinHeight

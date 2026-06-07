@@ -16,6 +16,7 @@ struct SendFeedbackView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.rrUsesEmbeddedNavigationLayout) private var usesEmbeddedNavigationLayout
+    @Environment(\.rrEmbeddedLeafDismiss) private var embeddedLeafDismiss
 
     @State private var category: FeedbackCategory = .bug
     @State private var subject: String = "Rentory feedback"
@@ -233,7 +234,14 @@ struct SendFeedbackView: View {
     private var actionButtons: some View {
         HStack(spacing: 12) {
             RRSecondaryButton(title: "Cancel") {
-                dismiss()
+                // In the wide embedded Settings panel there's no sheet or
+                // navigation push for `dismiss()` to close, so fall back to
+                // the panel's own "go back" action when it's provided.
+                if let embeddedLeafDismiss {
+                    embeddedLeafDismiss()
+                } else {
+                    dismiss()
+                }
             }
             RRPrimaryButton(title: "Open in Mail", isDisabled: !canSubmit) {
                 openMail()
