@@ -129,8 +129,13 @@ final class EntitlementManager: ObservableObject {
     }
 
     private func hasVerifiedLifetimeUnlock() async -> Bool {
-        for await verification in Transaction.currentEntitlements(for: Self.lifetimeUnlockProductID) {
-            guard let transaction = verifiedTransaction(from: verification), transaction.revocationDate == nil else {
+        // `currentEntitlements(for:)` is iOS 18.4 / macOS 15.4 only. Iterate the
+        // full current-entitlements sequence (iOS 15+) and filter by product id
+        // instead — the result is identical.
+        for await verification in Transaction.currentEntitlements {
+            guard let transaction = verifiedTransaction(from: verification),
+                  transaction.productID == Self.lifetimeUnlockProductID,
+                  transaction.revocationDate == nil else {
                 continue
             }
             return true

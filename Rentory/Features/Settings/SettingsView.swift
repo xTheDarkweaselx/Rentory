@@ -76,10 +76,7 @@ struct SettingsView: View {
             .sheet(item: $upgradePromptContent) { content in
                 LimitReachedView(title: content.title, message: content.message)
             }
-            #if os(macOS)
-            .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
-            .toolbar(removing: .title)
-            #endif
+            .rrMacWindowChrome()
         }
     }
 

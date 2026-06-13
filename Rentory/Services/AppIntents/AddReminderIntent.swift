@@ -26,7 +26,7 @@ struct AddReminderIntent: AppIntent {
     @Parameter(title: "Title")
     var title: String
 
-    @Parameter(title: "Due date", default: nil)
+    @Parameter(title: "Due date")
     var dueDate: Date?
 
     init() {}

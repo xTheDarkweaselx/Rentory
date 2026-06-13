@@ -107,11 +107,11 @@ struct ReportReadyView: View {
                     .lineLimit(1)
                     .frame(width: 190)
             }
-            .buttonStyle(.glassProminent)
+            .rrGlassButtonStyle(prominent: true)
             .accessibilityHint("Choose where to save a copy of the report.")
 
             ReportShareView(reportURL: reportURL)
-                .buttonStyle(.glass)
+                .rrGlassButtonStyle(prominent: false)
                 .accessibilityHint("Opens the share sheet.")
         }
     }

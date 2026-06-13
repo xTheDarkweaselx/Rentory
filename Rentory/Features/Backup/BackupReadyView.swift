@@ -26,7 +26,7 @@ struct BackupReadyView: View {
                         Label("Save or share backup", systemImage: "square.and.arrow.up")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.glassProminent)
+                    .rrGlassButtonStyle(prominent: true)
                 }
 
                 Spacer()
