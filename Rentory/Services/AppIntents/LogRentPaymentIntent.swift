@@ -26,7 +26,7 @@ struct LogRentPaymentIntent: AppIntent {
     @Parameter(title: "Amount")
     var amount: Double
 
-    @Parameter(title: "Paid on", default: nil)
+    @Parameter(title: "Paid on")
     var paidDate: Date?
 
     @Parameter(title: "Currency", default: "GBP")
