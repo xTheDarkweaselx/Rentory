@@ -1,6 +1,6 @@
 # Release Candidate Notes
 
-Current version: 1.0 candidate
+Current version: 1.00
 
 ## Core features included
 - Renter and Landlord profiles (chosen during onboarding, switchable in Settings)
